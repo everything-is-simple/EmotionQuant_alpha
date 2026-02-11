@@ -307,6 +307,9 @@
 | gene_level | VARCHAR(10) | 基因等级 S/A/B/C/D |
 | time_decay_factor | DECIMAL(8,4) | 时间衰减因子 |
 | last_update_date | VARCHAR(8) | 最后更新日期 |
+| data_quality | VARCHAR(20) | 数据质量标记 normal/stale/cold_start |
+| stale_days | INTEGER | 距离源数据最近有效交易日的天数 |
+| source_trade_date | VARCHAR(8) | 本条缓存实际来源交易日 |
 | created_at | DATETIME | 创建时间 |
 
 > 窗口滚动策略（PAS 对齐）：

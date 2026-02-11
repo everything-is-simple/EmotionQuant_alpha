@@ -341,7 +341,7 @@ def process_stock_gene_cache(trade_date: str) -> int:
 -- MSS全景表
 CREATE TABLE mss_panorama (
     id INTEGER PRIMARY KEY,
-    trade_date DATE NOT NULL COMMENT '交易日期',
+    trade_date VARCHAR(8) NOT NULL COMMENT '交易日期',
     
     -- 核心输出
     temperature DECIMAL(8,4) COMMENT '市场温度 0-100',
@@ -363,8 +363,7 @@ CREATE TABLE mss_panorama (
     percentile DECIMAL(8,4) COMMENT '百分位排名 0-100',
 
     -- 元数据
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE KEY uk_trade_date (trade_date)
 );
@@ -376,7 +375,7 @@ CREATE TABLE mss_panorama (
 -- IRS行业评分表
 CREATE TABLE irs_industry_daily (
     id INTEGER PRIMARY KEY,
-    trade_date DATE NOT NULL COMMENT '交易日期',
+    trade_date VARCHAR(8) NOT NULL COMMENT '交易日期',
     industry_code VARCHAR(10) COMMENT '行业代码',
     industry_name VARCHAR(50) COMMENT '行业名称',
 
@@ -423,7 +422,7 @@ CREATE TABLE stock_pas_daily (
     entry DECIMAL(12,4),
     stop DECIMAL(12,4),
     target DECIMAL(12,4),
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_trade_date_stock_code (trade_date, stock_code)
 );
 ```
@@ -434,7 +433,7 @@ CREATE TABLE stock_pas_daily (
 -- 三三制集成推荐表
 CREATE TABLE integrated_recommendation (
     id INTEGER PRIMARY KEY,
-    trade_date DATE NOT NULL COMMENT '交易日期',
+    trade_date VARCHAR(8) NOT NULL COMMENT '交易日期',
     stock_code VARCHAR(20) NOT NULL COMMENT '股票代码',
     stock_name VARCHAR(50) COMMENT '股票名称',
     industry_code VARCHAR(10) COMMENT '行业代码',
@@ -472,7 +471,7 @@ CREATE TABLE integrated_recommendation (
 -- PAS广度聚合表（由 stock_pas_daily 聚合）
 CREATE TABLE pas_breadth_daily (
     id INTEGER PRIMARY KEY,
-    trade_date DATE NOT NULL COMMENT '交易日期',
+    trade_date VARCHAR(8) NOT NULL COMMENT '交易日期',
     scope VARCHAR(20) COMMENT 'market/industry',
     industry_code VARCHAR(10) COMMENT '行业代码（scope=industry时）',
     industry_name VARCHAR(50) COMMENT '行业名称',
@@ -487,7 +486,7 @@ CREATE TABLE pas_breadth_daily (
     industry_sa_ratio DECIMAL(8,4) COMMENT '行业内S/A占比',
     industry_top_k_concentration DECIMAL(8,4) COMMENT 'TopK行业S/A集中度',
 
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE KEY uk_trade_date_scope_industry (trade_date, scope, industry_code)
 );

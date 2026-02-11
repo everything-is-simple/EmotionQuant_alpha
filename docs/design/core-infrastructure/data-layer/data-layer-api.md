@@ -873,18 +873,27 @@ def query_stock_recent_n_days(
     Example:
         # 查询某股票最近 120 日数据
         df = query_stock_recent_n_days(
-            table='daily_bar',
+            table='raw_daily',
             stock_code='000001',
             end_date='20260131',
             n_days=120
         )
     """
+    # L1 原始表使用 ts_code；L2+ 统一使用 stock_code
+    l1_ts_tables = {"raw_daily", "raw_daily_basic", "raw_limit_list"}
+    if table in l1_ts_tables:
+        code_field = "ts_code"
+        code_value = to_ts_code(stock_code)
+    else:
+        code_field = "stock_code"
+        code_value = stock_code
+
     return query_recent_n_days(
         table=table,
         end_date=end_date,
         n_days=n_days,
         columns=columns,
-        where_clause=f"stock_code = '{stock_code}'"
+        where_clause=f"{code_field} = '{code_value}'"
     )
 ```
 
@@ -915,10 +924,10 @@ def query_irs_historical_baseline(
         }
     """
     df = query_cross_year(
-        table='industry_daily',
+        table='industry_snapshot',
         start_date=baseline_start,
         end_date=baseline_end,
-        columns=['trade_date', 'pct_change'],
+        columns=['trade_date', 'industry_pct_chg'],
         where_clause=f"industry_code = '{industry_code}'"
     )
     
@@ -926,10 +935,10 @@ def query_irs_historical_baseline(
         return {'mean': 0, 'std': 1, 'min': 0, 'max': 0, 'count': 0}
     
     return {
-        'mean': df['pct_change'].mean(),
-        'std': df['pct_change'].std(),
-        'min': df['pct_change'].min(),
-        'max': df['pct_change'].max(),
+        'mean': df['industry_pct_chg'].mean(),
+        'std': df['industry_pct_chg'].std(),
+        'min': df['industry_pct_chg'].min(),
+        'max': df['industry_pct_chg'].max(),
         'count': len(df)
     }
 ```
@@ -939,8 +948,8 @@ def query_irs_historical_baseline(
 | 场景 | 函数 | 示例 |
 |------|------|------|
 | MSS 100日新高 | `query_recent_n_days()` | 查询 market_snapshot 最近 100 日 |
-| PAS 120日涨停 | `query_stock_recent_n_days()` | 查询 limit_info 最近 120 日 |
-| PAS 60日价格区间 | `query_stock_recent_n_days()` | 查询 daily_bar 最近 60 日 |
+| PAS 120日涨停 | `query_stock_recent_n_days()` | 查询 raw_limit_list 最近 120 日 |
+| PAS 60日价格区间 | `query_stock_recent_n_days()` | 查询 raw_daily 最近 60 日 |
 | IRS 历史基准 | `query_irs_historical_baseline()` | 查询 2015-2025 行业数据 |
 
 ---
