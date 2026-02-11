@@ -259,7 +259,7 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 
 ## 12. Repository remote
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant_beta.git`
+- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
 
 ---
 

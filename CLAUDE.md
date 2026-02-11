@@ -259,7 +259,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ## 12. 仓库远端
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant_beta.git`
+- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
 
 ---
 

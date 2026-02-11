@@ -91,7 +91,7 @@ pytest -v
 
 ## Repository
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant_beta.git`
+- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
 
 ## License
 

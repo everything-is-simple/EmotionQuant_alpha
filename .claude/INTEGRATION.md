@@ -31,7 +31,7 @@ If any old `.claude` markdown conflicts with runtime truth, runtime truth wins.
 | Concern | Current source |
 |---|---|
 | Workflow terms | Spiral (`S0-S6`) |
-| Task governance | `Governance/steering/workflow/6A-WORKFLOW-task-to-step.md` |
+| Task governance | `Governance/steering/6A-WORKFLOW.md` |
 | Path/security checks | `.claude/hooks/pre_edit_check.py` + `scripts/quality/local_quality_check.py` |
 | Session reminders | `.claude/hooks/session_start.py` |
 | Prompt hints | `.claude/hooks/user_prompt_submit.py` |

@@ -13,8 +13,8 @@ Use these sources in order:
 
 1. `README.md`
 2. `CLAUDE.md`
-3. `Governance/steering/` (especially `CORE-PRINCIPLES.md` and `workflow/6A-WORKFLOW-task-to-step.md`)
-4. `Governance/ROADMAP/`
+3. `Governance/steering/` (especially `CORE-PRINCIPLES.md` and `6A-WORKFLOW.md`)
+4. `Governance/Capability/` (especially `SPIRAL-CP-OVERVIEW.md`)
 
 `.claude/` is kept for tooling compatibility and local ergonomics.
 
