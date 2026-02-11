@@ -1,8 +1,8 @@
 # ROADMAP Capability Pack CP-05｜Integration（三系统集成）
 
 **文件名**: `CP-05-integration.md`  
-**版本**: v6.0.0  
-**最后更新**: 2026-02-07
+**版本**: v6.0.1  
+**最后更新**: 2026-02-11
 
 ---
 
@@ -22,6 +22,7 @@
 | `irs_industry_daily` | CP-03 | 当日数据存在 | P0 |
 | `stock_pas_daily` | CP-04 | 当日数据存在 | P0 |
 | `validation_gate_decision` | CP-10 | Gate 非 FAIL | FAIL 阻断 |
+| `validation_weight_plan` | CP-10 | 对应 `plan_id` 可解析 | P0 |
 
 ### 2.2 输出
 

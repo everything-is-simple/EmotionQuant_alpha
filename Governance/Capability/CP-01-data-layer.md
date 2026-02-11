@@ -1,8 +1,8 @@
 # ROADMAP Capability Pack CP-01｜数据层（Data Layer）
 
 **文件名**: `CP-01-data-layer.md`  
-**版本**: v6.0.0  
-**最后更新**: 2026-02-07
+**版本**: v6.0.1  
+**最后更新**: 2026-02-11
 
 ---
 
@@ -25,9 +25,10 @@
 
 | 输出 | 消费方 | 验收 |
 |---|---|---|
-| `raw_*` parquet | CP-02/03/04/06/07 | 文件存在且可读 |
+| `raw_*` parquet | CP-02/03/04/06/07/10 | 文件存在且可读 |
 | `market_snapshot` | CP-02 | 字段完整 |
 | `industry_snapshot` | CP-03 | 字段完整 |
+| `stock_gene_cache` | CP-04 | 字段完整 |
 
 ---
 

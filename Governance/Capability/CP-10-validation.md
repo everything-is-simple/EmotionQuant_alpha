@@ -1,8 +1,8 @@
 # ROADMAP Capability Pack CP-10｜Validation（因子与权重验证）
 
 **文件名**: `CP-10-validation.md`  
-**版本**: v1.0.0  
-**最后更新**: 2026-02-07
+**版本**: v1.0.1  
+**最后更新**: 2026-02-11
 
 ---
 
@@ -27,9 +27,11 @@
 
 | 输出 | 消费方 | 验收 |
 |---|---|---|
-| `factor_validation_report` | CP-05/治理 | 指标与窗口完整 |
-| `weight_validation_report` | CP-05/治理 | baseline 对照完整 |
+| `validation_factor_report` | CP-05/09/治理 | 指标与窗口完整 |
+| `validation_weight_report` | CP-05/09/治理 | baseline 对照完整 |
 | `validation_gate_decision` | CP-05/06/07 | `PASS/WARN/FAIL` + reason 可追溯 |
+| `validation_weight_plan` | CP-05 | 对应 `plan_id` 可解析 |
+| `validation_run_manifest` | 治理 | 运行记录可审计 |
 
 ---
 

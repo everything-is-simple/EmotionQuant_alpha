@@ -1,8 +1,8 @@
 # ROADMAP Capability Pack CP-09｜Analysis（分析报告）
 
 **文件名**: `CP-09-analysis.md`  
-**版本**: v6.0.0  
-**最后更新**: 2026-02-07
+**版本**: v6.0.1  
+**最后更新**: 2026-02-11
 
 ---
 
@@ -20,7 +20,7 @@
 |---|---|---|---|
 | `backtest_results` / `backtest_trade_records` / `trade_records` | CP-06/07 | 可读 | P1 降级 |
 | `mss/irs/pas/integrated` | CP-02/03/04/05 | 可读 | P1 部分缺失 |
-| `factor_validation_report` / `weight_validation_report` | CP-10 | 可读 | P1 标记缺失 |
+| `validation_factor_report` / `validation_weight_report` | CP-10 | 可读 | P1 标记缺失 |
 
 ### 2.2 输出
 
