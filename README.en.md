@@ -32,9 +32,9 @@ Primary references:
 
 - `docs/system-overview.md`
 - `docs/module-index.md`
-- `docs/design/` (`core-algorithms/` + `core-infrastructure/` + `enhancements/`)
+- `docs/design/` (`docs/design/core-algorithms/` + `docs/design/core-infrastructure/` + `docs/design/enhancements/`)
 - `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
-- `Governance/SpiralRoadmap/draft/` (candidate drafts; the single execution baseline is `docs/design/enhancements/eq-improvement-plan-core-frozen.md`)
+- `Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md` (implementation master roadmap) + `Governance/SpiralRoadmap/DEPENDENCY-MAP.md` (cross-spiral dependencies and ENH layout)
 
 ## Development model (Spiral)
 
@@ -76,7 +76,7 @@ pytest -v
 
 - `docs/`: system design and specifications
 - `Governance/Capability/`: spiral roadmap and capability packs
-- `Governance/SpiralRoadmap/`: implementation roadmap candidate drafts
+- `Governance/SpiralRoadmap/`: implementation roadmap and cross-spiral dependency bridge
 - `Governance/steering/`: iron rules, principles, workflow
 - `Governance/record/`: development status, tech debts, reusable assets
 - `.reports/`: critique reports and review records

@@ -1,7 +1,7 @@
 # EmotionQuant 项目规则（Spiral 版）
 
-**版本**: v1.1.0
-**最后更新**: 2026-02-11
+**版本**: v1.1.1
+**最后更新**: 2026-02-12
 **状态**: 取代所有旧版个人 Rules，本文件为项目唯一 Warp 规则
 
 ---
@@ -9,7 +9,7 @@
 ## 1. 文档定位
 
 - 作用：给自动化代理提供最小、可执行的仓库工作规则。
-- 执行主计划唯一入口：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`（`enhancement-selection-analysis_claude-opus-max_20260210.md` 仅作选型论证输入）。
+- 执行主计划唯一入口：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`（`docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` 仅作选型论证输入）。
 - 权威架构入口：`docs/system-overview.md`
 - 权威路线入口：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 - 权威治理入口：`Governance/steering/`
@@ -197,7 +197,7 @@ cache_dir = "G:/EmotionQuant_data/"
 | `Governance/specs/spiral-s*/` | 每圈 specs 与复盘 |
 | `Governance/record/` | 状态、债务、复用资产 |
 | `.reports/` | 报告存放（命名含日期时间） |
-| `.archive/` | 历史归档（只读） |
+| `.reports/archive-*/` | 历史归档（只读） |
 
 ### 8.2 单一事实源（SoT）
 
@@ -230,7 +230,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ### 9.2 合并前清理
 
-- TODO/HACK/FIXME：开发中允许，合并前必须清理或登记到 `debts.md`
+- TODO/HACK/FIXME：开发中允许，合并前必须清理或登记到 `Governance/record/debts.md`
 
 ### 9.3 原则
 
@@ -273,7 +273,7 @@ cache_dir = "G:/EmotionQuant_data/"
 - 6A-WORKFLOW-task-to-step v3.1.3（线性版）
 - GOVERNANCE-STRUCTURE v1.1.1（线性版）
 
-旧工作流文件已归档：`Governance/steering/workflow/archive-compat-v6-20260210/`
+旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
 
 ---
 
@@ -281,6 +281,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v1.1.1 | 2026-02-12 | 路径口径整理：补全选型文档完整路径；`debts.md` 统一到 `Governance/record/debts.md`；历史归档路径改为当前有效入口 |
 | v1.1.0 | 2026-02-11 | 与 CLAUDE.md 对齐同步：补充文档定位节、修正 Gate 决策归属、补充回测技术栈口径、补充仓库远端 |
 | v1.0.0 | 2026-02-10 | 首版：与 Spiral 治理文件全面对齐，取代 4 条旧版个人 Rules |
 

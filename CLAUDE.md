@@ -7,7 +7,7 @@
 ## 1. 文档定位
 
 - 作用：给自动化代理提供最小、可执行的仓库工作规则。
-- 执行主计划唯一入口：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`（`enhancement-selection-analysis_claude-opus-max_20260210.md` 仅作选型论证输入）。
+- 执行主计划唯一入口：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`（`docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` 仅作选型论证输入）。
 - 权威架构入口：`docs/system-overview.md`
 - 权威路线入口：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 - 权威治理入口：`Governance/steering/`
@@ -195,7 +195,7 @@ cache_dir = "G:/EmotionQuant_data/"
 | `Governance/specs/spiral-s*/` | 每圈 specs 与复盘 |
 | `Governance/record/` | 状态、债务、复用资产 |
 | `.reports/` | 报告存放（命名含日期时间） |
-| `.archive/` | 历史归档（只读） |
+| `.reports/archive-*/` | 历史归档（只读） |
 
 ### 8.2 单一事实源（SoT）
 
@@ -228,7 +228,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ### 9.2 合并前清理
 
-- TODO/HACK/FIXME：开发中允许，合并前必须清理或登记到 `debts.md`
+- TODO/HACK/FIXME：开发中允许，合并前必须清理或登记到 `Governance/record/debts.md`
 
 ### 9.3 原则
 
@@ -266,5 +266,5 @@ cache_dir = "G:/EmotionQuant_data/"
 ## 13. 历史说明
 
 - 旧版线性文档已归档至：`Governance/Capability/archive-legacy-linear-v4-20260207/`
-- 旧工作流文件已归档：`Governance/steering/workflow/archive-compat-v6-20260210/`
+- 旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
 - 本文件不再维护线性 Stage 叙述。

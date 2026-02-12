@@ -1,7 +1,7 @@
 # EmotionQuant 系统总览（Spiral 实现版）
 
-**版本**: v4.1.3
-**最后更新**: 2026-02-11
+**版本**: v4.1.4
+**最后更新**: 2026-02-12
 **状态**: 实现前最终架构基线（文档）
 
 ---
@@ -47,7 +47,9 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 ## 4. 数据架构（简化口径）
 
 - 存储策略：`Parquet + DuckDB 单库优先`
-- 默认数据库：`DUCKDB_DIR/emotionquant.duckdb`
+- 数据根目录：`DATA_PATH`（通过 `.env` 注入，实际部署为 `G:\EmotionQuant_data`，位于仓库外独立目录）
+- 默认数据库：`DATA_PATH/duckdb/emotionquant.duckdb`
+- 子目录布局：`parquet/` · `duckdb/` · `cache/` · `logs/`（均可通过 `.env` 单独覆盖）
 - 分库策略：仅在明确性能阈值触发后启用（需 ADR + 基准测试）
 
 ### 4.1 分层
@@ -97,11 +99,12 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 
 ## 8. 文档导航
 
+- 技术选型基线：`docs/technical-baseline.md`
 - 模块索引：`docs/module-index.md`
 - 设计目录总览：`docs/design/`（`core-algorithms/` + `core-infrastructure/` + `enhancements/`）
 - 路线总览：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 - 能力包（CP）：`Governance/Capability/CP-*.md`
-- 新系统螺旋实现路线：`Governance/SpiralRoadmap/draft/`（候选草稿；主计划入口见 `docs/design/enhancements/eq-improvement-plan-core-frozen.md`）
+- 新系统螺旋实现路线：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md`（总路线） + `Governance/SpiralRoadmap/DEPENDENCY-MAP.md`（依赖图）
 - 因子/权重验证设计：`docs/design/core-algorithms/validation/`
 - 回测选型：`docs/design/core-infrastructure/backtest/backtest-engine-selection.md`
 
@@ -111,12 +114,11 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v4.1.4 | 2026-02-12 | 文档导航中的 SpiralRoadmap 入口由 `draft/` 收敛为 `VORTEX-EVOLUTION-ROADMAP.md` + `DEPENDENCY-MAP.md` |
 | v4.1.3 | 2026-02-11 | 文档导航补充设计三层结构（核心算法/核心基础设施/外挂增强），对齐目录重构 |
 | v4.1.2 | 2026-02-09 | 修复 R29：明确技术指标边界与铁律一致（可对照/辅助特征但不得独立决策）；L3 分层补充 Validation 运行时输出 |
 | v4.1.1 | 2026-02-09 | 修复 R25：L2 分层补充 `stock_gene_cache`；明确回测引擎切换条件；补充 Altair 移除前置条件 |
 | v4.1.0 | 2026-02-07 | 明确回测平台主选 Qlib；补充本地执行基线与兼容口径 |
 | v4.0.0 | 2026-02-07 | 切换到 Spiral 实现口径；新增 Validation Layer；更新回测与存储策略 |
 | v3.3.0 | 2026-02-05 | 线性重构版 |
-
-
 

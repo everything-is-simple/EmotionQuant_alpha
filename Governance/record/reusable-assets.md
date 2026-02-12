@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-07  
-**版本**: v2.0  
+**最后更新**: 2026-02-12  
+**版本**: v2.1  
 **范围**: S0-S6
 
 ---
@@ -24,7 +24,7 @@
 | S-GOV-002 | CP 能力包模板 | `Governance/Capability/CP-*.md` | S | 契约/Slice/Gate 复用 |
 | S-GOV-003 | Task 闭环卡片模板 | `Governance/Capability/SPIRAL-TASK-TEMPLATE.md` | S | 每日任务拆解 |
 | S-GOV-004 | 统一 6A 工作流 | `Governance/steering/6A-WORKFLOW.md` | S | Spiral 到 Task 到 Step 一体执行 |
-| S-GOV-005 | 6A 历史归档 | `Governance/steering/workflow/archive-compat-v6-20260210/` | A | 回溯历史口径，不参与当前执行 |
+| S-GOV-005 | 6A 历史兼容说明 | `Governance/steering/6A-WORKFLOW.md` | A | 回溯历史口径（已并入主工作流），不参与当前执行 |
 
 ---
 
@@ -61,8 +61,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-12 | v2.1 | 路径整理：S-GOV-005 从失效归档目录切换为 `6A-WORKFLOW.md` 历史兼容说明入口 |
 | 2026-02-07 | v2.0 | 重建为 Spiral 资产清单，移除旧线性 Task 占位口径 |
 | 2026-02-05 | v1.4 | 线性阶段资产登记版本 |
-
 
 

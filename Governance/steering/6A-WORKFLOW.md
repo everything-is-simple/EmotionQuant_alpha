@@ -1,7 +1,7 @@
 # EmotionQuant 6A 工作流（Spiral 闭环版）
 
-**版本**: v6.1.1  
-**最后更新**: 2026-02-11  
+**版本**: v6.1.2  
+**最后更新**: 2026-02-12  
 **状态**: 当前唯一权威工作流
 
 ---
@@ -100,10 +100,9 @@
 
 ---
 
-## 7. 历史文件归档说明
+## 7. 历史文件处理说明
 
-- 旧文件 `6A-WORKFLOW-phase-to-task.md` 与 `6A-WORKFLOW-task-to-step.md` 已归档到：
-  - `Governance/steering/workflow/archive-compat-v6-20260210/`
+- 旧文件 `6A-WORKFLOW-phase-to-task.md` 与 `6A-WORKFLOW-task-to-step.md` 已并入本文件，不再单独维护。
 - 两文件不再作为执行入口；全局工作流统一以本文件为准。
 
 ---
@@ -112,6 +111,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
+| v6.1.2 | 2026-02-12 | 链接整理：历史文件说明改为“已并入本文件”，移除失效归档目录引用 |
 | v6.1.1 | 2026-02-11 | 修正 A3 冻结区表述：补充 Integration 模块 |
 | v6.1.0 | 2026-02-10 | 旧 `phase-to-task/task-to-step` 文件归档；明确本文件为唯一执行入口 |
 | v6.0.0 | 2026-02-10 | 合并 `phase-to-task` 与 `task-to-step` 为单一 6A 权威流程；默认合并目标切换为 `main`，保留 `develop` 可选策略 |

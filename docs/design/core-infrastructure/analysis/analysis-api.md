@@ -1,7 +1,7 @@
 # Analysis API 接口
 
-**版本**: v3.1.4（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.1.5（重构版）
+**最后更新**: 2026-02-12
 **状态**: 设计完成（代码未落地）
 
 ---
@@ -522,7 +522,7 @@ print(f"指标已导出: {csv_path}")
 | 绩效指标 | .reports/analysis/performance_metrics_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/performance_metrics_20260131_153000.csv |
 | 归因结果 | .reports/analysis/signal_attribution_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/signal_attribution_20260131_153000.csv |
 | 回测报告 | .reports/analysis/backtest_report_{YYYYMMDD_HHMMSS}.md | .reports/analysis/backtest_report_20260131_153000.md |
-| 归档（可选） | .archive/analysis/{YYYYMM}/analysis_reports_{YYYYMMDD_HHMMSS}.zip | .archive/analysis/202601/analysis_reports_20260131_153000.zip |
+| 归档（可选） | .reports/archive/analysis/{YYYYMM}/analysis_reports_{YYYYMMDD_HHMMSS}.zip | .reports/archive/analysis/202601/analysis_reports_20260131_153000.zip |
 
 ---
 
@@ -530,6 +530,7 @@ print(f"指标已导出: {csv_path}")
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.1.5 | 2026-02-12 | 路径整理：归档目录口径由 `.archive/analysis/` 统一为 `.reports/archive/analysis/` |
 | v3.1.4 | 2026-02-09 | 修复 R27：`build_score_distribution` 参数类型更正为 `List[StockPasDaily]`，与 PAS data-model/API 一致 |
 | v3.1.3 | 2026-02-09 | 修复 R21：`compute_metrics` 增加 `trades` 可选参数并明确默认回源；`export_to_file` 增加 `output_dir` 可选参数并显式默认 `.reports/analysis/` |
 | v3.1.2 | 2026-02-08 | 修复 R16：`compute_metrics` 增加 `risk_free_rate` 参数并透传到风险指标计算口径 |

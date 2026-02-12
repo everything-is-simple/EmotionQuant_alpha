@@ -7,7 +7,7 @@ This file provides minimal, executable repository rules for automated agents. Co
 ## 1. Document positioning
 
 - Purpose: minimal, executable repository rules for automated agents.
-- Single execution baseline: `docs/design/enhancements/eq-improvement-plan-core-frozen.md` (`enhancement-selection-analysis_claude-opus-max_20260210.md` serves only as selection rationale input).
+- Single execution baseline: `docs/design/enhancements/eq-improvement-plan-core-frozen.md` (`docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` serves only as selection rationale input).
 - Authoritative architecture entry: `docs/system-overview.md`
 - Authoritative roadmap entry: `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 - Authoritative governance entry: `Governance/steering/`
@@ -195,7 +195,7 @@ cache_dir = "G:/EmotionQuant_data/"
 | `Governance/specs/spiral-s*/` | Per-spiral specs & review |
 | `Governance/record/` | Status, debts, reusable assets |
 | `.reports/` | Reports (filenames include date-time) |
-| `.archive/` | Historical archives (read-only) |
+| `.reports/archive-*/` | Historical archives (read-only) |
 
 ### 8.2 Single source of truth (SoT)
 
@@ -228,7 +228,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ### 9.2 Pre-merge cleanup
 
-- TODO/HACK/FIXME: allowed during development, must be cleaned or logged to `debts.md` before merge
+- TODO/HACK/FIXME: allowed during development, must be cleaned or logged to `Governance/record/debts.md` before merge
 
 ### 9.3 Principles
 
@@ -266,7 +266,7 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 ## 13. Historical note
 
 - Legacy linear docs archived at: `Governance/Capability/archive-legacy-linear-v4-20260207/`
-- Legacy workflow files archived at: `Governance/steering/workflow/archive-compat-v6-20260210/`
+- Legacy workflow files have been merged into `Governance/steering/6A-WORKFLOW.md` (no separate archive directory is retained).
 - This file no longer maintains linear Stage narratives.
 
 ---

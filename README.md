@@ -31,9 +31,9 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统，执行模型为 
 
 - `docs/system-overview.md`
 - `docs/module-index.md`
-- `docs/design/`（`core-algorithms/` + `core-infrastructure/` + `enhancements/`）
+- `docs/design/`（`docs/design/core-algorithms/` + `docs/design/core-infrastructure/` + `docs/design/enhancements/`）
 - `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
-- `Governance/SpiralRoadmap/draft/`（候选草稿；主计划入口见 `docs/design/enhancements/eq-improvement-plan-core-frozen.md`）
+- `Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md`（实现总路线） + `Governance/SpiralRoadmap/DEPENDENCY-MAP.md`（跨圈依赖与外挂排布）
 
 ## 开发模型（Spiral）
 
@@ -82,7 +82,7 @@ pytest -v
 
 - `docs/`：系统设计与规范
 - `Governance/Capability/`：螺旋路线与能力包
-- `Governance/SpiralRoadmap/`：实现路线候选草稿
+- `Governance/SpiralRoadmap/`：实现路线与跨圈依赖桥梁
 - `Governance/steering/`：铁律、原则、工作流
 - `Governance/record/`：开发状态、技术债、复用资产
 - `.reports/`：批判报告与审视记录

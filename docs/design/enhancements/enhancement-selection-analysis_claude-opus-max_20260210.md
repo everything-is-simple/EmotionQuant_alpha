@@ -12,7 +12,7 @@
 
 > 本文档与以下核心设计保持严格一致，任何修改须重新验证对齐性。
 
-> `docs/design/enhancements/drafts/` 与 `Governance/SpiralRoadmap/draft/` 仅作研究参考，不作为权威引用源。
+> `docs/design/enhancements/drafts/` 与历史草稿记录（已收敛）仅作研究参考，不作为权威引用源。
 
 | 依赖文档 | 版本 | 引用内容 |
 |----------|------|----------|

@@ -1,7 +1,7 @@
 # Analysis 信息流
 
-**版本**: v3.1.3（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.1.4（重构版）
+**最后更新**: 2026-02-12
 **状态**: 设计完成（代码未落地）
 
 ---
@@ -411,7 +411,7 @@ backtest_trade_records (回测分析)
 │  2. 计算月度绩效                         │
 │  3. 信号有效性分析                       │
 │  4. 生成monthly_report.md               │
-│  5. 归档至 .archive/analysis/{YYYYMM}/  │
+│  5. 归档至 .reports/archive/analysis/{YYYYMM}/  │
 └─────────────────────────────────────────┘
 ```
 
@@ -447,6 +447,7 @@ backtest_trade_records (回测分析)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.1.4 | 2026-02-12 | 路径整理：月报归档目录口径由 `.archive/analysis/` 统一为 `.reports/archive/analysis/` |
 | v3.1.3 | 2026-02-09 | 修复 R21：§2.1 日报流程补齐实盘/回测成交分支并显式 `compute_metrics(equity_curve, trades)` 输入；§4.1 术语统一为 `execution_deviation` |
 | v3.1.2 | 2026-02-08 | 修复 R11：Sortino 流程符号改为下行偏差 RMS，避免与 Backtest 口径歧义 |
 | v3.1.1 | 2026-02-08 | 修复 R10：风险调整收益流程补入 `risk_free_rate` 日化项，与 Backtest/Analysis 公式统一 |
