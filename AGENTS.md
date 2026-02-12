@@ -259,7 +259,7 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 
 ## 12. Repository remote
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
+- `origin`: `${REPO_REMOTE_URL}` (defined in `.env.example`)
 
 ---
 
@@ -275,3 +275,4 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 
 - `.claude/` is retained as historical tooling assets; do not treat `.claude` commands as canonical workflow requirements.
 - Reusable governance rules have been migrated to `Governance/steering/` and `Governance/Capability/`.
+

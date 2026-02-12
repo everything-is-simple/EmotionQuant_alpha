@@ -97,7 +97,7 @@ pytest -v
 
 ## 仓库地址
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
+- `origin`: `${REPO_REMOTE_URL}`（定义见 `.env.example`）
 
 ## 许可证
 

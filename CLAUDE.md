@@ -259,7 +259,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ## 12. 仓库远端
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
+- `origin`: `${REPO_REMOTE_URL}`（定义见 `.env.example`）
 
 ---
 
@@ -268,3 +268,4 @@ cache_dir = "G:/EmotionQuant_data/"
 - 旧版线性文档已归档至：`Governance/Capability/archive-legacy-linear-v4-20260207/`
 - 旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
 - 本文件不再维护线性 Stage 叙述。
+

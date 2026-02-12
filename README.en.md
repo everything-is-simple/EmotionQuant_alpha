@@ -91,7 +91,7 @@ pytest -v
 
 ## Repository
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
+- `origin`: `${REPO_REMOTE_URL}` (defined in `.env.example`)
 
 ## License
 

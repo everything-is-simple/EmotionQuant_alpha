@@ -261,7 +261,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ## 12. 仓库远端
 
-- `origin`: `https://github.com/everything-is-simple/EmotionQuant-gpt`
+- `origin`: `${REPO_REMOTE_URL}`（定义见 `.env.example`）
 
 ---
 
@@ -284,6 +284,7 @@ cache_dir = "G:/EmotionQuant_data/"
 | v1.1.1 | 2026-02-12 | 路径口径整理：补全选型文档完整路径；`debts.md` 统一到 `Governance/record/debts.md`；历史归档路径改为当前有效入口 |
 | v1.1.0 | 2026-02-11 | 与 CLAUDE.md 对齐同步：补充文档定位节、修正 Gate 决策归属、补充回测技术栈口径、补充仓库远端 |
 | v1.0.0 | 2026-02-10 | 首版：与 Spiral 治理文件全面对齐，取代 4 条旧版个人 Rules |
+
 
 
 

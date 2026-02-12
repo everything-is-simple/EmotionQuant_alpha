@@ -28,9 +28,12 @@ wheels/
 # Virtual Environment
 # ========================================
 .venv/
+.venv*/
 venv/
 ENV/
 env/
+.python-version
+__pypackages__/
 
 # ========================================
 # IDE / Editor
@@ -50,8 +53,9 @@ env/
 # Environment & Secrets
 # ========================================
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+.envrc
 *.pem
 *.key
 secrets.yaml
@@ -61,6 +65,9 @@ secrets.json
 # Data & Database (不提交数据文件)
 # ========================================
 *.db
+*.duckdb
+*.duckdb-wal
+*.duckdb-shm
 *.sqlite
 *.sqlite3
 *.parquet
@@ -80,6 +87,11 @@ secrets.json
 logs/
 cache/
 .cache/
+.streamlit/secrets.toml
+.ruff_cache/
+.mypy_cache/
+.pyre/
+pip-wheel-metadata/
 *.tmp
 *.temp
 
@@ -127,6 +139,11 @@ desktop.ini
 # 报告输出
 .reports/*.html
 .reports/*.pdf
+.reports/*.json
+.reports/*.png
+
+# Agent / tooling traces
+.specstory/
 
 # 临时文件
 *.bak

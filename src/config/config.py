@@ -86,7 +86,11 @@ if BaseSettings:
         backtest_top_n: int = 20
         backtest_max_holding_days: int = 10
 
-        model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+        model_config = SettingsConfigDict(
+            env_file=".env",
+            env_file_encoding="utf-8",
+            extra="ignore",
+        )
 
         @classmethod
         def from_env(cls, *, env_file: str | None = ".env") -> "Config":

@@ -2,7 +2,7 @@
 
 **最后更新**: 2026-02-07  
 **当前版本**: v3.1（Spiral+CP 治理基线完成，S0 待执行）  
-**仓库地址**: https://github.com/everything-is-simple/EmotionQuant-gpt
+**仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
@@ -72,4 +72,5 @@ S0 目标：完成一条可复现的最小数据链路，并产出可验证证�
 | 2026-02-07 | v3.1 | 统一 CP 术语与最小同步契约；重写 ROADMAP/Workflow/Steering 关键文档 |
 | 2026-02-07 | v3.0 | 切换到 Spiral 状态看板；更新仓库地址为 GitHub；定义 S0 进出门禁 |
 | 2026-02-06 | v2.3 | 线性 Phase 状态（归档口径） |
+
 
