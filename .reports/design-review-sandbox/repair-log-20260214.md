@@ -150,3 +150,238 @@
 - 验证结果：
   - `pytest tests/unit/scripts/test_local_quality_check.py tests/unit/scripts/test_naming_contracts_check.py` -> 7 passed
   - `C:\\miniconda3\\python.exe -m scripts.quality.local_quality_check --contracts` -> pass
+
+14. 已完成：`review-001-mss-20260214.md` 对应设计问题修复（第一项闭环）
+- 修订文件：
+  - `docs/design/core-algorithms/mss/mss-algorithm.md`
+  - `docs/design/core-algorithms/mss/mss-data-models.md`
+  - `docs/design/core-algorithms/mss/mss-api.md`
+- 核心修复点（对应 review-001 第 7 节）：
+  - P0：周期阈值从固定值扩展为 `fixed/adaptive` 双模式，新增分位阈值 `T30/T45/T60/T75` 与冷启动回退规则
+  - P0：`strong_up/down` 改为分板块制度归一口径（主板10%/创业板与科创板20%/ST 5%）
+  - P1：趋势判定由“3 日严格单调”升级为 `EMA + slope + trend_band` 抗抖逻辑
+  - P1：极端因子新增方向语义 `extreme_direction_bias`（区分恐慌尾部与逼空尾部）
+  - P2：异常处理统一语义，明确“禁止沿用前值”与 `stale_days` 分层处理
+- 契约同步：
+  - 数据模型新增 `extreme_direction_bias`、`trend_quality` 字段与校验约束
+  - API 增加 `get_extreme_direction_bias()` 并矩阵化错误处理
+
+15. 已完成：`review-002-irs-20260214.md` 对应设计问题修复（第二项闭环）
+- 修订文件：
+  - `docs/design/core-algorithms/irs/irs-algorithm.md`
+  - `docs/design/core-algorithms/irs/irs-data-models.md`
+  - `docs/design/core-algorithms/irs/irs-api.md`
+  - `docs/design/core-algorithms/irs/irs-information-flow.md`
+  - `docs/design/core-algorithms/README.md`
+- 核心修复点（对应 review-002 第 7 节）：
+  - P0：配置建议由固定排名映射升级为“分位 + 集中度（HHI）”动态映射，并保留 `fixed` 兼容模式
+  - P0：轮动状态由“3 日单调”升级为“robust slope + MAD band”，并保留冷启动回退逻辑
+  - P1：资金流向因子加入 `flow_share` 与拥挤惩罚（`crowding_penalty_lambda` / `crowding_trigger`）
+  - P1：估值因子加入生命周期 `style_bucket`（growth/balanced/value）进行 PE/PB 权重校准
+  - P2：修复跨文档口径冲突：`core-algorithms/README.md` 明确 MSS 不直接作为 IRS 因子输入，风险约束在 Integration 层协同
+- 契约同步：
+  - 数据模型新增 `market_amount_total/style_bucket` 输入，新增 `rotation_slope/allocation_mode` 输出与 DDL 字段
+  - API 返回契约补充 `allocation_mode/rotation_slope`，并新增 `get_allocation_mode()`
+  - 信息流同步改为动态映射与 slope+band 判定，异常处理补充 `stale_days>3` 阻断
+
+16. 已完成：`review-003-pas-20260214.md` 对应设计问题修复（第三项闭环）
+- 修订文件：
+  - `docs/design/core-algorithms/pas/pas-algorithm.md`
+  - `docs/design/core-algorithms/pas/pas-data-models.md`
+  - `docs/design/core-algorithms/pas/pas-api.md`
+  - `docs/design/core-algorithms/pas/pas-information-flow.md`
+- 核心修复点（对应 review-003 第 7 节）：
+  - P0：结构因子由固定窗口升级为“波动率+换手率”驱动的自适应窗口（20/60/120），并保留 `fixed` 兼容模式
+  - P0：风险收益比新增成交约束折扣，输出 `effective_risk_reward_ratio`（执行口径）与名义 RR（分析口径）分层
+  - P1：行为确认由单量比扩展为 `volume_quality`（量比+换手+收盘保真）
+  - P1：新增 `quality_flag/sample_days` 质量字段（normal/cold_start/stale）并用于执行降级
+  - P2：新增 PAS 契约漂移自动检查（RR 门槛、枚举、窗口集合）与失败阻断语义
+- 契约同步：
+  - 数据模型补齐自适应窗口依赖字段（20/60/120 高低点、波动率、样本质量）与输出/DDL 字段
+  - API 增加 `run_contract_checks()`，并明确 stale/cold_start 的降级返回语义
+  - 信息流同步更新 Step2/3/5/6、Integration 交互字段与异常处理策略
+
+17. 已完成：`review-004-validation-20260214.md` 对应设计问题修复（第四项闭环）
+- 修订文件：
+  - `docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md`
+  - `docs/design/core-algorithms/validation/factor-weight-validation-data-models.md`
+  - `docs/design/core-algorithms/validation/factor-weight-validation-api.md`
+  - `docs/design/core-algorithms/validation/factor-weight-validation-information-flow.md`
+- 核心修复点（对应 review-004 第 7 节）：
+  - P0：门禁阈值新增 `fixed/regime` 双模式，按 `mss_temperature + market_volatility_20d` 分层动态注入
+  - P0：WFA 升级为双窗口并行（`252/63/63 + 126/42/42`）并采用稳健性投票决策
+  - P1：fallback 分层化（`factor_failure/weight_failure/data_failure/data_stale`）并显式绑定回退方案
+  - P1：`stale_days` 超阈值由“仅告警”升级为“自动降仓”（`position_cap_ratio`）
+  - P2：候选评估补齐换手、冲击成本、涨跌停可成交性约束（`turnover/impact_cost_bps/tradability_pass_ratio`）
+- 契约同步：
+  - 数据模型新增 `failure_class/position_cap_ratio` 与双窗口评估字段，DDL 同步
+  - API 增加 `resolve_regime_thresholds/build_dual_wfa_windows/classify_fallback` 接口
+  - 信息流同步更新日级时序、输出边界与异常处理（自动降仓语义）
+
+18. 已完成：`review-005-integration-20260214.md` 对应设计问题修复（第五项闭环）
+- 修订文件：
+  - `docs/design/core-algorithms/integration/integration-algorithm.md`
+  - `docs/design/core-algorithms/integration/integration-data-models.md`
+  - `docs/design/core-algorithms/integration/integration-api.md`
+  - `docs/design/core-algorithms/integration/integration-information-flow.md`
+- 核心修复点（对应 review-005 第 7 节）：
+  - P0：补齐工程闭环口径（`IntegrationEngine.calculate + IntegrationRepository.save_batch + 5 组契约测试`）
+  - P0：参数 regime 化（阈值、协同倍率、仓位乘子、BU 子预算比例）
+  - P1：候选评估新增执行约束（`tradability_pass_ratio/impact_cost_bps/candidate_exec_pass`）并触发 baseline 回退
+  - P1：BU/TD 冲突由“TD 全覆盖”升级为“TD 定净风险 + BU 子预算调结构”
+  - P2：统一 `degraded/WARN/stale/cold_start` 为单一 `integration_state` 状态机语义
+- 契约同步：
+  - 数据模型与 DDL 新增 `integration_state/position_cap_ratio` 及候选执行约束字段
+  - API 新增 `resolve_regime_parameters/classify_integration_state/check_candidate_executability`
+  - 信息流同步更新 Step 1/2/3/5/7 与异常处理分支
+
+19. 已完成：`review-006-backtest-20260214.md` 对应设计问题修复（第六项闭环）
+- 修订文件：
+  - `docs/design/core-infrastructure/backtest/backtest-algorithm.md`
+  - `docs/design/core-infrastructure/backtest/backtest-data-models.md`
+  - `docs/design/core-infrastructure/backtest/backtest-api.md`
+  - `docs/design/core-infrastructure/backtest/backtest-information-flow.md`
+  - `docs/design/core-infrastructure/backtest/backtest-test-cases.md`
+- 核心修复点（对应 review-006 第 7 节）：
+  - P0：补齐 CP-06 最小可运行闭环口径（`local_vectorized + top_down` 命令 + 落库验收）
+  - P0：成交模型从示意升级为 `queue + volume + fill_probability` 可执行规则
+  - P1：成本模型补齐流动性分层（L1/L2/L3）与 `impact_cost_bps_cap` 约束
+  - P1：`blocked_by_gate/degraded/fallback` 统一为 `backtest_state` 状态机
+  - P2：模式切换从纯配置扩展为 `config_fixed/regime_driven/hybrid_weight`
+- 契约同步：
+  - 数据模型新增 `mode_switch_policy/min_fill_probability/queue_participation_rate/impact_cost_bps_cap` 等配置字段
+  - 交易记录新增 `fill_probability/queue_ratio/liquidity_tier/impact_cost_bps/backtest_state`
+  - API 新增 `run_minimal()/resolve_mode()/ExecutionFeasibilityModel/LiquidityCostModel`
+  - 测试清单补齐状态机覆盖与最小命令验收条目
+
+20. 已完成：`review-007-trading-20260214.md` 对应设计问题修复（第七项闭环）
+- 修订文件：
+  - `docs/design/core-infrastructure/trading/trading-algorithm.md`
+  - `docs/design/core-infrastructure/trading/trading-data-models.md`
+  - `docs/design/core-infrastructure/trading/trading-api.md`
+  - `docs/design/core-infrastructure/trading/trading-information-flow.md`
+- 核心修复点（对应 review-007 第 7 节）：
+  - P0：补齐 CP-07 最小可运行闭环口径（`signal -> order -> execution -> positions/t1_frozen`）与 `run_minimal` 接口定义
+  - P0：成交模型由“默认全额成交”升级为“`fill_probability + fill_ratio + liquidity_tier + impact_cost_bps`”可执行规则
+  - P1：风险阈值新增 `fixed/regime` 双模式，按 `mss_temperature + market_volatility_20d` 动态解析
+  - P1：拒单原因统一为 `REJECT_*` 标准枚举，便于跨期统计与参数回放
+  - P2：补齐 `auction_sliced/time_windowed` 分批时段化执行实验口径
+- 契约同步：
+  - 数据模型新增执行可行性字段与状态字段：`fill_probability/fill_ratio/liquidity_tier/impact_cost_bps/reject_reason/trading_state/execution_mode/slice_seq`
+  - API 新增/扩展 `execute_sliced()/ExecutionFeasibilityModel/resolve_regime_thresholds()/TradingEngine.run_minimal()`
+  - 信息流统一 `blocked_by_gate/degraded` 为 `blocked_gate_fail/warn_data_fallback`，异常表改为 `REJECT_*` 枚举口径
+
+21. 已完成：`review-008-analysis-20260214.md` 对应设计问题修复（第八项闭环）
+- 修订文件：
+  - `docs/design/core-infrastructure/analysis/analysis-algorithm.md`
+  - `docs/design/core-infrastructure/analysis/analysis-data-models.md`
+  - `docs/design/core-infrastructure/analysis/analysis-api.md`
+  - `docs/design/core-infrastructure/analysis/analysis-information-flow.md`
+- 核心修复点（对应 review-008 第 7 节）：
+  - P0：补齐 CP-08 最小可运行闭环口径（`compute_metrics -> attribute_signals -> generate_daily_report -> persist/export`）并新增 `run_minimal` 入口
+  - P0：归因升级为稳健口径（双尾分位截尾 + 小样本回退），新增 `raw/trimmed/trim_ratio/attribution_method` 审计字段
+  - P1：风险摘要前瞻化，新增 `high_risk_change_rate/low_risk_change_rate/risk_turning_point/risk_regime`
+  - P1：补齐实盘-回测偏差分解（`signal_deviation/execution_deviation/cost_deviation/total_deviation`）
+  - P2：新增 GUI/治理共用 `dashboard_snapshot` 输出与字段规范
+- 契约同步：
+ - 数据模型新增 `LiveBacktestDeviation` 与 `live_backtest_deviation` DDL；扩展 `SignalAttribution`、`RiskSummary` 字段
+ - API 新增/扩展 `AnalysisEngine.run_minimal()/decompose_live_backtest_deviation()/analyze_risk_trend()/export_dashboard_snapshot()`
+ - 信息流同步更新日报时序、输出关系与异常状态语义（统一为 `analysis_state`）
+
+22. 已完成：`review-009-gui-20260214.md` 对应设计问题修复（第九项闭环）
+- 修订文件：
+  - `docs/design/core-infrastructure/gui/gui-algorithm.md`
+  - `docs/design/core-infrastructure/gui/gui-api.md`
+  - `docs/design/core-infrastructure/gui/gui-data-models.md`
+  - `docs/design/core-infrastructure/gui/gui-information-flow.md`
+- 核心修复点（对应 review-009 第 7 节）：
+  - P0：补齐 CP-09 最小可运行 GUI 闭环口径（`DataService + Dashboard + IntegratedPage`）并新增 `run_minimal`/`GuiRunResult` 约束
+  - P0：默认过滤门槛改为配置驱动（`FilterConfig/resolve_filter_config`）并新增页面阈值徽标展示
+  - P1：缓存一致性增强，新增 `data_asof/cache_age_sec/freshness_level` 元信息与页面新鲜度展示
+  - P1：异常可观测性增强，补齐 `timeout/empty_state/data_fallback/permission_denied` 事件计数与观测面板字段
+  - P2：Integrated 页面联动 Analysis 原因面板（归因 + 风险摘要 + 偏差提示）
+- 契约同步：
+  - 数据模型新增 `FreshnessMeta/UiObservabilityPanel/RecommendationReasonPanel`，并扩展 `DashboardData/IntegratedPageData`
+  - API 新增/扩展 `run_minimal()/resolve_filter_config()/build_filter_preset_badges()/get_freshness_meta()/record_ui_event()/get_recommendation_reason_panel()`
+  - 信息流同步更新 Dashboard 数据流、推荐表数据流、刷新策略与异常处理分支
+
+23. 已完成：`review-010-data-layer-20260214.md` 对应设计问题修复（第十项闭环）
+- 修订文件：
+  - `docs/design/core-infrastructure/data-layer/data-layer-algorithm.md`
+  - `docs/design/core-infrastructure/data-layer/data-layer-api.md`
+  - `docs/design/core-infrastructure/data-layer/data-layer-data-models.md`
+  - `docs/design/core-infrastructure/data-layer/data-layer-information-flow.md`
+  - `src/data/models/snapshots.py`
+  - `src/data/quality_gate.py`
+  - `tests/unit/data/models/test_model_contract_alignment.py`
+  - `tests/unit/data/models/test_snapshots.py`
+  - `tests/unit/data/test_quality_gate.py`
+- 核心修复点（对应 review-010 第 7 节）：
+  - P0：`src/data/models` 补齐 `data_quality/stale_days/source_trade_date` 契约字段与约束
+  - P0：新增质量门禁自动化原型 `evaluate_data_quality_gate()`（覆盖率、`stale_days`、跨日一致性前置检查）
+  - P1：降级策略由单阈值扩展为“数据类型分级阈值 + 影响面分级”
+  - P1：新增可选盘中增量层口径（观测用途，不进入主交易流水线）
+  - P2：补齐分库触发阈值与回迁一致性校验流程
+- 契约同步：
+  - 数据模型新增 `data_readiness_gate` 门禁决策表，`data_quality_report` 扩展 `gate_status/affected_layers/action`
+  - API 增补 `DataGateDecision` 契约、盘中增量 API、分库触发与回迁 API
+  - 信息流补充 `ready/degraded/blocked` 门禁决策流与跨日不一致阻断语义
+
+24. 已完成：`review-011-system-overview-governance-20260214.md` 对应设计问题修复（第十一项闭环）
+- 修订文件：
+  - `docs/system-overview.md`
+  - `Governance/steering/TRD.md`
+  - `Governance/steering/6A-WORKFLOW.md`
+  - `Governance/steering/GOVERNANCE-STRUCTURE.md`
+  - `Governance/steering/CROSS-DOC-CHANGE-LINKAGE-TEMPLATE.md`
+  - `scripts/quality/governance_consistency_check.py`
+  - `scripts/quality/local_quality_check.py`
+  - `tests/unit/scripts/test_governance_consistency_check.py`
+- 核心修复点（对应 review-011 第 7 节）：
+  - P0：在 `system-overview` 与 `TRD` 增补“研究主选 vs 收口主线”术语消歧
+  - P0：`system-overview` 文档导航补充 `TRD/GOVERNANCE-STRUCTURE/6A-WORKFLOW` 入口
+  - P1：新增治理一致性自动检查脚本（SoT、6A 五件套、闭环口径、A 股精度表述）
+  - P1：`system-overview` 增加 A 股规则精度链接到铁律与核心原则
+  - P2：新增“跨文档变更联动模板”并接入 6A 执行清单
+- 契约同步：
+  - 新增 `python -m scripts.quality.local_quality_check --governance` 检查入口
+  - 单测新增 `test_governance_consistency_check.py`，覆盖 missing file/pattern 与仓库基线通过
+  - 验证通过：`[governance] pass (20 checks)`
+
+25. 已完成：`review-012-naming-contracts-20260214.md` 对应设计问题修复（第十二项闭环）
+- 修订文件：
+  - `docs/naming-conventions.md`
+  - `docs/design/core-algorithms/integration/integration-algorithm.md`
+  - `docs/design/core-infrastructure/trading/trading-algorithm.md`
+  - `docs/design/core-infrastructure/backtest/backtest-algorithm.md`
+  - `docs/naming-contracts.schema.json`
+  - `docs/naming-contracts-glossary.md`
+  - `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md`
+  - `scripts/quality/naming_contracts_check.py`
+- 核心修复点（对应 review-012 第 7 节）：
+  - P0：命名/契约自动检查扩展到关键矩阵：`sideways/unknown/risk_reward_ratio/stock_code/ts_code/PASS-WARN-FAIL` + 阈值 `75/70/55/1.0`
+  - P0：落地 Schema-first 机器可读源（`docs/naming-contracts.schema.json`，版本 `nc-v1`）
+  - P1：Integration/Trading/Backtest 增加 `contract_version` 前置兼容检查，不兼容即阻断
+  - P2：新增跨模块术语字典与命名契约变更模板（便于联动同步）
+- 契约同步：
+  - 新增 `docs/naming-contracts-glossary.md` 与 `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md`
+  - `scripts/quality/naming_contracts_check.py` 扩展为 43 项检查
+  - 验证通过：`pytest tests/unit/scripts/test_naming_contracts_check.py ...`（11 passed）；`python -m scripts.quality.local_quality_check --contracts` -> `[contracts] pass (43 checks)`
+
+26. 已完成：review-012 三个剩余缺口补齐（彻底闭环）
+- 修订文件：
+  - `docs/design/core-algorithms/integration/integration-api.md`
+  - `docs/design/core-infrastructure/trading/trading-api.md`
+  - `docs/design/core-infrastructure/backtest/backtest-api.md`
+  - `scripts/quality/naming_contracts_check.py`
+  - `scripts/quality/contract_behavior_regression.py`
+  - `scripts/quality/local_quality_check.py`
+  - `tests/unit/scripts/test_contract_behavior_regression.py`
+  - `.github/workflows/quality-gates.yml`
+- 关键补齐点：
+  - 缺口 #1（CI 阻断）：新增 `quality-gates` 工作流，强制执行 `local_quality_check --contracts --governance` 与契约回归测试。
+  - 缺口 #2（行为边界回归）：新增可执行契约场景回归（`unknown`、`sideways`、`risk_reward_ratio==1.0`、`Gate WARN/FAIL`、`contract_version mismatch`）。
+  - 缺口 #3（API 契约同步）：Integration/Trading/Backtest API 文档补齐 `contract_version` 前置兼容语义与阻断行为。
+- 验证结果：
+  - `pytest tests/unit/scripts/test_naming_contracts_check.py tests/unit/scripts/test_contract_behavior_regression.py tests/unit/scripts/test_local_quality_check.py tests/unit/scripts/test_governance_consistency_check.py` -> 18 passed
+  - `C:\miniconda3\python.exe -m scripts.quality.local_quality_check --contracts --governance` -> `[contracts] pass (49 checks)`、`[contracts-behavior] pass (7 checks)`、`[governance] pass (20 checks)`

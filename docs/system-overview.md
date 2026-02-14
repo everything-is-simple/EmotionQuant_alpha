@@ -1,7 +1,7 @@
 # EmotionQuant 系统总览（Spiral 实现版）
 
-**版本**: v4.1.4
-**最后更新**: 2026-02-12
+**版本**: v4.1.5
+**最后更新**: 2026-02-14
 **状态**: 实现前最终架构基线（文档）
 
 ---
@@ -11,7 +11,7 @@
 EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 起，执行模型从线性 Phase 切换为 Spiral 闭环：
 
 - 每 7 天一圈（默认）
-- 每圈必须有命令、测试、产物、复盘、同步
+- 每圈必须有 `run/test/artifact/review/sync`（命令、测试、产物、复盘、同步）
 - 文档服务实现，不再作为线性阻塞关卡
 
 ---
@@ -22,7 +22,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 2. 单指标不得独立决策：技术指标可用于对照实验或辅助特征工程，但必须与情绪因子联合验证，且不得单独触发交易。
 3. 本地数据优先：主流程以本地数据为准，远端只用于补采。
 4. 禁止路径/密钥硬编码。
-5. A 股规则刚性执行（T+1、涨跌停、交易时段）。
+5. A 股规则刚性执行（T+1、涨跌停、交易时段；精度口径见 `Governance/steering/系统铁律.md` 与 `Governance/steering/CORE-PRINCIPLES.md`）。
 6. Spiral 闭环强制：缺任一闭环证据不得收口。
 
 ---
@@ -71,6 +71,10 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 - 兼容适配：`backtrader` 保留为兼容选项，不作为主选
 - 切换条件：因子研究与快速验证阶段优先 `Qlib`；生产决策与口径对齐阶段使用本地向量化回测器；`backtrader` 仅用于兼容回放
 
+术语消歧（治理一致性）：
+- 研究主选：指研究与实验阶段的默认平台（`Qlib`）。
+- 收口主线：指可复现交付与策略口径对齐的执行基线（本地向量化回测器）。
+
 详见：`docs/design/core-infrastructure/backtest/backtest-engine-selection.md`
 
 ---
@@ -105,6 +109,9 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 - 路线总览：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 - 能力包（CP）：`Governance/Capability/CP-*.md`
 - 新系统螺旋实现路线：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md`（总路线） + `Governance/SpiralRoadmap/DEPENDENCY-MAP.md`（依赖图）
+- 技术需求与选型（TRD）：`Governance/steering/TRD.md`
+- 治理 SoT 矩阵：`Governance/steering/GOVERNANCE-STRUCTURE.md`
+- 6A 工作流：`Governance/steering/6A-WORKFLOW.md`
 - 因子/权重验证设计：`docs/design/core-algorithms/validation/`
 - 回测选型：`docs/design/core-infrastructure/backtest/backtest-engine-selection.md`
 
@@ -114,6 +121,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v4.1.5 | 2026-02-14 | 修复 R33（review-011）：补充 `run/test/artifact/review/sync` 明文口径；A 股规则增加精度定义链接（铁律/原则）；新增“研究主选 vs 收口主线”术语消歧；文档导航补充 TRD/治理 SoT/6A 入口 |
 | v4.1.4 | 2026-02-12 | 文档导航中的 SpiralRoadmap 入口由 `draft/` 收敛为 `VORTEX-EVOLUTION-ROADMAP.md` + `DEPENDENCY-MAP.md` |
 | v4.1.3 | 2026-02-11 | 文档导航补充设计三层结构（核心算法/核心基础设施/外挂增强），对齐目录重构 |
 | v4.1.2 | 2026-02-09 | 修复 R29：明确技术指标边界与铁律一致（可对照/辅助特征但不得独立决策）；L3 分层补充 Validation 运行时输出 |
@@ -121,4 +129,3 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 | v4.1.0 | 2026-02-07 | 明确回测平台主选 Qlib；补充本地执行基线与兼容口径 |
 | v4.0.0 | 2026-02-07 | 切换到 Spiral 实现口径；新增 Validation Layer；更新回测与存储策略 |
 | v3.3.0 | 2026-02-05 | 线性重构版 |
-

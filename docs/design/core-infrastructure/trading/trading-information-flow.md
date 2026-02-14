@@ -1,8 +1,8 @@
 # Trading 信息流
 
-**版本**: v3.2.3（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）
+**版本**: v3.3.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -141,7 +141,9 @@
 │                   ▼                                                      │
 │  ┌─────────────────────────────────────────┐                            │
 │  │  5. 风控检查                             │                            │
-│  │     passed, reason = risk.check_order() │                            │
+│  │     passed, reject_reason =             │                            │
+│  │       risk.check_order(...,             │                            │
+│  │         mss_temperature, market_volatility_20d) │                    │
 │  └────────────────┬────────────────────────┘                            │
 │                   │                                                      │
 │                   ▼                                                      │
@@ -157,7 +159,9 @@
 │                   ▼                                                      │
 │  ┌─────────────────────────────────────────┐                            │
 │  │  7. 执行集合竞价                         │                            │
-│  │     executed = executor.execute_auction()│                            │
+│  │     executed = executor.execute_auction( │                            │
+│  │       execution_mode="auction_single")  │                            │
+│  │     # 内含 fill_probability/fill_ratio   │                            │
 │  └────────────────┬────────────────────────┘                            │
 │                   │                                                      │
 │                   ▼                                                      │
@@ -497,7 +501,16 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 持仓状态流转
+### 5.2 执行状态（TradingState）
+
+| trading_state | 触发条件 | 行为 |
+|---------------|----------|------|
+| normal | 数据完整且可执行 | 正常下单/成交 |
+| warn_data_fallback | 非关键输入缺失（可回退） | 允许执行，落库告警 |
+| blocked_gate_fail | Validation Gate = FAIL | 阻断当日信号 |
+| blocked_untradable | T+1/涨跌停/低可成交概率 | 订单拒绝并记录 reject_reason |
+
+### 5.3 持仓状态流转
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -544,8 +557,8 @@
 
 | 缺失数据 | 处理策略 |
 |----------|----------|
-| Validation Gate = FAIL | 跳过当日信号生成，记录 `blocked_by_gate` |
-| mss_panorama | 使用前一日数据，标记degraded |
+| Validation Gate = FAIL | 跳过当日信号生成，记录 `trading_state=blocked_gate_fail` |
+| mss_panorama | 使用前一日数据，记录 `trading_state=warn_data_fallback` |
 | irs_industry_daily | 允许所有行业 |
 | integrated_recommendation | 当日不产生信号 |
 | 开盘价 | 使用前收盘价 |
@@ -554,12 +567,15 @@
 
 | 异常情况 | 处理策略 |
 |----------|----------|
-| 资金不足 | 拒绝订单，reason="no_cash" |
-| 超仓位上限 | 拒绝订单，reason="max_position" |
-| T+1限制 | 拒绝订单，reason="t1_frozen" |
-| 涨停 | 拒绝买单，reason="limit_up" |
-| 跌停 | 拒绝卖单，reason="limit_down" |
-| 执行超时 | 重试3次后取消 |
+| 资金不足 | 拒绝订单，`reject_reason=REJECT_NO_CASH` |
+| 超单股仓位上限 | 拒绝订单，`reject_reason=REJECT_MAX_POSITION` |
+| 超行业仓位上限 | 拒绝订单，`reject_reason=REJECT_MAX_INDUSTRY` |
+| 超总仓位上限 | 拒绝订单，`reject_reason=REJECT_MAX_TOTAL_POSITION` |
+| T+1限制 | 拒绝订单，`reject_reason=REJECT_T1_FROZEN` |
+| 涨停买入限制 | 拒绝订单，`reject_reason=REJECT_LIMIT_UP` |
+| 跌停卖出限制 | 拒绝订单，`reject_reason=REJECT_LIMIT_DOWN` |
+| 低可成交概率 | 拒绝订单，`reject_reason=REJECT_LOW_FILL_PROB` |
+| 执行超时 | 重试3次后取消，并标记 `trading_state=blocked_untradable` |
 
 ---
 
@@ -567,6 +583,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.3.0 | 2026-02-14 | 对应 review-007 闭环修复：流程补齐 `check_order(..., mss_temperature, market_volatility_20d)` 与 `execute_auction(execution_mode)`；新增 `TradingState` 状态定义；`blocked_by_gate/degraded` 统一为 `blocked_gate_fail/warn_data_fallback`；拒单原因改为 `REJECT_*` 标准枚举 |
 | v3.2.3 | 2026-02-12 | 修复 R14：§6.1 数据缺失处理补充 `Validation Gate = FAIL` 场景，处理策略为“跳过当日信号生成并记录 `blocked_by_gate`”，与算法 §2.1 前置阻断逻辑对齐 |
 | v3.2.2 | 2026-02-08 | 修复 R12：订单类型示例从 `auction_open` 统一为 `auction`，对齐 Trading/Backtest 枚举口径 |
 | v3.2.1 | 2026-02-08 | 修复 R11：移除“集成信号主流程中的 MSS≥30 温度门控”表述，改为温度读取透传，与算法/数据模型一致 |

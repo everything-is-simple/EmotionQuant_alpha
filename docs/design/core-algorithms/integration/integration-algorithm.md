@@ -1,8 +1,8 @@
 # Integration 三三制集成算法设计
 
-**版本**: v3.4.7（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（验收口径补齐；代码未落地）
+**版本**: v3.5.1（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -32,6 +32,8 @@ BASELINE_WEIGHTS = {
 | recommendation | 交易信号 | STRONG_BUY/BUY/HOLD/SELL/AVOID |
 | position_size | 仓位建议 | 0-1 |
 | neutrality | 综合中性度 | 0-1（越接近1越中性，越接近0信号越极端） |
+| integration_state | 集成状态机状态 | normal/warn_data_cold_start/warn_data_stale/warn_gate_fallback/warn_candidate_exec/blocked_gate_fail |
+| position_cap_ratio | 全局仓位上限比例 | 0-1 |
 
 命名规范：周期/趋势/推荐等级/PAS方向详见 [naming-conventions.md](../../../naming-conventions.md) §1-5。
 
@@ -79,6 +81,11 @@ BASELINE_WEIGHTS = {
 | final_gate | string | PASS/WARN/FAIL |
 | selected_weight_plan | string | baseline / candidate_id |
 | fallback_plan | string | WARN/FAIL 时回退方案标识 |
+| tradability_pass_ratio | float | 候选方案可成交性通过率 0-1 |
+| impact_cost_bps | float | 候选方案冲击成本（bps） |
+| candidate_exec_pass | bool | 候选方案是否满足执行约束 |
+| position_cap_ratio | float | Validation 下发的全局仓位上限比例 0-1 |
+| contract_version | string | 契约版本（当前要求 `nc-v1`） |
 | reason | string | 门禁决策说明 |
 
 ---
@@ -100,6 +107,21 @@ BASELINE_WEIGHTS = {
 - 集成层仅允许使用：评分、方向、周期/状态、等级与风险收益比等“上游输出字段”。
 - 新增任何协同约束或加权逻辑，必须说明“作用层级”，避免跨层重复。
 
+### 2.7 契约版本前置检查（P1）
+
+```python
+SUPPORTED_CONTRACT_VERSION = "nc-v1"  # 与 docs/naming-contracts.schema.json 对齐
+
+def assert_contract_version(contract_version: str) -> None:
+    if contract_version != SUPPORTED_CONTRACT_VERSION:
+        raise ContractVersionError(
+            f"unsupported contract_version={contract_version}, "
+            f"expected {SUPPORTED_CONTRACT_VERSION}"
+        )
+```
+
+> 规则：版本不兼容时必须阻断集成，不允许静默降级。
+
 ## 3. 综合评分计算
 
 ### 3.1 Gate 前置检查与权重方案选择
@@ -108,32 +130,63 @@ BASELINE_WEIGHTS = {
 def resolve_gate_and_weights(
     gate: ValidationGateDecision,
     candidate_weight_plans: dict[str, dict[str, float]],
-    irs_quality_flag: str = "normal"
-) -> tuple[dict[str, float], str]:
+    irs_quality_flag: str = "normal",
+    tradability_pass_floor: float = 0.90,
+    impact_cost_bps_cap: float = 35.0,
+) -> tuple[dict[str, float], str, str, float]:
     if gate.final_gate == "FAIL":
         raise ValidationGateError("Gate=FAIL，不允许进入集成")
 
+    position_cap_ratio = max(0.0, min(1.0, gate.position_cap_ratio or 1.0))
+
     if irs_quality_flag in {"cold_start", "stale"}:
-        # IRS 处于冷启动/陈旧状态时，强制回退 baseline 并打 WARN
-        return BASELINE_WEIGHTS, "WARN"
+        # 统一状态机：数据质量异常 -> WARN 分支
+        state = "warn_data_cold_start" if irs_quality_flag == "cold_start" else "warn_data_stale"
+        return BASELINE_WEIGHTS, "WARN", state, min(position_cap_ratio, 0.80)
+
+    if gate.candidate_exec_pass is False:
+        return BASELINE_WEIGHTS, "WARN", "warn_candidate_exec", min(position_cap_ratio, 0.80)
+
+    if (
+        gate.selected_weight_plan != "baseline"
+        and (
+            gate.tradability_pass_ratio < tradability_pass_floor
+            or gate.impact_cost_bps > impact_cost_bps_cap
+        )
+    ):
+        return BASELINE_WEIGHTS, "WARN", "warn_candidate_exec", min(position_cap_ratio, 0.80)
 
     if gate.selected_weight_plan == "baseline":
-        return BASELINE_WEIGHTS, gate.final_gate
+        state = "warn_gate_fallback" if gate.final_gate == "WARN" else "normal"
+        return BASELINE_WEIGHTS, gate.final_gate, state, position_cap_ratio
 
     selected = candidate_weight_plans.get(gate.selected_weight_plan)
     if selected is None:
         if gate.final_gate == "WARN":
-            return BASELINE_WEIGHTS, "WARN"  # 候选缺失时降级回 baseline
+            return BASELINE_WEIGHTS, "WARN", "warn_gate_fallback", min(position_cap_ratio, 0.80)
         raise ValueError(f"missing candidate weight plan: {gate.selected_weight_plan}")
 
-    return selected, gate.final_gate
+    state = "warn_gate_fallback" if gate.final_gate == "WARN" else "normal"
+    return selected, gate.final_gate, state, position_cap_ratio
 ```
 
 执行规则：
 - `final_gate = FAIL`：直接拒绝计算并抛出 `ValidationGateError`；
 - `final_gate = WARN`：允许继续，但输出需保留 WARN 标记；
 - `irs_quality_flag ∈ {cold_start, stale}`：强制回退 `BASELINE_WEIGHTS`，并将门禁状态提升为 `WARN`；
+- `candidate_exec_pass=False` 或候选方案不满足可成交性/冲击成本约束：回退 baseline + `WARN`；
 - `final_gate = PASS`：按 `selected_weight_plan` 使用 baseline/candidate 权重。
+
+### 3.1.1 统一状态机语义（替代 degraded/WARN/stale/cold_start 分裂口径）
+
+| integration_state | 触发条件 | 行为 |
+|-------------------|----------|------|
+| normal | Gate=PASS 且数据质量正常 | 使用 gate 对应权重 |
+| warn_data_cold_start | IRS `quality_flag=cold_start` | baseline + WARN + `position_cap_ratio<=0.80` |
+| warn_data_stale | IRS `quality_flag=stale` | baseline + WARN + `position_cap_ratio<=0.80` |
+| warn_gate_fallback | Gate=WARN 或 candidate 缺失 | baseline + WARN |
+| warn_candidate_exec | 可成交性/冲击成本不达标 | baseline + WARN + `position_cap_ratio<=0.80` |
+| blocked_gate_fail | Gate=FAIL | 抛异常并阻断 |
 
 ### 3.2 三三制加权公式
 
@@ -205,6 +258,8 @@ direction_score = (mss_direction + irs_direction + pas_direction) / 3
 
 补充规则：
 - 当 `mss_cycle = unknown` 时，推荐等级强制降级为 `HOLD`（观察模式，不产生积极买入信号）。
+- 阈值读取优先级：`regime_parameters` > 固定默认值（本表为 fixed 模式默认值）。
+- 推荐等级底线不变：`STRONG_BUY>=75`、`BUY>=70`、`HOLD>=50`、`SELL>=30`。
 
 ### 5.2 多数一致约束
 
@@ -225,8 +280,8 @@ direction_score = (mss_direction + irs_direction + pas_direction) / 3
 规则（不做单点否决，仅影响风险与权重）：
 - MSS 温度极端（<30 或 >80） → position_size 下调、neutrality_risk_factor 上调（中性度在 §7 一次性计算）
 - MSS 周期为 `unknown` → 推荐等级上限为 `HOLD`（不允许 `STRONG_BUY/BUY`）
-- IRS allocation_advice = \"回避\" → pas_score 轻度折扣（例如 ×0.85）
-- IRS allocation_advice = \"超配\" → pas_score 轻度上浮（例如 ×1.05）
+- IRS allocation_advice = \"回避\" → pas_score 轻度折扣（`regime_parameters.irs_avoid_discount`，默认 0.85）
+- IRS allocation_advice = \"超配\" → pas_score 轻度上浮（`regime_parameters.irs_overweight_boost`，默认 1.05）
 - IRS 约束后必须执行边界裁剪：`pas_score = clip(pas_score, 0, 100)`
 - 协同约束执行顺序（必须）：  
   1) 调整 `pas_score`  
@@ -249,17 +304,17 @@ base_position = final_score / 100
 调整因子：
 - MSS温度调整: position × (1 - |temperature - 50| / 100)
 - IRS配置调整: 
-  - 超配行业 × 1.2
-  - 标配行业 × 1.0
-  - 减配行业 × 0.7
-  - 回避行业 × 0.3
+  - 超配行业 × `regime_parameters.position_multiplier_overweight`（默认 1.2）
+  - 标配行业 × `regime_parameters.position_multiplier_neutral`（默认 1.0）
+  - 减配行业 × `regime_parameters.position_multiplier_underweight`（默认 0.7）
+  - 回避行业 × `regime_parameters.position_multiplier_avoid`（默认 0.3）
 - PAS等级调整:
-  - S级 × 1.2
-  - A级 × 1.0
-  - B级 × 0.7
-  - C/D级 × 0.3
+  - S级 × `regime_parameters.grade_multiplier_s`（默认 1.2）
+  - A级 × `regime_parameters.grade_multiplier_a`（默认 1.0）
+  - B级 × `regime_parameters.grade_multiplier_b`（默认 0.7）
+  - C/D级 × `regime_parameters.grade_multiplier_cd`（默认 0.3）
 
-最终仓位 = base_position × 各调整因子
+最终仓位 = base_position × 各调整因子 × position_cap_ratio
 边界: 0 ≤ position_size ≤ 1
 
 注：集成计算可覆盖 S/A/B/C/D，推荐列表筛选按 §9.1 以 `final_score ≥ 55` 为主门槛（PAS/IRS 仅软排序）。
@@ -472,15 +527,17 @@ BU 的入口来自 PAS 的强股分布：先用个股分布形成市场/行业�
   - 结果：用 20% 仓位买这 3 只强股
 ```
 
-#### 方案三：仲裁机制（复杂，待验证）
+#### 方案三：风险预算分层覆盖（替代 TD 全覆盖）
 
 ```text
-冲突场景：TD 说空仓，BU 说加仓
-仲裁规则：
-  1. 计算 PAS S/A 级股票占比
-  2. 占比 > 5% → 采纳 BU（结构性行情特征）
-  3. 占比 < 2% → 采纳 TD（市场确实低迷）
-  4. 2%-5% → 折中
+冲突场景：TD 偏保守，BU 偏激进
+分层规则：
+  1. TD 决定总风险预算（`td_total_cap`）
+  2. BU 仅可申请 Alpha 子预算（`alpha_sleeve_cap = td_total_cap × regime_parameters.td_bu_alpha_budget_ratio`）
+  3. BU 申请生效前需同时满足：
+     - `pas_sa_ratio >= regime_parameters.bu_activation_sa_ratio`
+     - `candidate_exec_pass = true`
+  4. 方向冲突时，净方向仍跟随 TD；BU 仅在子预算内调整持仓结构
 ```
 
 ### 10.6 实现方式
@@ -507,7 +564,7 @@ class IntegrationEngine:
 
 - **默认主流程**：`mode="top_down"`，BU 相关模式仅作为补充。
 - **仓位上限**：BU 产出的 `position_size` 不得超过同周期 TD 仓位上限（风控优先）
-- **方向冲突**：当 TD 与 BU 方向不一致时以 TD 为准
+- **方向冲突**：当 TD 与 BU 方向不一致时，采用“TD 定净风险 + BU 用子预算调结构”
 - **风险一致性**：BU 不得突破 TD 的风控阈值（止损、回撤、持仓集中度等）。
 - **可追溯性**：集成输出必须记录 `integration_mode`（top_down/bottom_up/dual_verify/complementary）。
 
@@ -545,6 +602,47 @@ class IntegrationEngine:
 | mss_cold_threshold | 30 | MSS冰点阈值 |
 | mss_hot_threshold | 80 | MSS过热阈值 |
 
+### 11.3 Regime 参数组（P0）
+
+```python
+@dataclass
+class RegimeParameters:
+    profile_id: str                       # risk_on / neutral / risk_off
+    strong_buy_threshold: int             # >= 75
+    buy_threshold: int                    # >= 70
+    hold_threshold: int                   # >= 50
+    sell_threshold: int                   # >= 30
+    irs_avoid_discount: float             # 默认 0.85
+    irs_overweight_boost: float           # 默认 1.05
+    position_multiplier_overweight: float # 默认 1.2
+    position_multiplier_neutral: float    # 默认 1.0
+    position_multiplier_underweight: float# 默认 0.7
+    position_multiplier_avoid: float      # 默认 0.3
+    grade_multiplier_s: float             # 默认 1.2
+    grade_multiplier_a: float             # 默认 1.0
+    grade_multiplier_b: float             # 默认 0.7
+    grade_multiplier_cd: float            # 默认 0.3
+    td_bu_alpha_budget_ratio: float       # 冲突时 BU 可用子预算比例
+    bu_activation_sa_ratio: float         # BU 激活的 S/A 比例阈值
+```
+
+| profile_id | 触发条件（示例） | strong_buy/buy/hold/sell | irs_avoid_discount / irs_overweight_boost | td_bu_alpha_budget_ratio |
+|------------|------------------|---------------------------|--------------------------------------------|--------------------------|
+| risk_on | `mss_cycle in {emergence,fermentation,acceleration}` 且波动较低 | 75/70/50/30 | 0.88 / 1.06 | 0.60 |
+| neutral | 默认 | 75/70/50/30 | 0.85 / 1.05 | 0.40 |
+| risk_off | `mss_cycle in {diffusion,recession,unknown}` 或波动较高 | 78/72/55/35 | 0.80 / 1.02 | 0.20 |
+
+```python
+def resolve_regime_parameters(mss_cycle: str, market_volatility_20d: float, mode: str = "auto") -> RegimeParameters:
+    if mode == "fixed":
+        return REGIME_TABLE["neutral"]
+    if mss_cycle in {"diffusion", "recession", "unknown"} or market_volatility_20d >= 0.03:
+        return REGIME_TABLE["risk_off"]
+    if mss_cycle in {"emergence", "fermentation", "acceleration"} and market_volatility_20d < 0.02:
+        return REGIME_TABLE["risk_on"]
+    return REGIME_TABLE["neutral"]
+```
+
 ---
 
 ## 12. 验收与验证（可执行口径）
@@ -555,16 +653,26 @@ class IntegrationEngine:
 - neutrality ∈ [0, 1]
 - integration_mode ∈ {top_down, bottom_up, dual_verify, complementary}
 - recommendation ∈ {STRONG_BUY, BUY, HOLD, SELL, AVOID}
+- integration_state ∈ {normal, warn_data_cold_start, warn_data_stale, warn_gate_fallback, warn_candidate_exec, blocked_gate_fail}
+- position_cap_ratio ∈ [0, 1]
+- tradability_pass_ratio ∈ [0, 1]，impact_cost_bps ≥ 0
 
 ### 12.2 量纲一致性
 
 - Integration 不得对评分做二次归一化，只允许边界裁剪。
 - 协同约束调整仅影响 pas_score 与 position_size，不得引入新的“因子分值”。
+- 当 Gate/WARN/质量异常触发回退时，必须落库 `integration_state` 与 `weight_plan_id=baseline`。
 
 ### 12.3 方向一致性稽核
 
 - 方向编码必须只取 {-1, 0, +1}。
 - 方向一致性只影响中性度，不得直接反转推荐等级。
+
+### 12.4 工程闭环验收（P0）
+
+- 必须具备 `IntegrationEngine.calculate()` 与 `IntegrationRepository.save_batch()` 的最小可运行链路。
+- 必须通过 5 组契约测试：`PASS+candidate`、`WARN+fallback`、`FAIL阻断`、`cold_start/stale 回退`、`candidate_exec 失败回退`。
+- 必须产出可追溯字段：`integration_mode/weight_plan_id/validation_gate/integration_state/position_cap_ratio`。
 
 ---
 
@@ -572,6 +680,8 @@ class IntegrationEngine:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.1 | 2026-02-14 | 修复 R34（review-012）：补充 `contract_version` 输入与前置兼容校验（`nc-v1`），不兼容时阻断执行 |
+| v3.5.0 | 2026-02-14 | 对应 review-005 闭环修复：新增统一状态机（normal/warn_*/blocked）；补齐候选可成交性/冲击成本约束并接入 baseline 回退；新增 regime 参数组（阈值/协同倍率/仓位乘子）；BU/TD 冲突升级为“风险预算分层覆盖” |
 | v3.4.7 | 2026-02-09 | 修复 R26：§2.2/§3.1 增加 IRS `quality_flag/sample_days` 与冷启动回退 baseline 规则；§5 增加 `mss_cycle=unknown` 降级为 `HOLD`；§7.1 中性度改为按 `w_mss/w_irs/w_pas` 加权；§8 周期映射补齐 `unknown` |
 | v3.4.6 | 2026-02-08 | 修复 R19：§6.1 筛选注释与 §9.1 对齐，明确主门槛为 `final_score ≥ 55`（PAS/IRS 软排序） |
 | v3.4.5 | 2026-02-08 | 修复 R13：§2 增补 ValidationGateDecision 输入；§3 新增 Gate 前置检查（FAIL 拒绝 / WARN 标记）与 baseline/candidate 权重选择伪代码 |

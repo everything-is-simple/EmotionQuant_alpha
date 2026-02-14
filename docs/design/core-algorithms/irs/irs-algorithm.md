@@ -1,7 +1,7 @@
 # IRS 行业轮动算法设计
 
-**版本**: v3.2.9（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.3.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 
 ---
@@ -18,8 +18,10 @@ IRS（Industry Rotation System）是行业轮动评分系统，通过多因子�
 |------|------|------|
 | industry_score | 行业综合评分 | 0-100 |
 | rotation_status | 轮动状态 | IN/OUT/HOLD |
+| rotation_slope | 轮动斜率（5日） | 实数 |
 | rotation_detail | 轮动详情 | 强势领涨/轮动加速/风格转换/热点扩散/高位整固/趋势反转 |
 | allocation_advice | 配置建议 | 超配/标配/减配/回避 |
+| allocation_mode | 配置映射模式 | dynamic/fixed |
 | neutrality | 中性度 | 0-1（越接近1越中性，越接近0信号越极端） |
 
 命名规范：轮动状态命名详见 [naming-conventions.md](../../../naming-conventions.md) §3。
@@ -142,17 +144,26 @@ continuity_score = normalize_zscore(continuity_raw)
 ```text
 定义：
 industry_amount_delta = industry_amount - industry_amount_prev
-relative_volume = industry_amount / max(industry_amount_avg_20d, ε)   # 可选，用于流动性刻画
+relative_volume = industry_amount / max(industry_amount_avg_20d, ε)
+flow_share = industry_amount / max(market_amount_total, ε)
+crowding_ratio = flow_share / max(mean(flow_share, 20d), ε)
 
 公式：
 net_inflow_10d = Σ(industry_amount_delta, window=10)
-capital_flow_score = normalize_zscore(net_inflow_10d)
+capital_flow_raw = 0.5 × normalize_zscore(net_inflow_10d)
+                 + 0.3 × normalize_zscore(flow_share)
+                 + 0.2 × normalize_zscore(relative_volume)
+                 - crowding_penalty_lambda × max(crowding_ratio - crowding_trigger, 0)
+capital_flow_score = clip(capital_flow_raw, 0, 100)
 
 参数：
 - industry_amount_delta: 行业成交额增量
+- market_amount_total: 全市场成交额（同日聚合）
+- crowding_penalty_lambda: 拥挤惩罚系数（默认 6.0）
+- crowding_trigger: 拥挤触发阈值（默认 1.2）
 - window: 累计窗口（默认10日）
 
-数据来源：raw_daily_basic 聚合
+数据来源：raw_daily + raw_daily_basic 聚合
 权重：20%
 ```
 
@@ -160,17 +171,33 @@ capital_flow_score = normalize_zscore(net_inflow_10d)
 
 ```text
 公式：
-valuation_raw = -industry_pe_ttm
+style_bucket ∈ {growth, balanced, value}
+w_pe(style), w_pb(style) 由生命周期映射给出
+
+valuation_raw = w_pe(style_bucket) × normalize_zscore(-industry_pe_ttm)
+              + w_pb(style_bucket) × normalize_zscore(-industry_pb)
 valuation_score = normalize_zscore(valuation_raw)
 
 参数：
 - industry_pe_ttm: 行业市盈率（TTM）
-- valuation_raw: 估值方向标准化输入（PE 越低越优，先取负号）
+- industry_pb: 行业市净率
+- style_bucket: 行业生命周期桶（growth/balanced/value）
+- valuation_raw: 生命周期校准后的估值输入（PE/PB 联合）
 - history_window: 估值归一化统计窗口（默认3年）
 
 数据来源：raw_daily_basic
 权重：15%
 ```
+
+生命周期映射（默认配置）：
+
+| style_bucket | 行业特征 | w_pe | w_pb |
+|--------------|----------|------|------|
+| growth | 成长风格（高预期） | 0.35 | 0.65 |
+| balanced | 均衡风格 | 0.50 | 0.50 |
+| value | 价值/周期风格 | 0.65 | 0.35 |
+
+> 说明：生命周期映射在配置层维护（`irs_style_mapping`），算法层只消费 `style_bucket`。
 
 聚合口径（个股 `pe_ttm` → 行业 `industry_pe_ttm`）：
 
@@ -294,15 +321,29 @@ def normalize_zscore(value: float, mean: float, std: float) -> float:
 
 | 状态 | 判定条件 | 说明 |
 |------|----------|------|
-| IN | `industry_score` 连续3日上升 | 行业进入轮动 |
-| OUT | `industry_score` 连续3日下降 | 行业退出轮动 |
+| IN | `rotation_slope >= +rotation_band` | 行业进入轮动 |
+| OUT | `rotation_slope <= -rotation_band` | 行业退出轮动 |
 | HOLD | 其他情况 | 维持观望 |
 
 ```python
-def detect_rotation_status(industry_score_t2: float, industry_score_t1: float, industry_score_t: float) -> str:
-    if industry_score_t2 < industry_score_t1 < industry_score_t:
+def detect_rotation_status(score_hist: list[float]) -> str:
+    """
+    score_hist: 最近N日 industry_score（建议 N>=20）
+    """
+    if len(score_hist) < 5:
+        # 冷启动回退：保持旧规则兼容
+        if len(score_hist) >= 3 and score_hist[-3] < score_hist[-2] < score_hist[-1]:
+            return "IN"
+        if len(score_hist) >= 3 and score_hist[-3] > score_hist[-2] > score_hist[-1]:
+            return "OUT"
+        return "HOLD"
+
+    rotation_slope = robust_slope(score_hist[-5:])     # 推荐 Theil-Sen / OLS slope
+    rotation_band = max(1.5, 0.25 * mad(score_hist[-20:]))
+
+    if rotation_slope >= rotation_band:
         return "IN"
-    if industry_score_t2 > industry_score_t1 > industry_score_t:
+    if rotation_slope <= -rotation_band:
         return "OUT"
     return "HOLD"
 ```
@@ -324,26 +365,53 @@ def detect_rotation_status(industry_score_t2: float, industry_score_t1: float, i
 
 ### 6.1 排名映射
 
-| 配置建议 | 排名区间 | 仓位建议 |
-|----------|----------|----------|
-| 超配 | 前3名 | 30%-40% |
-| 标配 | 4-10名 | 10%-20% |
-| 减配 | 11-26名 | 5%-10% |
-| 回避 | 后5名（27-31名） | 0%-5% |
+| 配置建议 | 动态条件（默认） | 仓位建议 |
+|----------|-------------------|----------|
+| 超配 | `industry_score >= q80` 且 `concentration_level != high` | 30%-40% |
+| 标配 | `q55 <= industry_score < q80` | 10%-20% |
+| 减配 | `q25 <= industry_score < q55` | 5%-10% |
+| 回避 | `industry_score < q25` 或 `concentration_level=high` 且非头部行业 | 0%-5% |
 
-> 覆盖性要求：31 个行业必须全部映射到 `allocation_advice`，不允许出现空档排名。
+> 覆盖性要求：31 个行业必须全部映射到 `allocation_advice`，不允许出现空档。
+>
+> 集中度定义（默认）：
+> - `hhi = Σ(weight_i^2)`，其中 `weight_i = max(industry_score_i, 0) / Σ(max(industry_score,0))`
+> - `concentration_level`：
+>   - `high`：`hhi >= 0.090`
+>   - `medium`：`0.060 <= hhi < 0.090`
+>   - `low`：`hhi < 0.060`
+>
+> 兼容模式：`allocation_mode=fixed` 时可回退旧的 3/7/16/5 排名映射。
 
 ```python
-def get_allocation_advice(rank: int) -> str:
-    if 1 <= rank <= 3:
+def get_allocation_advice(
+    score: float,
+    rank: int,
+    q25: float,
+    q55: float,
+    q80: float,
+    concentration_level: str,
+    allocation_mode: str = "dynamic",  # dynamic/fixed
+) -> str:
+    if allocation_mode == "fixed":
+        if 1 <= rank <= 3:
+            return "超配"
+        if 4 <= rank <= 10:
+            return "标配"
+        if 11 <= rank <= 26:
+            return "减配"
+        if 27 <= rank <= 31:
+            return "回避"
+        raise ValueError(f"invalid rank: {rank}")
+
+    # dynamic mode
+    if score >= q80 and concentration_level != "high":
         return "超配"
-    if 4 <= rank <= 10:
+    if q55 <= score < q80:
         return "标配"
-    if 11 <= rank <= 26:
+    if q25 <= score < q55:
         return "减配"
-    if 27 <= rank <= 31:
-        return "回避"
-    raise ValueError(f"invalid rank: {rank}")
+    return "回避"
 ```
 
 ### 6.2 信号触发条件
@@ -351,7 +419,7 @@ def get_allocation_advice(rank: int) -> str:
 | 信号类型 | 触发条件 |
 |----------|----------|
 | 行业强势确认 | 从5名外进入前3 且 评分提升>15分 |
-| 行业强势预警 | 评分连续3日下降 且 降幅>20分 |
+| 行业强势预警 | `rotation_slope <= -rotation_band` 且 5日降幅>20分 |
 | 配置调整信号 | 评分单日变化>25分 |
 
 ---
@@ -383,6 +451,14 @@ neutrality = 1 - |industry_score - 50| / 50
 | zscore_window | 120 | 60-240 | Z-Score 统计窗口 |
 | leader_top_n | 5（锁定） | 固定5 | 与 `top5_codes/top5_pct_chg/top5_limit_up` 字段强耦合，MVP 不开放可调 |
 | gene_decay | 0.9 | 0.7-0.98 | 基因库衰减系数 |
+| rotation_window | 5 | 3-10 | 轮动斜率窗口 |
+| rotation_band_k | 0.25 | 0.10-0.50 | 轮动稳健阈值系数（×MAD） |
+| rotation_band_min | 1.5 | 0.5-3.0 | 轮动最小阈值 |
+| allocation_mode | dynamic | dynamic/fixed | 配置映射模式 |
+| q25/q55/q80 | 0.25/0.55/0.80 | 固定三元组 | 动态映射分位阈值 |
+| crowding_penalty_lambda | 6.0 | 0-12 | 拥挤惩罚系数 |
+| crowding_trigger | 1.2 | 1.0-2.0 | 拥挤触发阈值 |
+| hhi_high/hhi_medium | 0.090/0.060 | 可调 | 集中度分层阈值 |
 
 ### 8.2 权重参数
 
@@ -399,13 +475,15 @@ neutrality = 1 - |industry_score - 50| / 50
 
 - 必备字段：
   - industry_snapshot 计数类：stock_count、rise_count、fall_count、limit_up_count、limit_down_count、new_100d_high_count、new_100d_low_count、top5_limit_up
-  - industry_snapshot 连续类：industry_pct_chg、industry_amount、industry_turnover、industry_pe_ttm、industry_pb
+  - industry_snapshot 连续类：industry_pct_chg、industry_amount、industry_turnover、industry_pe_ttm、industry_pb、market_amount_total、style_bucket
   - industry_snapshot 质量类：data_quality（normal/stale/cold_start）、stale_days、source_trade_date
   - BenchmarkData：benchmark_pct_chg（来源 `raw_index_daily.pct_chg`）
 - 约束（零容忍）：
   - stock_count > 0
   - rise_count + fall_count ≤ stock_count
   - 所有 ratio 必须落在 [0, 1]；使用 max(分母, 1) 防止除零
+  - flow_share = industry_amount / market_amount_total 必须落在 [0, 1]
+  - style_bucket 必须落在 {growth, balanced, value}
   - stale_days ≤ 3（>3 视为陈旧数据，阻断 IRS 主流程）
 
 ### 9.2 尺度一致性（count→ratio→zscore）
@@ -423,6 +501,7 @@ neutrality = 1 - |industry_score - 50| / 50
 - industry_score 与各因子得分必须位于 [0, 100]
 - neutrality 必须位于 [0, 1]
 - rotation_status 必须落在 IN/OUT/HOLD
+- allocation_mode 必须落在 dynamic/fixed
 - quality_flag 必须落在 normal/cold_start/stale
 - sample_days 必须为非负整数
 
@@ -454,6 +533,7 @@ neutrality = 1 - |industry_score - 50| / 50
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.3.0 | 2026-02-14 | 落地 review-002 修复：配置映射从固定排名升级为“分位 + 集中度”动态映射（支持 `dynamic/fixed`）；轮动状态从“3日单调”升级为“robust slope + MAD band”；资金流向增加 `flow_share` 与拥挤惩罚；估值因子引入生命周期 `style_bucket`（PE/PB 权重校准） |
 | v3.2.9 | 2026-02-09 | 修复 R26：§3.4 冷启动输出新增 `quality_flag/sample_days`；§9.1 增加 snapshot 质量字段与 `stale_days ≤ 3` 门禁；§9.4 增加质量字段合法性校验；§10.3 明确 Integration 读取质量标记进行回退 |
 | v3.2.8 | 2026-02-08 | 修复 R19：§10.1 明确 MSS 不直接进入 IRS 因子计算，MSS 驱动调整由 Integration 层执行 |
 | v3.2.7 | 2026-02-08 | 修复 R13：`leader_top_n` 锁定为 5（与 `top5_*` 字段耦合）；`rotation_status` 明确基于 `industry_score`；§6.1 补充 rank→allocation_advice 伪代码 |

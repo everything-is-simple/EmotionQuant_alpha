@@ -1,8 +1,8 @@
 # Trading 数据模型
 
-**版本**: v3.2.7（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）
+**版本**: v3.3.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -66,6 +66,14 @@ class Order:
     filled_amount: float      # 成交金额
     commission: float         # 佣金
     slippage: float           # 滑点
+    fill_probability: float   # 可成交概率 [0-1]
+    fill_ratio: float         # 成交比例 [0-1]
+    liquidity_tier: str       # 流动性分层 L1/L2/L3
+    impact_cost_bps: float    # 冲击成本（bps）
+    reject_reason: str        # 标准拒单原因（RejectReason）
+    trading_state: str        # normal/warn_data_fallback/blocked_*
+    execution_mode: str       # auction_single/auction_sliced/time_windowed
+    slice_seq: int            # 分批执行序号（非分批为0）
     created_at: datetime      # 创建时间
     filled_at: datetime       # 成交时间（可空）
     # v2.0新增
@@ -77,6 +85,9 @@ class Order:
 - `status`: 枚举值 `pending | submitted | filled | partially_filled | cancelled | rejected`
 - `order_type`: 枚举值 `auction | market | limit | stop`
 - `direction`: 枚举值 `buy | sell`
+- `reject_reason`: 枚举值见 `RejectReason`
+- `trading_state`: 枚举值见 `TradingState`
+- `execution_mode`: 枚举值见 `ExecutionMode`
 
 ### 1.3 Position（持仓）
 
@@ -128,6 +139,14 @@ class TradeRecord:
     total_fee: float          # 总费用
     # 状态
     status: str               # filled/partially_filled/rejected
+    fill_probability: float   # 可成交概率 [0-1]
+    fill_ratio: float         # 成交比例 [0-1]
+    liquidity_tier: str       # 流动性分层 L1/L2/L3
+    impact_cost_bps: float    # 冲击成本（bps）
+    reject_reason: str        # 标准拒单原因（RejectReason）
+    trading_state: str        # normal/warn_data_fallback/blocked_*
+    execution_mode: str       # auction_single/auction_sliced/time_windowed
+    slice_seq: int            # 分批执行序号（非分批为0）
     signal_id: str            # 关联信号ID
     # 时间戳
     created_at: datetime
@@ -152,6 +171,11 @@ class TradeConfig:
     # 止损止盈
     stop_loss_pct: float = 0.08          # 默认止损比例
     take_profit_pct: float = 0.15        # 默认止盈比例
+    # 执行可行性
+    min_fill_probability: float = 0.35   # 最低可成交概率
+    queue_participation_rate: float = 0.15  # 竞价参与比例上限
+    impact_cost_bps_cap: float = 35.0    # 冲击成本上限（bps）
+    execution_mode: str = "auction_single"  # auction_single/auction_sliced/time_windowed
 ```
 
 ### 2.2 RiskConfig（风控配置）
@@ -163,6 +187,9 @@ class RiskConfig:
     max_position_ratio: float = 0.20     # 单股最大仓位20%
     max_industry_ratio: float = 0.30     # 行业最大仓位30%
     max_total_position: float = 0.80     # 总仓位上限80%
+    risk_threshold_mode: str = "fixed"   # fixed/regime
+    regime_low_temp_max_position: float = 0.15
+    regime_high_vol_max_total_position: float = 0.70
     stop_loss_ratio: float = 0.08        # 止损线8%
     max_drawdown_limit: float = 0.15     # 最大回撤限制15%
 ```
@@ -226,7 +253,7 @@ class ValidationResult:
 class RiskCheckResult:
     """风控检查结果"""
     passed: bool              # 是否通过
-    reason: str               # 拒绝原因（通过时为空）
+    reject_reason: str        # 拒绝原因枚举（通过时为 OK）
     validation: ValidationResult  # 信号验证结果（v2.0）
 ```
 
@@ -257,6 +284,14 @@ class RiskCheckResult:
 | slippage | DECIMAL(12,4) | 滑点 |
 | total_fee | DECIMAL(16,2) | 总费用 |
 | status | VARCHAR(20) | 状态 filled/partially_filled/rejected |
+| fill_probability | DECIMAL(8,4) | 可成交概率 |
+| fill_ratio | DECIMAL(8,4) | 成交比例 |
+| liquidity_tier | VARCHAR(10) | 流动性分层 L1/L2/L3 |
+| impact_cost_bps | DECIMAL(10,4) | 冲击成本 bps |
+| reject_reason | VARCHAR(40) | 标准拒单原因（RejectReason） |
+| trading_state | VARCHAR(40) | 执行状态机（TradingState） |
+| execution_mode | VARCHAR(30) | 执行模式（ExecutionMode） |
+| slice_seq | INTEGER | 分批序号（非分批为0） |
 | signal_id | VARCHAR(50) | 关联信号ID |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
@@ -264,6 +299,8 @@ class RiskCheckResult:
 索引：
 - `idx_trade_date`: trade_date
 - `idx_stock_code`: stock_code
+- `idx_reject_reason`: reject_reason
+- `idx_trading_state`: trading_state
 
 ### 4.2 positions 表（Business Tables）
 
@@ -366,6 +403,14 @@ class RiskCheckResult:
 | integration_mode | integration_mode | 原样透传 |
 | entry/stop/target | entry/stop/target | 优先透传；缺失时按风控参数补齐 |
 
+### 5.6 L1 市场数据依赖（执行可行性）
+
+| 数据源 | 用途 | 必需字段 |
+|--------|------|----------|
+| raw_daily | 竞价量能/波动率估计 | open, vol, amount, pct_chg |
+| raw_limit_list | 涨跌停可交易性校验 | limit |
+| raw_trade_cal | 交易日校验 | is_open |
+
 ---
 
 ## 6. 枚举定义
@@ -409,12 +454,49 @@ class RiskLevel(Enum):
     HIGH = "high"
 ```
 
+### 6.5 RejectReason（标准拒单原因）
+
+```python
+class RejectReason(Enum):
+    OK = "OK"
+    REJECT_NO_CASH = "REJECT_NO_CASH"
+    REJECT_MAX_POSITION = "REJECT_MAX_POSITION"
+    REJECT_MAX_INDUSTRY = "REJECT_MAX_INDUSTRY"
+    REJECT_MAX_TOTAL_POSITION = "REJECT_MAX_TOTAL_POSITION"
+    REJECT_T1_FROZEN = "REJECT_T1_FROZEN"
+    REJECT_LIMIT_UP = "REJECT_LIMIT_UP"
+    REJECT_LIMIT_DOWN = "REJECT_LIMIT_DOWN"
+    REJECT_LOW_FILL_PROB = "REJECT_LOW_FILL_PROB"
+    REJECT_ZERO_FILL = "REJECT_ZERO_FILL"
+    REJECT_NO_OPEN_PRICE = "REJECT_NO_OPEN_PRICE"
+```
+
+### 6.6 TradingState（执行状态机）
+
+```python
+class TradingState(Enum):
+    NORMAL = "normal"
+    WARN_DATA_FALLBACK = "warn_data_fallback"
+    BLOCKED_GATE_FAIL = "blocked_gate_fail"
+    BLOCKED_UNTRADABLE = "blocked_untradable"
+```
+
+### 6.7 ExecutionMode（执行模式）
+
+```python
+class ExecutionMode(Enum):
+    AUCTION_SINGLE = "auction_single"
+    AUCTION_SLICED = "auction_sliced"
+    TIME_WINDOWED = "time_windowed"
+```
+
 ---
 
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.3.0 | 2026-02-14 | 对应 review-007 闭环修复：`Order/TradeRecord` 新增成交可行性与执行状态字段（`fill_probability/fill_ratio/liquidity_tier/impact_cost_bps/reject_reason/trading_state/execution_mode/slice_seq`）；`TradeConfig/RiskConfig` 增加执行可行性参数与 `fixed/regime` 阈值配置；新增 `RejectReason/TradingState/ExecutionMode` 枚举并同步 DDL 索引 |
 | v3.2.7 | 2026-02-12 | 修复 R14：`Position` dataclass 调整字段顺序，确保默认字段 `direction` 位于无默认字段之后；§5.4 `integrated_recommendation` 依赖补充 `mss_score`，与算法消费与 Data Layer DDL 对齐 |
 | v3.2.6 | 2026-02-09 | 修复 R28：`trade_records/positions/t1_frozen` 类型体系由 `TEXT/REAL` 统一为 `VARCHAR/DECIMAL/BOOLEAN/DATETIME`，与 Data Layer 业务表口径一致 |
 | v3.2.5 | 2026-02-09 | 修复 R20：`TradeSignal.source` 标注为当前仅 `integrated`；`TradeConfig` 移除 IRS/PAS 硬阈值并统一为 `min_final_score`；费用配置改为共享 `AShareFeeConfig` 统一来源 |

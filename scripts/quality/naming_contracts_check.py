@@ -127,6 +127,45 @@ EXPECTATIONS: tuple[Expectation, ...] = (
         r"final_score\s*>=\s*75",
         "GUI display rules must align STRONG_BUY threshold with 75",
     ),
+    # BUY threshold 70 alignment
+    Expectation(
+        "buy_70",
+        "docs/naming-conventions.md",
+        r"(?:BUY[^\n]*70|70[^\n]*BUY)",
+        "Naming spec must align BUY threshold with 70",
+    ),
+    Expectation(
+        "buy_70",
+        "docs/design/core-algorithms/integration/integration-algorithm.md",
+        r"(?:BUY[^\n]*70|70[^\n]*BUY)",
+        "Integration must align BUY threshold with 70",
+    ),
+    # PAS grade B threshold 55 alignment
+    Expectation(
+        "pas_b_55",
+        "docs/naming-conventions.md",
+        r"\[55,\s*70\)",
+        "Naming spec must align PAS grade-B threshold with 55",
+    ),
+    Expectation(
+        "pas_b_55",
+        "docs/design/core-algorithms/pas/pas-algorithm.md",
+        r"\[55,\s*70\)",
+        "PAS algorithm must align grade-B threshold with 55",
+    ),
+    Expectation(
+        "pas_b_55",
+        "docs/design/core-algorithms/pas/pas-data-models.md",
+        r"\[55,\s*70\)",
+        "PAS data models must align grade-B threshold with 55",
+    ),
+    # RR threshold 1.0 boundary
+    Expectation(
+        "rr_threshold",
+        "docs/naming-conventions.md",
+        r"1\.0",
+        "Naming spec must explicitly carry RR threshold 1.0",
+    ),
     # stock_code / ts_code boundary
     Expectation(
         "code_boundary",
@@ -188,6 +227,111 @@ EXPECTATIONS: tuple[Expectation, ...] = (
         "docs/design/core-algorithms/integration/integration-algorithm.md",
         r"PASS/WARN/FAIL",
         "Integration must preserve PASS/WARN/FAIL triplet",
+    ),
+    # Contract version checks (Integration/Trading/Backtest)
+    Expectation(
+        "contract_version",
+        "docs/design/core-algorithms/integration/integration-algorithm.md",
+        r"contract_version",
+        "Integration must define contract_version compatibility check",
+    ),
+    Expectation(
+        "contract_version",
+        "docs/design/core-algorithms/integration/integration-algorithm.md",
+        r"nc-v1",
+        "Integration must bind to canonical contract version nc-v1",
+    ),
+    Expectation(
+        "contract_version",
+        "docs/design/core-infrastructure/trading/trading-algorithm.md",
+        r"contract_version",
+        "Trading must define contract_version compatibility check",
+    ),
+    Expectation(
+        "contract_version",
+        "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
+        r"contract_version",
+        "Backtest must define contract_version compatibility check",
+    ),
+    Expectation(
+        "contract_version_api",
+        "docs/design/core-algorithms/integration/integration-api.md",
+        r"contract_version",
+        "Integration API must expose contract_version compatibility input",
+    ),
+    Expectation(
+        "contract_version_api",
+        "docs/design/core-algorithms/integration/integration-api.md",
+        r"nc-v1",
+        "Integration API must bind contract_version to nc-v1",
+    ),
+    Expectation(
+        "contract_version_api",
+        "docs/design/core-infrastructure/trading/trading-api.md",
+        r"contract_version",
+        "Trading API must define contract_version compatibility check",
+    ),
+    Expectation(
+        "contract_version_api",
+        "docs/design/core-infrastructure/trading/trading-api.md",
+        r"blocked_contract_mismatch",
+        "Trading API must expose blocked_contract_mismatch state",
+    ),
+    Expectation(
+        "contract_version_api",
+        "docs/design/core-infrastructure/backtest/backtest-api.md",
+        r"contract_version",
+        "Backtest API must define contract_version compatibility check",
+    ),
+    Expectation(
+        "contract_version_api",
+        "docs/design/core-infrastructure/backtest/backtest-api.md",
+        r"blocked_contract_mismatch",
+        "Backtest API must expose blocked_contract_mismatch state",
+    ),
+    # Schema-first source
+    Expectation(
+        "schema_first",
+        "docs/naming-contracts.schema.json",
+        r"\"schema_version\"\s*:\s*\"nc-v1\"",
+        "Schema file must define nc-v1 contract version",
+    ),
+    Expectation(
+        "schema_first",
+        "docs/naming-contracts.schema.json",
+        r"\"strong_buy_min\"\s*:\s*75",
+        "Schema file must define strong_buy_min=75",
+    ),
+    Expectation(
+        "schema_first",
+        "docs/naming-contracts.schema.json",
+        r"\"buy_min\"\s*:\s*70",
+        "Schema file must define buy_min=70",
+    ),
+    Expectation(
+        "schema_first",
+        "docs/naming-contracts.schema.json",
+        r"\"pas_grade_b_min\"\s*:\s*55",
+        "Schema file must define pas_grade_b_min=55",
+    ),
+    Expectation(
+        "schema_first",
+        "docs/naming-contracts.schema.json",
+        r"\"min\"\s*:\s*1\.0",
+        "Schema file must define RR min=1.0",
+    ),
+    # Glossary / change template
+    Expectation(
+        "glossary_template",
+        "docs/naming-contracts-glossary.md",
+        r"contract_version",
+        "Glossary must include contract_version term",
+    ),
+    Expectation(
+        "glossary_template",
+        "Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md",
+        r"联动文档清单",
+        "Naming-contract template must include linkage checklist",
     ),
 )
 

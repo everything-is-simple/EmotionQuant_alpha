@@ -1,7 +1,7 @@
 # IRS API 接口
 
-**版本**: v3.2.2（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.3.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（模块接口；当前仓库无 Web API）
 
 ---
@@ -38,6 +38,8 @@ class IrsCalculator:
             31个行业的评分列表（按排名升序；每条记录包含 quality_flag/sample_days）
             - quality_flag: normal/cold_start/stale
             - sample_days: 有效样本天数（>= 0）
+            - allocation_mode: dynamic/fixed
+            - rotation_slope: 轮动斜率（5日）
         Raises:
             ValueError: 非交易日或数据缺失
         Note:
@@ -59,6 +61,10 @@ class IrsCalculator:
     
     def get_rotation_status(self, trade_date: str, industry_code: str) -> str:
         """获取指定行业的轮动状态"""
+        pass
+
+    def get_allocation_mode(self, trade_date: str) -> str:
+        """获取当日行业配置映射模式（dynamic/fixed）"""
         pass
 ```
 
@@ -95,7 +101,8 @@ class IrsRepository:
 
 - 非交易日或数据缺失：抛出 `ValueError`。
 - 冷启动降级：当 `sample_days < 60` 时，输出 `quality_flag="cold_start"` 与对应 `sample_days`（合法输出，不抛异常）。
-- 陈旧数据降级：当可用样本不足但可沿用前值时，输出 `quality_flag="stale"`（合法输出，不抛异常）。
+- 陈旧数据阻断：当 `stale_days > 3` 时，抛出 `DataNotReadyError`，阻断 IRS 主流程。
+- 陈旧数据降级：当 `stale_days <= 3` 但样本不足时，可输出 `quality_flag="stale"`（合法输出，不抛异常）。
 - 详细错误码与处理策略见：
   - `docs/design/core-algorithms/irs/irs-algorithm.md`
   - `Governance/Capability/CP-03-irs.md`
@@ -106,6 +113,7 @@ class IrsRepository:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.3.0 | 2026-02-14 | 落地 review-002 修复：`calculate()` 返回契约补充 `allocation_mode/rotation_slope`；新增 `get_allocation_mode()`；错误处理增加 `stale_days > 3` 阻断规则 |
 | v3.2.2 | 2026-02-09 | 修复 R27：`calculate()` 返回契约补充 `quality_flag/sample_days`；错误处理补充 `cold_start/stale` 降级语义；`IrsRepository` 增加可选查询 `get_cold_start_industries()` |
 | v3.2.1 | 2026-02-05 | 移除 HTTP 接口示例，改为模块接口定义；与路线图/仓库架构对齐 |
 | v3.2.0 | 2026-02-04 | 同步 IRS v3.2.0：动量斜率改为连续性因子；示例口径对齐 |

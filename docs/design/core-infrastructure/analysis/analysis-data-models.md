@@ -1,8 +1,8 @@
 # Analysis 数据模型
 
-**版本**: v3.1.7（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
 
 ---
 
@@ -89,7 +89,26 @@ class SignalAttribution:
     mss_attribution: float        # MSS贡献度
     irs_attribution: float        # IRS贡献度
     pas_attribution: float        # PAS贡献度
-    sample_count: int             # 样本数
+    sample_count: int             # 截尾后样本数
+    raw_sample_count: int         # 截尾前样本数
+    trimmed_sample_count: int     # 截尾后样本数（冗余留存便于审计）
+    trim_ratio: float             # 截尾比例
+    attribution_method: str       # 归因方法（如 trimmed_mean_q0.05 / mean_fallback_small_sample）
+    created_at: datetime          # 创建时间
+```
+
+### 1.4 LiveBacktestDeviation（实盘-回测偏差归因）
+
+```python
+@dataclass
+class LiveBacktestDeviation:
+    """实盘-回测偏差拆解"""
+    trade_date: str               # 交易日期
+    signal_deviation: float       # 信号偏差（选股/打分）
+    execution_deviation: float    # 成交偏差（成交相对 entry）
+    cost_deviation: float         # 成本偏差（佣金+滑点+冲击）
+    total_deviation: float        # 总偏差
+    dominant_component: str       # 主导偏差项（signal/execution/cost）
     created_at: datetime          # 创建时间
 ```
 
@@ -202,6 +221,10 @@ class RiskSummary:
     low_risk_pct: float           # 低风险占比
     medium_risk_pct: float        # 中风险占比
     high_risk_pct: float          # 高风险占比
+    high_risk_change_rate: float  # 高风险变化率（相对前一日）
+    low_risk_change_rate: float   # 低风险变化率（相对前一日）
+    risk_turning_point: str       # 风险拐点（risk_up_turn/risk_down_turn/none）
+    risk_regime: str              # 风险状态（risk_on/risk_off/neutral）
     risk_alert: str               # 风险提示文案
 ```
 
@@ -269,6 +292,24 @@ CREATE TABLE signal_attribution (
     irs_attribution DECIMAL(10,6),
     pas_attribution DECIMAL(10,6),
     sample_count INT,
+    raw_sample_count INT,
+    trimmed_sample_count INT,
+    trim_ratio DECIMAL(8,4),
+    attribution_method VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 3.4 live_backtest_deviation 表（L4分析库）
+
+```sql
+CREATE TABLE live_backtest_deviation (
+    trade_date VARCHAR(8) PRIMARY KEY,
+    signal_deviation DECIMAL(10,6),
+    execution_deviation DECIMAL(10,6),
+    cost_deviation DECIMAL(10,6),
+    total_deviation DECIMAL(10,6),
+    dominant_component VARCHAR(20),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -290,9 +331,9 @@ CREATE TABLE signal_attribution (
 
 | 数据表 | 用途 | 关键字段 |
 |--------|------|----------|
-| trade_records | 交易记录（实盘分析场景） | stock_code, filled_price/price, status |
+| trade_records | 交易记录（实盘分析场景） | stock_code, filled_price/price, status, commission, slippage, impact_cost_bps |
 | positions | 持仓数据 | stock_code, industry_code, market_value |
-| backtest_trade_records | 回测成交记录（回测分析场景） | stock_code, filled_price/price, status |
+| backtest_trade_records | 回测成交记录（回测分析场景） | stock_code, filled_price/price, status, commission, slippage, impact_cost_bps |
 | backtest_results | 回测结果（含 equity_curve） | equity_curve |
 
 ---
@@ -357,6 +398,20 @@ class ScoreDistributionData:
 | {{top_recommendations_table}} | List[RecommendationSummary] | table |
 | {{risk_summary}} | RiskSummary.risk_alert | str |
 
+### 6.2 看板快照字段（GUI/治理共用）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| report_date | str | 报告日期 |
+| analysis_state | str | 分析状态（ok/warn_data_fallback/partial_skipped） |
+| summary.total_return | float | 总收益率 |
+| summary.max_drawdown | float | 最大回撤 |
+| attribution.attribution_method | str | 归因方法 |
+| risk.high_risk_change_rate | float | 高风险变化率 |
+| risk.risk_turning_point | str | 风险拐点 |
+| deviation.total_deviation | float | 实盘-回测总偏差 |
+| deviation.dominant_component | str | 主导偏差项 |
+
 ---
 
 ## 7. 枚举定义
@@ -387,6 +442,7 @@ class ReportType(Enum):
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：`SignalAttribution` 补齐稳健归因字段（raw/trimmed/trim_ratio/method）；新增 `LiveBacktestDeviation` 数据结构与 DDL；`RiskSummary` 补齐变化率/拐点/状态字段；输入依赖补齐成本字段；新增看板快照字段规范 |
 | v3.1.7 | 2026-02-12 | 修复 R16：temperature_level 改为 4 级并补齐 cycle 的 unknown；删除 IndustryRotation.strong_count（无算法来源）；统一 IndustryRadarData 索引注释为 IN |
 | v3.1.6 | 2026-02-09 | 修复 R28：`DailyReport` dataclass 补齐 `total_return` 字段，与 `daily_report` DDL 一致 |
 | v3.1.5 | 2026-02-09 | 修复 R21：`DailyReportData` 补齐 `created_at`；`daily_report` DDL 增加 `total_return`；输入依赖表补齐归因所需 `integrated_recommendation.entry` 与成交价关键字段 |

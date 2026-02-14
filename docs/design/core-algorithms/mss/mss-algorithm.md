@@ -1,7 +1,7 @@
 # MSS 市场情绪算法设计
 
-**版本**: v3.1.5（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 **数据基线**: TuShare 5000积分
 
@@ -18,6 +18,7 @@ MSS（Market Sentiment System）是 EmotionQuant 系统的市场情绪基准，�
 - 情绪周期（七大周期）
 - 趋势方向（up/down/sideways）
 - 仓位建议
+- 极端方向偏置（extreme_direction_bias，-1~1，用于区分恐慌尾部/逼空尾部）
 
 命名规范：情绪周期与趋势命名详见 [naming-conventions.md](../../../naming-conventions.md) §1-2。
 
@@ -144,7 +145,12 @@ market_coefficient = zscore_normalize(market_coefficient_raw, mean, std)
 ```text
 limit_up_ratio   = limit_up_count / total_stocks
 new_high_ratio   = new_100d_high_count / total_stocks
-strong_up_ratio  = strong_up_count / total_stocks
+
+# 分板块制度归一（A股规则）
+# board_limit_i ∈ {0.10(主板), 0.20(创业板/科创板), 0.05(ST)}
+# strong_move_ratio 默认 0.5，表示“达到该板块涨跌停幅度的 50%”
+strong_up_threshold_i = strong_move_ratio × board_limit_i
+strong_up_ratio       = count(pct_chg_i >= strong_up_threshold_i) / total_stocks
 
 profit_effect_raw = 0.4×limit_up_ratio + 0.3×new_high_ratio + 0.3×strong_up_ratio
 profit_effect     = zscore_normalize(profit_effect_raw, mean, std)
@@ -157,7 +163,10 @@ profit_effect     = zscore_normalize(profit_effect_raw, mean, std)
 ```text
 broken_rate       = (touched_limit_up - limit_up_count) / max(touched_limit_up, 1)
 limit_down_ratio  = limit_down_count / total_stocks
-strong_down_ratio = strong_down_count / total_stocks
+
+# 与 strong_up 对称的分板块制度归一
+strong_down_threshold_i = strong_move_ratio × board_limit_i
+strong_down_ratio       = count(pct_chg_i <= -strong_down_threshold_i) / total_stocks
 new_low_ratio     = new_100d_low_count / total_stocks
 
 loss_effect_raw = 0.3×broken_rate + 0.2×limit_down_ratio + 0.3×strong_down_ratio + 0.2×new_low_ratio
@@ -183,12 +192,20 @@ continuity_factor     = zscore_normalize(continuity_factor_raw, mean, std)
 原始值（ratio）：
 
 ```text
-high_open_low_close_ratio  = high_open_low_close_count / total_stocks
-low_open_high_close_ratio  = low_open_high_close_count / total_stocks
+panic_tail_ratio   = high_open_low_close_count / total_stocks
+squeeze_tail_ratio = low_open_high_close_count / total_stocks
 
-extreme_factor_raw = high_open_low_close_ratio + low_open_high_close_ratio
-extreme_factor     = zscore_normalize(extreme_factor_raw, mean, std)
+extreme_factor_raw     = panic_tail_ratio + squeeze_tail_ratio
+extreme_factor         = zscore_normalize(extreme_factor_raw, mean, std)
+extreme_direction_bias = clip(
+    (squeeze_tail_ratio - panic_tail_ratio) / max(extreme_factor_raw, 1e-6),
+    -1.0, 1.0
+)
 ```
+
+语义：
+- `extreme_factor`：仅刻画“尾部活跃强度”，不直接表达方向。
+- `extreme_direction_bias`：方向偏置（负值偏恐慌尾部，正值偏逼空尾部）。
 
 ### 3.6 波动因子（离散度 / Dispersion）
 
@@ -230,15 +247,27 @@ temperature = 大盘系数 × 0.17 + 赚钱效应 × 0.34 + (100 - 亏钱效应)
 
 ### 5.1 周期定义（含兜底）
 
+> **阈值模式（新增）**：
+> - `fixed`：固定阈值 `30/45/60/75`（兼容模式）
+> - `adaptive`：分位数阈值 `T30/T45/T60/T75`（默认）
+>
+> 分位阈值定义（滚动窗口，默认 252 交易日）：
+> - `T30 = quantile(temperature_hist, 0.30)`
+> - `T45 = quantile(temperature_hist, 0.45)`
+> - `T60 = quantile(temperature_hist, 0.60)`
+> - `T75 = quantile(temperature_hist, 0.75)`
+>
+> 冷启动约束：当历史样本不足 `adaptive_min_samples`（默认 120）时，自动回退固定阈值。
+
 | 周期 | 温度条件 | 趋势条件 | 仓位建议 | 判定优先级 |
 |------|----------|----------|----------|------------|
-| 高潮期 | ≥75°C | any | 20%-40% | 1（最高） |
-| 萌芽期 | <30°C | up | 80%-100% | 2 |
-| 发酵期 | 30-45°C | up | 60%-80% | 3 |
-| 加速期 | 45-60°C | up | 50%-70% | 4 |
-| 分歧期 | 60-75°C | up/sideways | 40%-60% | 5 |
-| 扩散期 | 60-75°C | down | 30%-50% | 6 |
-| 退潮期 | <60°C | down/sideways | 0%-20% | 7（最低） |
+| 高潮期 | ≥T75（或 ≥75°C） | any | 20%-40% | 1（最高） |
+| 萌芽期 | <T30（或 <30°C） | up | 80%-100% | 2 |
+| 发酵期 | [T30, T45)（或 30-45°C） | up | 60%-80% | 3 |
+| 加速期 | [T45, T60)（或 45-60°C） | up | 50%-70% | 4 |
+| 分歧期 | [T60, T75)（或 60-75°C） | up/sideways | 40%-60% | 5 |
+| 扩散期 | [T60, T75)（或 60-75°C） | down | 30%-50% | 6 |
+| 退潮期 | <T60（或 <60°C） | down/sideways | 0%-20% | 7（最低） |
 | unknown | 其他异常输入 | 非 up/down/sideways | 0%-20% | 8（兜底） |
 
 > **判定规则**：按优先级从高到低依次匹配，匹配成功即返回
@@ -246,37 +275,48 @@ temperature = 大盘系数 × 0.17 + 赚钱效应 × 0.34 + (100 - 亏钱效应)
 ### 5.2 周期判定伪代码
 
 ```python
-def detect_cycle(temperature: float, trend: str) -> str:
+def detect_cycle(
+    temperature: float,
+    trend: str,
+    thresholds: dict[str, float],  # {t30, t45, t60, t75}
+) -> str:
     """
     周期判定逻辑（按优先级顺序）
     trend取值: "up" | "down" | "sideways"
     """
+    t30, t45, t60, t75 = (
+        thresholds["t30"],
+        thresholds["t45"],
+        thresholds["t60"],
+        thresholds["t75"],
+    )
+
     # 优先级1：高潮期
-    if temperature >= 75:
+    if temperature >= t75:
         return "climax"  # 高潮期
-    
+
     # 优先级2-4：上升趋势
     if trend == "up":
-        if temperature < 30:
+        if temperature < t30:
             return "emergence"  # 萌芽期
-        if temperature < 45:
+        if temperature < t45:
             return "fermentation"  # 发酵期
-        if temperature < 60:
+        if temperature < t60:
             return "acceleration"  # 加速期
-        return "divergence"  # 分歧期（60-75，上升）
-    
+        return "divergence"  # 分歧期（T60-T75，上升）
+
     # 优先级5：横盘
     if trend == "sideways":
-        if temperature >= 60:
-            return "divergence"  # 分歧期（60-75，横盘）
-        return "recession"  # 退潮期（<60，横盘）
-    
+        if temperature >= t60:
+            return "divergence"  # 分歧期（T60-T75，横盘）
+        return "recession"  # 退潮期（<T60，横盘）
+
     # 优先级6-7：下降趋势
     if trend == "down":
-        if temperature >= 60:
-            return "diffusion"  # 扩散期
+        if temperature >= t60:
+            return "diffusion"  # 扩散期（T60-T75，下降）
         return "recession"  # 退潮期
-    
+
     return "unknown"  # 输入异常兜底（仓位按 0%-20%）
 ```
 
@@ -296,11 +336,20 @@ def detect_cycle(temperature: float, trend: str) -> str:
 
 | 趋势 | 英文代码 | 判定条件 |
 |------|----------|----------|
-| 上升 | up | `temperature[t-2] < temperature[t-1] < temperature[t]`（严格递增） |
-| 下降 | down | `temperature[t-2] > temperature[t-1] > temperature[t]`（严格递减） |
+| 上升 | up | `ema_short > ema_long` 且 `slope_5d >= +trend_band` |
+| 下降 | down | `ema_short < ema_long` 且 `slope_5d <= -trend_band` |
 | 横盘 | sideways | 其他情况 |
 
-> 说明：若最近 3 日温度存在相等（如 `50, 50, 50`），归类为 `sideways`，不计入 up/down。
+```text
+ema_short = EMA(temperature, 3)
+ema_long  = EMA(temperature, 8)
+slope_5d  = (temperature[t] - temperature[t-5]) / 5
+trend_band = max(0.8, 0.15 × std(temperature, 20))
+```
+
+说明：
+- `trend_band` 提供滞后带，避免 1-2 日冲击造成趋势翻转抖动。
+- 当样本不足（<8 日）时回退旧规则（3 日单调），并标记 `trend_quality=cold_start`。
 
 ---
 
@@ -376,8 +425,12 @@ def zscore_normalize(value: float, mean: float, std: float) -> float:
 | 参数名称 | 代码 | 默认值 | 可调范围 |
 |----------|------|--------|----------|
 | 新高统计窗口 | new_high_window | 100 | 60-120 |
-| 大涨阈值 | strong_move_threshold | 5% | 3%-7% |
+| 强波动判定比例 | strong_move_ratio | 0.50 | 0.35-0.70 |
 | 炸板率阈值 | broken_rate_threshold | 20% | 10%-30% |
+| 周期阈值模式 | regime_threshold_mode | adaptive | fixed/adaptive |
+| 周期分位窗口 | regime_quantile_window | 252 | 120-504 |
+| 自适应最小样本 | adaptive_min_samples | 120 | 60-252 |
+| 阈值分位组 | regime_quantiles | (0.30,0.45,0.60,0.75) | 固定四元组 |
 
 ### 8.2 增强因子参数
 
@@ -423,6 +476,7 @@ def zscore_normalize(value: float, mean: float, std: float) -> float:
   - 0 ≤ limit_up_count ≤ touched_limit_up
   - 所有 ratio 必须落在 [0, 1]；使用 max(分母, 1) 防止除零
   - stale_days ≤ 3（>3 视为陈旧数据，阻断 MSS 主流程）
+  - `strong_up_count/strong_down_count` 必须基于分板块归一阈值统计（不得使用全市场固定 ±5%）
 
 ### 10.2 尺度一致性（count→ratio→zscore）
 
@@ -433,7 +487,9 @@ def zscore_normalize(value: float, mean: float, std: float) -> float:
 
 - 因子分数与 temperature 必须位于 [0, 100]
 - neutrality 必须位于 [0, 1]
+- extreme_direction_bias 必须位于 [-1, 1]
 - cycle/trend 必须落在枚举集合内
+- trend_quality 必须落在 {normal, cold_start, degraded}
 
 ### 10.4 宏观方向稽核条款（四大方向：不得重复覆盖）
 
@@ -444,12 +500,27 @@ def zscore_normalize(value: float, mean: float, std: float) -> float:
 3. **变更约束**：新增/调整 raw 观测口径时，必须同步更新 §2.4.1，并在变更记录中说明原因（例如市场结构变化、数据字段口径变化）。
 4. **可追溯性**：实现层（L2→L3）应能追溯每个 raw 观测属于哪个宏观方向（用于解释温度变化的主驱动）。
 
+### 10.5 异常处理统一语义（禁止沿用前值）
+
+| 场景 | 处理策略 | 允许执行 |
+|------|----------|----------|
+| `stale_days <= 3` | 允许计算，输出打 `data_quality=stale` 标记并触发降级提示 | 是 |
+| `stale_days > 3` | 抛出 `DataNotReadyError`，阻断 MSS 主流程 | 否 |
+| `mean/std` 缺失 | 对该因子回退中性分 `50`，记录告警 | 是 |
+| 趋势输入异常（非 up/down/sideways） | `cycle=unknown` + `position_advice=0%-20%` | 是（降级） |
+| 任一必备字段缺失 | 抛出 `ValueError`，拒绝计算 | 否 |
+
+强制约束：
+- 不允许沿用上一交易日 `temperature/cycle/trend` 作为兜底输出。
+- 所有降级都必须可追溯（日志或质量字段）。
+
 ---
 
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 落地 review-001 修复：周期阈值支持 `adaptive`（分位阈值 `T30/T45/T60/T75`）；`strong_up/down` 改为分板块制度归一；趋势判定升级为 `EMA + slope + trend_band` 抗抖；新增 `extreme_direction_bias` 与异常处理统一语义（禁止沿用前值） |
 | v3.1.5 | 2026-02-09 | 修复 R26：§10.1 数据就绪增加 `data_quality/stale_days/source_trade_date` 质量字段与 `stale_days ≤ 3` 约束，防止陈旧快照继续计算 |
 | v3.1.4 | 2026-02-08 | 修复 R19：§5.1 周期映射补齐 `unknown` 的仓位建议（0%-20%）；§5.2 fallback 注释显式兜底语义 |
 | v3.1.3 | 2026-02-08 | 修复 R17：补充 `rank/percentile` 的计算定义与实现约束（基于 `temperature` 的历史排序与累计分位） |

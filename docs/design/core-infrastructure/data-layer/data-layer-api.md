@@ -1,15 +1,16 @@
 # Data Layer API接口
 
-**版本**: v3.1.2（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（对齐 MSS/IRS/PAS/Integration；代码未落地）
+**版本**: v3.1.3（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计修订完成（含质量门禁闭环 API）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库仅提供骨架/占位实现：`src/data/fetcher.py`（TuShareFetcher）、`src/data/repositories/*`（BaseRepository + L1 Repos）、`src/data/models/*`（简化数据类）。
-- 本文档中的 `TuShareClient` / `DataFetcher` / `DataProcessor` / `MarketSnapshotRepository` 等为规划接口，尚未在 `src/` 落地。
+- 当前仓库仍以骨架/占位实现为主：`src/data/fetcher.py`（TuShareFetcher）、`src/data/repositories/*`（BaseRepository + L1 Repos）。
+- 已落地最小门禁 API：`src/data/quality_gate.py::evaluate_data_quality_gate()`（ready/degraded/blocked）。
+- 本文档中的 `TuShareClient` / `DataFetcher` / `DataProcessor` / `MarketSnapshotRepository` 等多数仍为规划接口。
 
 ---
 
@@ -488,6 +489,65 @@ class ReadinessReport:
     check_time: datetime
 ```
 
+### 8.3 质量门禁自动化（已落地原型）
+
+```python
+from src.data.quality_gate import evaluate_data_quality_gate
+
+decision = evaluate_data_quality_gate(
+    trade_date="20260214",
+    coverage_ratio=0.964,
+    source_trade_dates={"daily": "20260214", "limit_list": "20260214"},
+    quality_by_dataset={"daily": "normal", "limit_list": "normal"},
+    stale_days_by_dataset={"daily": 0, "limit_list": 0},
+)
+
+if decision.status == "blocked":
+    raise RuntimeError(f"data blocked: {decision.issues}")
+```
+
+```python
+@dataclass
+class DataGateDecision:
+    trade_date: str
+    status: str              # ready/degraded/blocked
+    is_ready: bool
+    issues: List[str]
+    warnings: List[str]
+    max_stale_days: int
+    coverage_ratio: float
+    cross_day_consistent: bool
+```
+
+### 8.4 可选盘中增量 API（P1）
+
+```python
+class IntradayIncrementalService:
+    def run_incremental(self, trade_date: str, hhmm: str) -> dict:
+        """
+        仅更新 intraday_incremental_snapshot（观测用途），
+        不触发 MSS/IRS/PAS/Integration 主流程。
+        """
+        pass
+```
+
+### 8.5 分库触发与回迁 API（P2）
+
+```python
+class ShardingManager:
+    def should_shard(self, db_size_gb: float, query_p95_sec: float, daily_rows: int) -> bool:
+        """阈值触发：容量/性能/写入量。"""
+        pass
+
+    def shard_by_year(self, years: list[int]) -> None:
+        """执行单库 -> 年度分库迁移。"""
+        pass
+
+    def merge_back_to_single(self, years: list[int]) -> None:
+        """执行分库 -> 单库回迁，并附带一致性校验。"""
+        pass
+```
+
 ---
 
 ## 9. 股票代码转换工具
@@ -958,6 +1018,7 @@ def query_irs_historical_baseline(
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.1.3 | 2026-02-14 | 修复 R32（review-010）：补充 `evaluate_data_quality_gate()` 接口与 `DataGateDecision` 契约；新增可选盘中增量 API 与分库触发/回迁 API 口径 |
 | v3.1.2 | 2026-02-09 | 修复 R31：§5.4 示例代码去除异常转义引号，统一为标准 Python 字符串 |
 | v3.1.1 | 2026-02-09 | 修复 R23：配置示例补充 `config.flat_threshold`（默认 `0.5%`），与数据模型/聚合算法口径一致 |
 | v3.1.0 | 2026-02-04 | 对齐 MSS/IRS/PAS/Integration：补充 PAS 广度聚合与估值字段、调度任务 |

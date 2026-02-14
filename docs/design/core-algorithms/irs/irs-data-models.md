@@ -1,7 +1,7 @@
 # IRS 数据模型
 
-**版本**: v3.3.0（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.4.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 
 ---
@@ -27,8 +27,8 @@
 |------|----------|------|
 | 相对强度 | industry_pct_chg, benchmark_pct_chg | `raw_daily` + `raw_index_daily` |
 | 连续性因子 | rise_count, fall_count, stock_count, new_100d_high_count, new_100d_low_count | `raw_daily` 聚合 |
-| 资金流向 | industry_amount, industry_amount_prev, industry_amount_avg_20d | `raw_daily` + `raw_daily_basic` 聚合 |
-| 估值因子 | industry_pe_ttm, industry_pb | `raw_daily_basic` |
+| 资金流向 | industry_amount, industry_amount_prev, industry_amount_avg_20d, market_amount_total | `raw_daily` + `raw_daily_basic` 聚合 |
+| 估值因子 | industry_pe_ttm, industry_pb, style_bucket | `raw_daily_basic` + 行业风格映射 |
 | 龙头因子 | top5_pct_chg, top5_limit_up | `raw_daily` + `raw_limit_list` |
 | 行业基因库 | history_limit_up, history_new_high | `raw_daily` + `raw_limit_list` |
 | 辅助观测（非评分） | flat_count, yesterday_limit_up_today_avg_pct | `industry_snapshot` 聚合 |
@@ -54,6 +54,7 @@ class IrsIndustrySnapshot:
     industry_pct_chg: float      # 行业当日涨跌幅
     industry_close: float        # 行业收盘指数
     industry_amount: float       # 行业成交额
+    market_amount_total: float   # 全市场成交额（同日）
     industry_turnover: float     # 行业平均换手率
     
     # 成分股统计
@@ -69,6 +70,7 @@ class IrsIndustrySnapshot:
     # 估值数据
     industry_pe_ttm: float       # 行业市盈率（TTM）
     industry_pb: float           # 行业市净率
+    style_bucket: str            # 生命周期桶 growth/balanced/value
     
     # 龙头股数据
     top5_codes: List[str]        # Top5 股票代码
@@ -110,8 +112,10 @@ class IrsIndustryDaily:
     industry_score: float        # 行业综合评分 0-100
     rank: int                    # 行业排名
     rotation_status: str         # 轮动状态 IN/OUT/HOLD
+    rotation_slope: float        # 轮动斜率（5日）
     rotation_detail: str         # 轮动详情
     allocation_advice: str       # 配置建议
+    allocation_mode: str         # 配置模式 dynamic/fixed
     quality_flag: str            # 质量标记 normal/cold_start/stale
     sample_days: int             # 有效样本天数
     
@@ -155,10 +159,19 @@ class IrsRotationDetail(Enum):
 ```python
 class IrsAllocationAdvice(Enum):
     """配置建议枚举"""
-    OVERWEIGHT = "超配"      # 排名前3
-    STANDARD = "标配"        # 排名4-10
-    UNDERWEIGHT = "减配"     # 排名11-26
-    AVOID = "回避"           # 排名27-31（后5）
+    OVERWEIGHT = "超配"
+    STANDARD = "标配"
+    UNDERWEIGHT = "减配"
+    AVOID = "回避"
+```
+
+### 3.5 配置模式枚举
+
+```python
+class IrsAllocationMode(Enum):
+    """配置映射模式"""
+    DYNAMIC = "dynamic"      # 分位 + 集中度
+    FIXED = "fixed"          # 固定排名映射（兼容）
 ```
 
 ---
@@ -181,8 +194,10 @@ CREATE TABLE irs_industry_daily (
     industry_score DECIMAL(8,4) COMMENT '行业综合评分 0-100',
     rank INT COMMENT '行业排名',
     rotation_status VARCHAR(20) COMMENT '轮动状态',
+    rotation_slope DECIMAL(12,6) COMMENT '轮动斜率（5日）',
     rotation_detail VARCHAR(50) COMMENT '轮动详情',
     allocation_advice VARCHAR(20) COMMENT '配置建议',
+    allocation_mode VARCHAR(20) COMMENT '配置模式 dynamic/fixed',
     quality_flag VARCHAR(20) COMMENT '质量标记 normal/cold_start/stale',
     sample_days INT COMMENT '有效样本天数',
     
@@ -315,6 +330,8 @@ CREATE TABLE irs_allocation_log (
 | stock_count | > 0 |
 | rise_count + fall_count | ≤ stock_count |
 | flat_count | ≤ stock_count |
+| market_amount_total | > 0 |
+| style_bucket | growth/balanced/value |
 | irs_zscore_baseline | 文件可读且覆盖 6 个因子；缺失时回退 50 |
 
 ### 6.2 输出验证
@@ -324,6 +341,8 @@ CREATE TABLE irs_allocation_log (
 | industry_score | 0 ≤ x ≤ 100 |
 | rank | 1 ≤ x ≤ 31 |
 | rotation_status | IN/OUT/HOLD |
+| rotation_slope | 实数（建议范围 -100~100） |
+| allocation_mode | dynamic/fixed |
 | rotation_detail | 强势领涨/轮动加速/风格转换/热点扩散/高位整固/趋势反转 |
 | quality_flag | normal/cold_start/stale |
 | sample_days | x ≥ 0 |
@@ -335,6 +354,7 @@ CREATE TABLE irs_allocation_log (
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.4.0 | 2026-02-14 | 落地 review-002 修复：输入补充 `market_amount_total/style_bucket`；输出与 DDL 增加 `rotation_slope/allocation_mode`；新增 `IrsAllocationMode` 枚举；校验规则补充分配模式与生命周期桶约束 |
 | v3.3.0 | 2026-02-09 | 修复 R28：DDL 中 `trade_date` 统一为 `VARCHAR(8)`；`industry_name` 宽度统一为 `VARCHAR(50)`；时间戳命名统一为 `created_at` 并移除 L3 主表 `update_time` |
 | v3.2.9 | 2026-02-09 | 修复 R26：`IrsIndustryDaily` 与 `irs_industry_daily` DDL 增加 `quality_flag/sample_days`；§6.2 输出验证补充质量字段约束 |
 | v3.2.8 | 2026-02-08 | 修复 R19：新增 `IrsRotationDetail` 枚举；§6.2 输出验证补齐 `rotation_detail` 合法值约束 |

@@ -1,8 +1,8 @@
 # GUI API 接口
 
-**版本**: v3.1.3（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
 
 ---
 
@@ -28,12 +28,16 @@ gui/
 │   ├── recommendation_table.py
 │   └── risk_overview.py
 ├── services/
-│   └── data_service.py    # 数据服务层
+│   ├── data_service.py    # 数据服务层
+│   ├── cache_service.py   # 缓存与新鲜度
+│   └── observability.py   # UI 可观测性
 └── utils/
     ├── formatters.py      # 格式化工具
     ├── filters.py         # 过滤工具
     └── exporters.py       # 导出工具
 ```
+
+**实现状态**：`src/gui/app.py` 仍为占位入口，`DataService + Dashboard + IntegratedPage` 最小闭环尚未实现。
 
 ---
 
@@ -215,6 +219,27 @@ def get_analysis_page_data(
     """
 ```
 
+### 2.9 run_minimal（P0 最小 GUI 闭环）
+
+```python
+def run_minimal(
+    self,
+    trade_date: str
+) -> GuiRunResult:
+    """
+    执行最小页面闭环（Dashboard + Integrated）
+
+    Args:
+        trade_date: 交易日期
+
+    Returns:
+        GuiRunResult:
+            - rendered_pages: ["dashboard", "integrated"]
+            - data_state: ok/warn_data_fallback/partial_skipped
+            - freshness_summary: 各页面新鲜度
+    """
+```
+
 ---
 
 ## 3. FilterService（过滤服务）
@@ -281,6 +306,39 @@ def paginate(
 
     Returns:
         Tuple[List[dict], PaginationInfo]: (当前页数据, 分页信息)
+    """
+```
+
+### 3.4 resolve_filter_config（P0 阈值配置化）
+
+```python
+def resolve_filter_config(
+    self,
+    page_name: str,
+    override: FilterConfig = None
+) -> FilterConfig:
+    """
+    解析页面默认过滤阈值（支持环境配置 + 用户覆盖）
+
+    Args:
+        page_name: 页面名（dashboard/irs/pas/integrated）
+        override: 临时覆盖配置（可选）
+
+    Returns:
+        FilterConfig: 生效阈值
+    """
+```
+
+### 3.5 build_filter_preset_badges（P0 阈值可视化）
+
+```python
+def build_filter_preset_badges(
+    self,
+    page_name: str,
+    filter_config: FilterConfig
+) -> List[str]:
+    """
+    构建页面头部阈值徽标（如 `final_score >= 70`）
     """
 ```
 
@@ -538,7 +596,7 @@ def build_recommendation_scatter(
 
 ---
 
-## 7. CacheService（缓存服务）
+## 7. CacheService / Observability（缓存与可观测）
 
 ### 7.1 get_cached
 
@@ -603,6 +661,52 @@ def build_cache_key(
     """
 ```
 
+### 7.4 get_freshness_meta（P1 缓存一致性）
+
+```python
+def get_freshness_meta(
+    self,
+    cache_key: str
+) -> FreshnessMeta:
+    """
+    获取缓存新鲜度元信息
+
+    Returns:
+        FreshnessMeta:
+            - data_asof: 源数据时间戳
+            - cache_created_at: 缓存创建时间
+            - cache_age_sec: 缓存年龄（秒）
+            - freshness_level: fresh/stale_soon/stale
+    """
+```
+
+### 7.5 record_ui_event（P1 异常可观测）
+
+```python
+def record_ui_event(
+    self,
+    page_name: str,
+    event_type: str,
+    trace_id: str = None
+) -> None:
+    """
+    记录 UI 事件（timeout/empty_state/data_fallback/permission_denied）
+    """
+```
+
+### 7.6 get_recommendation_reason_panel（P2 Analysis 联动）
+
+```python
+def get_recommendation_reason_panel(
+    self,
+    stock_code: str,
+    trade_date: str
+) -> RecommendationReasonPanel:
+    """
+    获取推荐原因面板（归因+风险摘要+偏差提示）
+    """
+```
+
 ---
 
 ## 8. GUI字段→接口参数映射
@@ -611,10 +715,13 @@ def build_cache_key(
 |------|----------|-----|------|
 | Dashboard | temperature | DataService.get_dashboard_data | trade_date |
 | Dashboard | top_recommendations | DataService.get_dashboard_data | trade_date, top_n |
+| Dashboard | active_filters | FilterService.build_filter_preset_badges | page_name, filter_config |
+| Dashboard | freshness_badge | CacheService.get_freshness_meta | cache_key |
 | MSS | temperature_history | DataService.get_mss_page_data | trade_date, history_days |
 | IRS | industries | DataService.get_irs_page_data | trade_date, filters |
 | PAS | stocks | DataService.get_pas_page_data | trade_date, filters, page |
 | Integrated | recommendations | DataService.get_integrated_page_data | trade_date, filters, page |
+| Integrated | reason_panel | CacheService.get_recommendation_reason_panel | stock_code, trade_date |
 | Trading | positions | DataService.get_trading_page_data | trade_date |
 | Trading | trades | DataService.get_trading_page_data | trade_date, page |
 | Analysis | metrics | DataService.get_analysis_page_data | report_date |
@@ -627,20 +734,31 @@ def build_cache_key(
 ```python
 from gui.services.data_service import DataService
 from gui.services.filter_service import FilterService
+from gui.services.cache_service import CacheService
 from gui.services.export_service import ExportService
 from gui.utils.formatters import FormatterService
 
 # 初始化服务
 data_service = DataService(repository)
 filter_service = FilterService()
+cache_service = CacheService()
 export_service = ExportService()
 formatter = FormatterService()
+
+# 最小闭环运行（P0）
+run_state = data_service.run_minimal("20260131")
+print(run_state.rendered_pages)
 
 # 获取Dashboard数据
 dashboard = data_service.get_dashboard_data(
     trade_date="20260131",
     top_n=10
 )
+
+# 显示生效过滤阈值（P0）
+active_filter = filter_service.resolve_filter_config("dashboard")
+badges = filter_service.build_filter_preset_badges("dashboard", active_filter)
+print(badges)
 
 # 格式化温度显示
 temp_card = formatter.format_temperature(dashboard.temperature)
@@ -654,6 +772,14 @@ pas_data = data_service.get_pas_page_data(
     page=1,
     page_size=50
 )
+
+# 新鲜度徽标（P1）
+freshness = cache_service.get_freshness_meta("integrated_recommendation:20260131:none")
+print(freshness.freshness_level)
+
+# 推荐原因面板（P2）
+reason_panel = cache_service.get_recommendation_reason_panel("000001", "20260131")
+print(reason_panel.risk_turning_point)
 
 # 导出推荐列表
 csv_path = export_service.export_recommendations(
@@ -669,6 +795,7 @@ print(f"已导出: {csv_path}")
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：新增 `run_minimal` 最小 GUI 闭环接口；新增阈值配置解析与阈值徽标接口；CacheService 补齐 `get_freshness_meta/record_ui_event/get_recommendation_reason_panel`；字段映射与示例同步更新 |
 | v3.1.3 | 2026-02-09 | 修复 R22：`build_cache_key` 明确 `filters=None/空 -> \"none\"` 占位符规则，并补充非空过滤器示例 |
 | v3.1.1 | 2026-02-08 | 修复 R16：`format_temperature` 补齐 4 色/4 标签；`format_trend` 与 `format_pnl` 颜色改为 A 股红涨绿跌；`export_to_csv` 返回路径后缀修正为 `.csv` |
 | v3.1.0 | 2026-02-04 | 明确 Streamlit 正式 GUI、Jupyter 原型定位 |

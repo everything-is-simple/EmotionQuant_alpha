@@ -1,8 +1,8 @@
 # Backtest 信息流
 
-**版本**: v3.4.2（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）
+**版本**: v3.5.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -97,28 +97,39 @@ pas_breadth_daily（活跃度）→ integrated_recommendation → SignalProvider
 ## 3. 每日回测流程
 
 ```
-1. 数据就绪检查（L1/L3）
-2. 持仓风控扫描（stop_loss / take_profit / max_holding_days，先生成卖出信号）
-3. 读取集成信号（signal_date=T，按 integration_mode，生成买入候选）
-4. 信号过滤与仓位约束（final_score / recommendation / direction / max_positions / max_position_pct）
-5. 合并卖出+买入信号并排序（先卖后买，释放现金）
-6. 生成订单并在 execute_date=T+1 开盘执行
-7. 交易执行（T+1 / 涨跌停 / 100股整手 / 成交模拟）
-8. 费用与滑点计入成交
-9. 记录交易与净值曲线
-10. 计算绩效并落库
+1. 数据就绪检查（L1/L3 + Validation Gate）
+2. 模式解析（config_fixed / regime_driven / hybrid_weight）
+3. 持仓风控扫描（stop_loss / take_profit / max_holding_days，先生成卖出信号）
+4. 读取集成信号（signal_date=T，按 integration_mode，生成买入候选）
+5. 信号过滤与仓位约束（final_score / recommendation / direction / max_positions / max_position_pct）
+6. 合并卖出+买入信号并排序（先卖后买，释放现金）
+7. 生成订单并在 execute_date=T+1 开盘执行
+8. 交易执行（T+1 / 涨跌停 / 100股整手 / queue+volume 成交概率）
+9. 费用与滑点计入成交（含流动性分层 impact_cost）
+10. 记录交易、状态机与净值曲线
+11. 计算绩效并落库
 ```
 
 ---
 
 ## 4. 异常处理（降级策略）
 
+```text
+统一状态机：
+- normal
+- warn_data_fallback
+- warn_mode_fallback
+- blocked_gate_fail
+- blocked_untradable
+```
+
 | 异常场景 | 处理策略 |
 |----------|----------|
-| Validation Gate = FAIL | 跳过当日信号生成，记录 `blocked_by_gate` |
-| 集成信号缺失 | 使用上次可用日，标记 degraded |
-| BU 活跃度不足 | 禁用 BU，回退 TD |
-| L1 行情缺失 | 跳过该股票/交易日 |
+| Validation Gate = FAIL | `backtest_state=blocked_gate_fail`，跳过当日信号生成 |
+| 集成信号缺失 | `backtest_state=warn_data_fallback`，使用上次可用日 |
+| BU 活跃度不足 | `backtest_state=warn_mode_fallback`，禁用 BU 回退 TD |
+| L1 行情缺失 | `backtest_state=warn_data_fallback`，跳过该股票/交易日 |
+| 涨跌停/停牌不可成交 | `backtest_state=blocked_untradable`，拒单或顺延 |
 
 ---
 
@@ -126,6 +137,7 @@ pas_breadth_daily（活跃度）→ integrated_recommendation → SignalProvider
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.0 | 2026-02-14 | 对应 review-006 闭环修复：每日流程新增模式解析与成交可行性评估；费用流程补齐流动性分层 impact_cost；异常口径统一为 `backtest_state` 状态机 |
 | v3.4.2 | 2026-02-12 | 修复 R13：§4 异常处理补充 `Validation Gate = FAIL` 场景，处理策略为“跳过当日信号生成并记录 `blocked_by_gate`”，与算法文档 §6 对齐 |
 | v3.4.1 | 2026-02-09 | 修复 R20：§3 每日流程补齐持仓风控步骤（止损/止盈/时限平仓），并重排为“先卖后买”闭环流程 |
 | v3.4.0 | 2026-02-07 | 统一引擎口径：Qlib 主选 + 本地向量化基线 |

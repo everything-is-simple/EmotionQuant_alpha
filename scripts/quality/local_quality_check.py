@@ -17,6 +17,8 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
+from scripts.quality.contract_behavior_regression import check_contract_behavior_regression
+from scripts.quality.governance_consistency_check import check_governance_consistency
 from scripts.quality.naming_contracts_check import check_naming_contracts
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -121,9 +123,14 @@ def main() -> int:
         action="store_true",
         help="Check naming/contracts consistency in core design docs",
     )
+    parser.add_argument(
+        "--governance",
+        action="store_true",
+        help="Check governance/system-overview consistency in SoT docs",
+    )
     args = parser.parse_args()
 
-    if not args.session and not args.scan and not args.contracts:
+    if not args.session and not args.scan and not args.contracts and not args.governance:
         parser.print_help()
         return 2
 
@@ -134,6 +141,9 @@ def main() -> int:
         exit_code = max(exit_code, check_hardcoded_paths())
     if args.contracts:
         exit_code = max(exit_code, check_naming_contracts())
+        exit_code = max(exit_code, check_contract_behavior_regression())
+    if args.governance:
+        exit_code = max(exit_code, check_governance_consistency())
     return exit_code
 
 

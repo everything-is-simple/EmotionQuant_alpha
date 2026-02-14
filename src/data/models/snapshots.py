@@ -4,6 +4,26 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 
+QUALITY_STATES = {"normal", "stale", "cold_start"}
+
+
+def _validate_quality_fields(
+    trade_date: str,
+    data_quality: str,
+    stale_days: int,
+    source_trade_date: str,
+) -> None:
+    if data_quality not in QUALITY_STATES:
+        raise ValueError(f"invalid data_quality: {data_quality}")
+    if stale_days < 0:
+        raise ValueError(f"stale_days must be >= 0, got {stale_days}")
+    if len(trade_date) != 8 or not trade_date.isdigit():
+        raise ValueError(f"invalid trade_date: {trade_date}")
+    if len(source_trade_date) != 8 or not source_trade_date.isdigit():
+        raise ValueError(f"invalid source_trade_date: {source_trade_date}")
+    if data_quality == "normal" and stale_days != 0:
+        raise ValueError("normal data must have stale_days == 0")
+
 
 @dataclass(frozen=True)
 class MarketSnapshot:
@@ -27,7 +47,20 @@ class MarketSnapshot:
     pct_chg_std: float = 0.0
     amount_volatility: float = 0.0
     yesterday_limit_up_today_avg_pct: float = 0.0
+    data_quality: str = "normal"
+    stale_days: int = 0
+    source_trade_date: str = ""
     created_at: datetime = field(default_factory=datetime.utcnow)
+
+    def __post_init__(self) -> None:
+        source_trade_date = self.source_trade_date or self.trade_date
+        object.__setattr__(self, "source_trade_date", source_trade_date)
+        _validate_quality_fields(
+            trade_date=self.trade_date,
+            data_quality=self.data_quality,
+            stale_days=self.stale_days,
+            source_trade_date=source_trade_date,
+        )
 
     def to_storage_record(self) -> dict[str, object]:
         return {
@@ -51,6 +84,9 @@ class MarketSnapshot:
             "pct_chg_std": self.pct_chg_std,
             "amount_volatility": self.amount_volatility,
             "yesterday_limit_up_today_avg_pct": self.yesterday_limit_up_today_avg_pct,
+            "data_quality": self.data_quality,
+            "stale_days": self.stale_days,
+            "source_trade_date": self.source_trade_date,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -78,7 +114,20 @@ class IndustrySnapshot:
     top5_pct_chg: list[float] = field(default_factory=list)
     top5_limit_up: int = 0
     yesterday_limit_up_today_avg_pct: float = 0.0
+    data_quality: str = "normal"
+    stale_days: int = 0
+    source_trade_date: str = ""
     created_at: datetime = field(default_factory=datetime.utcnow)
+
+    def __post_init__(self) -> None:
+        source_trade_date = self.source_trade_date or self.trade_date
+        object.__setattr__(self, "source_trade_date", source_trade_date)
+        _validate_quality_fields(
+            trade_date=self.trade_date,
+            data_quality=self.data_quality,
+            stale_days=self.stale_days,
+            source_trade_date=source_trade_date,
+        )
 
     def to_storage_record(self) -> dict[str, object]:
         return {
@@ -104,5 +153,8 @@ class IndustrySnapshot:
             "top5_pct_chg": json.dumps(self.top5_pct_chg, ensure_ascii=False),
             "top5_limit_up": self.top5_limit_up,
             "yesterday_limit_up_today_avg_pct": self.yesterday_limit_up_today_avg_pct,
+            "data_quality": self.data_quality,
+            "stale_days": self.stale_days,
+            "source_trade_date": self.source_trade_date,
             "created_at": self.created_at.isoformat(),
         }

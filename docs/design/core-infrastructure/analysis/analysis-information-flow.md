@@ -1,8 +1,8 @@
 # Analysis 信息流
 
-**版本**: v3.1.4（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
 
 ---
 
@@ -128,35 +128,45 @@
 │                   │                                                      │
 │                   ▼                                                      │
 │  ┌─────────────────────────────────────────┐                            │
-│  │  5. 计算信号归因                         │                            │
-│  │     attr = attributor.attribute_signals()│                           │
-│  │     → mss/irs/pas_attribution           │                            │
+│  │  5. 计算信号归因（稳健）                 │                            │
+│  │     attr = attributor.attribute_signals( │                            │
+│  │       trim_quantile=0.05)               │                            │
+│  │     → mss/irs/pas_attribution + method  │                            │
 │  └────────────────┬────────────────────────┘                            │
 │                   │                                                      │
 │                   ▼                                                      │
 │  ┌─────────────────────────────────────────┐                            │
-│  │  6. 分析风险分布                         │                            │
-│  │     risk = risk_reporter.analyze_risk() │                            │
-│  │     → low/medium/high_pct               │                            │
+│  │  6. 分析风险分布/风险趋势                │                            │
+│  │     risk = risk_reporter.analyze_risk_  │                            │
+│  │       trend()                            │                            │
+│  │     → pct + change_rate + turning_point │                            │
 │  └────────────────┬────────────────────────┘                            │
 │                   │                                                      │
 │                   ▼                                                      │
 │  ┌─────────────────────────────────────────┐                            │
-│  │  7. 构建日报数据                         │                            │
+│  │  7. 拆解实盘-回测偏差                    │                            │
+│  │     dev = attributor.decompose_live_    │                            │
+│  │       backtest_deviation()              │                            │
+│  │     → signal/execution/cost deviation   │                            │
+│  └────────────────┬────────────────────────┘                            │
+│                   │                                                      │
+│                   ▼                                                      │
+│  ┌─────────────────────────────────────────┐                            │
+│  │  8. 构建日报数据                         │                            │
 │  │     report_data = DailyReportData(...)  │                            │
 │  └────────────────┬────────────────────────┘                            │
 │                   │                                                      │
 │                   ▼                                                      │
 │  ┌─────────────────────────────────────────┐                            │
-│  │  8. 渲染Markdown                         │                            │
+│  │  9. 渲染Markdown                         │                            │
 │  │     md = report_writer.render_markdown() │                           │
 │  └────────────────┬────────────────────────┘                            │
 │                   │                                                      │
 │                   ▼                                                      │
 │  ┌─────────────────────────────────────────┐                            │
-│  │  9. 落库与导出                           │                            │
+│  │ 10. 落库与导出                           │                            │
 │  │     repo.save_daily_report(report_data) │                            │
-│  │     report_writer.export_to_file(md)    │                            │
+│  │     export(md/csv/dashboard_snapshot)   │                            │
 │  └─────────────────────────────────────────┘                            │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -190,10 +200,13 @@
      │ analyze_risk          │           │           │           │
      │──────────────────────────────────────────────>│           │
      │           │           │           │           │           │
+     │ decompose_dev         │           │           │           │
+     │────────────────────────────────────>│         │           │
+     │           │           │           │           │           │
      │ generate_report                               │           │
      │──────────────────────────────────────────────────────────>│
      │           │           │           │           │           │
-     │ save & export                                             │
+     │ save & export (md/csv/dashboard_snapshot)                 │
      │<──────────────────────────────────────────────────────────│
 ```
 
@@ -264,11 +277,12 @@ backtest_trade_records (回测分析)
                   │
                   ▼
 ┌─────────────────────────────────────────┐
-│  2. 计算盈亏贡献                         │
+│  2. 计算执行偏差贡献                      │
 │                                          │
 │  for rec, trade in matched:             │
 │      execution_deviation =              │
-│          (trade.price - rec.entry)      │
+│          ((trade.filled_price or        │
+│            trade.price) - rec.entry)    │
 │          / rec.entry                    │
 │      # 注：execution_deviation 为执行偏差，│
 │      # 非真实交易盈亏                    │
@@ -280,11 +294,12 @@ backtest_trade_records (回测分析)
                   │
                   ▼
 ┌─────────────────────────────────────────┐
-│  3. 汇总归因结果                         │
+│  3. 稳健汇总归因结果                      │
 │                                          │
-│  mss_attribution = mean(mss_contrib)    │
-│  irs_attribution = mean(irs_contrib)    │
-│  pas_attribution = mean(pas_contrib)    │
+│  mss_attribution = trimmed_mean(...)    │
+│  irs_attribution = trimmed_mean(...)    │
+│  pas_attribution = trimmed_mean(...)    │
+│  attribution_method = trimmed_mean_q0.05│
 └─────────────────┬───────────────────────┘
                   │
                   ▼
@@ -294,6 +309,26 @@ backtest_trade_records (回测分析)
 │  - irs_attribution                       │
 │  - pas_attribution                       │
 │  - sample_count                          │
+│  - raw_sample_count / trim_ratio         │
+│  - attribution_method                    │
+└─────────────────────────────────────────┘
+```
+
+### 4.2 实盘-回测偏差归因（P1）
+
+```
+live_recommendation_outcome + backtest_recommendation_outcome
+     │
+     ▼
+┌─────────────────────────────────────────┐
+│  1. 同股票池对齐                         │
+│  2. 拆解偏差来源                         │
+│     signal_deviation                     │
+│     execution_deviation                  │
+│     cost_deviation                       │
+│  3. 汇总总偏差与主导项                    │
+│     total_deviation                      │
+│     dominant_component                   │
 └─────────────────────────────────────────┘
 ```
 
@@ -359,20 +394,25 @@ backtest_trade_records (回测分析)
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  signal_attribution (L4)                             │    │
 │  │  - MSS/IRS/PAS贡献度                                 │    │
+│  └───────────────────────────┬─────────────────────────┘    │
+│                              │                               │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  live_backtest_deviation (L4)                       │    │
+│  │  - signal/execution/cost 偏差                       │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                                                              │
 └──────────────────────────────┬──────────────────────────────┘
                                │
-               ┌───────────────┴───────────────┐
-               │                               │
-               ▼                               ▼
-      ┌─────────────────┐             ┌─────────────────┐
-      │ Markdown Reports │            │   CSV Exports    │
-      │                 │             │                 │
-      │ daily_report_   │             │ performance_    │
-      │ 20260131_153000 │             │ 20260131_153000 │
-      │      .md        │             │      .csv       │
-      └─────────────────┘             └─────────────────┘
+               ┌───────────────┼───────────────┐
+               │               │               │
+               ▼               ▼               ▼
+      ┌─────────────────┐ ┌─────────────────┐ ┌────────────────────────┐
+      │ Markdown Reports │ │   CSV Exports    │ │  JSON Dashboard Snap   │
+      │                 │ │                 │ │                        │
+      │ daily_report_   │ │ performance_    │ │ dashboard_snapshot_     │
+      │ 20260131_153000 │ │ 20260131_153000 │ │ 20260131_153000.json    │
+      │      .md        │ │      .csv       │ │                        │
+      └─────────────────┘ └─────────────────┘ └────────────────────────┘
 ```
 
 > 文件输出：默认落盘 `.reports/analysis/`，命名统一 `{YYYYMMDD_HHMMSS}`。
@@ -387,9 +427,10 @@ backtest_trade_records (回测分析)
 |------|------|------|
 | 15:30 | 等待数据就绪 | - |
 | 15:35 | 计算绩效指标 | performance_metrics |
-| 15:40 | 计算信号归因 | signal_attribution |
-| 15:45 | 生成日报 | daily_report |
-| 15:50 | 导出文件 | *.md, *.csv |
+| 15:40 | 计算信号归因（稳健） | signal_attribution |
+| 15:43 | 计算实盘-回测偏差 | live_backtest_deviation |
+| 15:45 | 生成日报 + 风险趋势 | daily_report |
+| 15:50 | 导出文件 | *.md, *.csv, *.json |
 
 ### 6.2 周度/月度执行
 
@@ -423,13 +464,15 @@ backtest_trade_records (回测分析)
 
 | 缺失数据 | 处理策略 |
 |----------|----------|
-| mss_panorama | 使用前一日数据，标记degraded |
-| trade_records | 信号统计置零 |
-| backtest_trade_records | 回测统计置零 |
+| mss_panorama | 跳过市场概况并置 `cycle=unknown/trend=sideways`，标记 `analysis_state=warn_data_fallback` |
+| trade_records | 实盘统计置零，偏差归因仅保留信号项 |
+| backtest_trade_records | 回测统计置零，偏差归因仅保留信号项 |
 | backtest_results | 跳过绩效计算（回测场景） |
 | equity_curve | 跳过绩效计算 |
-| integrated_recommendation | 跳过归因计算 |
+| integrated_recommendation | 跳过归因与偏差分解 |
 | positions | 跳过集中度统计 |
+
+> 状态语义统一：`analysis_state` 取值 `ok / warn_data_fallback / partial_skipped / blocked_input_missing`。
 
 ### 7.2 计算异常处理
 
@@ -447,6 +490,7 @@ backtest_trade_records (回测分析)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：日报流程补齐稳健归因、风险趋势、实盘-回测偏差分解与 `dashboard_snapshot` 输出；输出关系新增 `live_backtest_deviation`；异常状态统一为 `analysis_state` |
 | v3.1.4 | 2026-02-12 | 路径整理：月报归档目录口径由 `.archive/analysis/` 统一为 `.reports/archive/analysis/` |
 | v3.1.3 | 2026-02-09 | 修复 R21：§2.1 日报流程补齐实盘/回测成交分支并显式 `compute_metrics(equity_curve, trades)` 输入；§4.1 术语统一为 `execution_deviation` |
 | v3.1.2 | 2026-02-08 | 修复 R11：Sortino 流程符号改为下行偏差 RMS，避免与 Backtest 口径歧义 |

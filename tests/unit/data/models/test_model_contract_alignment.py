@@ -37,6 +37,9 @@ def test_market_snapshot_includes_mss_input_fields() -> None:
         "pct_chg_std",
         "amount_volatility",
         "yesterday_limit_up_today_avg_pct",
+        "data_quality",
+        "stale_days",
+        "source_trade_date",
         "created_at",
     }
     assert required <= _field_names(MarketSnapshot)
@@ -65,6 +68,9 @@ def test_industry_snapshot_includes_irs_input_fields() -> None:
         "top5_pct_chg",
         "top5_limit_up",
         "yesterday_limit_up_today_avg_pct",
+        "data_quality",
+        "stale_days",
+        "source_trade_date",
         "created_at",
     }
     assert required <= _field_names(IndustrySnapshot)

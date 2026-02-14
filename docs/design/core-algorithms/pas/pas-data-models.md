@@ -1,6 +1,6 @@
 # PAS 数据模型
 
-**版本**: v3.1.9（重构版）
+**版本**: v3.2.0（重构版）
 **最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 
@@ -23,8 +23,8 @@
 | 因子 | 依赖字段 | 来源 |
 |------|----------|------|
 | 牛股基因 | limit_up_count_120d, new_high_count_60d, max_pct_chg_history | `raw_daily` + `raw_limit_list` |
-| 结构位置 | close, high_60d, low_60d, high_60d_prev, high_20d_prev, low_20d_prev, low_20d, consecutive_up_days | `raw_daily` |
-| 行为确认 | vol, volume_avg_20d, pct_chg, is_limit_up, is_touched_limit_up | `raw_daily` + `raw_limit_list` |
+| 结构位置 | close, high_20d, low_20d, high_60d, low_60d, high_120d, low_120d, high_20d_prev, high_60d_prev, high_120d_prev, consecutive_up_days, volatility_20d, turnover_rate | `raw_daily` + `raw_daily_basic` |
+| 行为确认 | vol, volume_avg_20d, pct_chg, turnover_rate, is_limit_up, is_touched_limit_up | `raw_daily` + `raw_daily_basic` + `raw_limit_list` |
 | 归一化基线 | mean/std 参数（按因子） | `${DATA_PATH}/config/pas_zscore_baseline.parquet` |
 
 ---
@@ -57,18 +57,27 @@ class PasStockSnapshot:
     max_pct_chg_history: float   # 历史单日最大涨幅（百分数口径，15 表示 15%）
     
     # 价格位置（结构位置）
+    high_20d: float              # 20日最高价
     high_60d: float              # 60日最高价
     low_60d: float               # 60日最低价
+    high_120d: float             # 120日最高价
+    low_120d: float              # 120日最低价
+    high_120d_prev: float        # 前120日最高价（不含今日）
     high_60d_prev: float         # 前60日最高价（不含今日）
     high_20d_prev: float         # 前20日最高价（不含今日，用于方向判断）
     low_20d_prev: float          # 前20日最低价（不含今日，用于方向判断）
     low_20d: float               # 近20日最低价（用于止损）
     consecutive_up_days: int     # 连续上涨天数
     consecutive_down_days: int   # 连续下跌天数
+    volatility_20d: float        # 20日波动率（ratio）
     
     # 量能数据（行为确认）
     volume_avg_20d: float        # 20日平均成交量
     turnover_rate: float         # 换手率 %
+
+    # 质量与可用性
+    history_days: int            # 当前可用历史样本天数
+    stale_days: int              # 数据滞后天数（0 表示最新）
     
     # 涨跌停状态
     is_limit_up: bool            # 是否涨停
@@ -82,14 +91,21 @@ class PasStockSnapshot:
 |------|----------|
 | limit_up_count_120d | 近120个交易日 `is_limit_up = True` 的天数 |
 | new_high_count_60d | 近60个交易日 `close >= max(close_60d_prev)` 的天数 |
+| high_20d | `max(high, rolling=20)` |
+| low_20d | `min(low, rolling=20)` |
 | high_60d | `max(high, rolling=60)` |
 | low_60d | `min(low, rolling=60)` |
+| high_120d | `max(high, rolling=120)` |
+| low_120d | `min(low, rolling=120)` |
+| high_120d_prev | `max(high.shift(1), rolling=120)` |
 | high_20d_prev | `max(high.shift(1), rolling=20)` |
 | low_20d_prev | `min(low.shift(1), rolling=20)` |
-| low_20d | `min(low, rolling=20)` |
 | max_pct_chg_history | 历史窗口内 `max(pct_chg)`（百分数口径，15 表示 15%） |
 | consecutive_up_days | 从今日往前连续 `pct_chg > 0` 的天数 |
 | volume_avg_20d | `mean(vol, rolling=20)` |
+| volatility_20d | `std(pct_chg/100, rolling=20)` |
+| history_days | 可用于当前计算的有效交易日数 |
+| stale_days | `trade_date` 与最新可用数据交易日的间隔天数 |
 
 ---
 
@@ -110,7 +126,8 @@ class StockPasDaily:
     opportunity_score: float     # 机会评分 0-100
     opportunity_grade: str       # 机会等级 S/A/B/C/D
     direction: str               # 方向 bullish/bearish/neutral
-    risk_reward_ratio: float     # 风险收益比
+    risk_reward_ratio: float     # 名义风险收益比（分析口径）
+    effective_risk_reward_ratio: float  # 有效风险收益比（执行口径，含成交约束折扣）
     
     # 因子得分
     bull_gene_score: float       # 牛股基因得分
@@ -121,9 +138,14 @@ class StockPasDaily:
     entry: float                 # 建议入场价
     stop: float                  # 建议止损价
     target: float                # 建议目标价
+    liquidity_discount: float    # 流动性折扣 [0.5, 1.0]
+    tradability_discount: float  # 可成交性折扣 [0.6, 1.0]
     
     # 辅助信息
     neutrality: float            # 中性度 0-1（越接近1越中性，越接近0信号越极端）
+    quality_flag: str            # 质量标记 normal/cold_start/stale
+    sample_days: int             # 有效样本天数
+    adaptive_window: int         # 实际使用窗口 20/60/120
 ```
 
 ### 3.2 机会等级枚举
@@ -171,7 +193,8 @@ CREATE TABLE stock_pas_daily (
     opportunity_score DECIMAL(8,4) COMMENT '机会评分 0-100',
     opportunity_grade VARCHAR(10) COMMENT '机会等级 S/A/B/C/D',
     direction VARCHAR(20) COMMENT '方向判断',
-    risk_reward_ratio DECIMAL(8,4) COMMENT '风险收益比',
+    risk_reward_ratio DECIMAL(8,4) COMMENT '名义风险收益比（分析口径）',
+    effective_risk_reward_ratio DECIMAL(8,4) COMMENT '有效风险收益比（执行口径）',
     
     -- 因子得分
     bull_gene_score DECIMAL(8,4) COMMENT '牛股基因得分',
@@ -182,9 +205,14 @@ CREATE TABLE stock_pas_daily (
     entry DECIMAL(12,4) COMMENT '建议入场价',
     stop DECIMAL(12,4) COMMENT '建议止损价',
     target DECIMAL(12,4) COMMENT '建议目标价',
+    liquidity_discount DECIMAL(8,4) COMMENT '流动性折扣 [0.5,1.0]',
+    tradability_discount DECIMAL(8,4) COMMENT '可成交性折扣 [0.6,1.0]',
     
     -- 辅助信息
     neutrality DECIMAL(8,4) COMMENT '中性度 0-1（越接近1越中性，越接近0信号越极端）',
+    quality_flag VARCHAR(20) COMMENT '质量标记 normal/cold_start/stale',
+    sample_days INT COMMENT '有效样本天数',
+    adaptive_window INT COMMENT '实际使用窗口 20/60/120',
 
     -- 元数据
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -212,7 +240,9 @@ CREATE TABLE pas_factor_intermediate (
     consecutive_up_days INT COMMENT '连续上涨天数',
     consecutive_down_days INT COMMENT '连续下跌天数',
     breakout_strength DECIMAL(8,4) COMMENT '突破强度',
+    adaptive_window INT COMMENT '结构因子实际窗口 20/60/120',
     volume_ratio DECIMAL(8,4) COMMENT '量比',
+    volume_quality DECIMAL(8,4) COMMENT '放量质量 [0,1]',
 
     -- 因子组合 raw（zscore 前）
     bull_gene_raw DECIMAL(12,6) COMMENT '牛股基因组合原始值',
@@ -273,6 +303,9 @@ CREATE TABLE pas_opportunity_log (
 | high_60d | ≥ low_60d |
 | high_20d_prev | ≥ low_20d_prev |
 | volume_avg_20d | > 0 |
+| volatility_20d | ≥ 0 |
+| history_days | ≥ 0 |
+| stale_days | ≥ 0 |
 | max_pct_chg_history | 百分数口径输入（如 15 表示 15%）；进入 bull_gene 前需 `/100` 转 ratio |
 | pas_zscore_baseline | 文件可读且覆盖三大因子；缺失时因子分数回退 50 |
 
@@ -283,8 +316,20 @@ CREATE TABLE pas_opportunity_log (
 | opportunity_score | 0 ≤ x ≤ 100 |
 | opportunity_grade | IN ('S', 'A', 'B', 'C', 'D') |
 | direction | IN ('bullish', 'bearish', 'neutral') |
-| risk_reward_ratio | ≥ 1.0（执行最低门槛） |
+| risk_reward_ratio | ≥ 1.0（名义门槛，分析口径） |
+| effective_risk_reward_ratio | ≥ 1.0（执行最低门槛） |
+| quality_flag | IN ('normal', 'cold_start', 'stale') |
+| sample_days | ≥ 0 且 ≤ adaptive_window |
+| adaptive_window | IN (20, 60, 120) |
 | neutrality | 0 ≤ x ≤ 1 |
+
+### 5.3 契约漂移自动检查
+
+| 检查项 | 规则 |
+|------|------|
+| RR 门槛一致性 | `risk_reward_ratio >= 1.0` 与 `effective_risk_reward_ratio >= 1.0` 语义分层固定，不得互换 |
+| 枚举一致性 | `opportunity_grade`/`direction`/`quality_flag` 必须与 `pas-algorithm.md` 完全一致 |
+| 窗口一致性 | `adaptive_window` 只能为 20/60/120，且与中间表快照一致 |
 
 ---
 
@@ -292,6 +337,7 @@ CREATE TABLE pas_opportunity_log (
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 修复 review-003：输入补齐自适应窗口依赖（20/60/120、波动率、样本质量）；输出补齐 `effective_risk_reward_ratio`、`quality_flag`、`sample_days` 与成交折扣字段；新增契约漂移自动检查 |
 | v3.1.9 | 2026-02-14 | 修复 R26：§5.2 输出验证中 `risk_reward_ratio` 约束由 `≥ 0` 收敛为 `≥ 1.0`，与 `pas-algorithm` 和 Trading/Backtest 执行门槛一致 |
 | v3.1.8 | 2026-02-09 | 修复 R28：DDL 中 `trade_date` 统一为 `VARCHAR(8)`；`stock_code/stock_name/opportunity_grade` 宽度与 Data Layer 对齐；时间戳命名统一为 `created_at` 并移除 L3 主表 `update_time` |
 | v3.1.7 | 2026-02-08 | 修复 R18：`pas_factor_intermediate` 补齐 `consecutive_down_days`、三因子组合 raw（`bull_gene_raw/structure_raw/behavior_raw`）及对应 `mean/std` 快照列 |

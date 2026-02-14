@@ -1,7 +1,7 @@
 # Backtest 测试用例与边界场景清单
 
-**版本**: v1.0.0
-**最后更新**: 2026-02-05
+**版本**: v1.1.0
+**最后更新**: 2026-02-14
 **状态**: 设计校验清单（用于 CP-06 实现与验收，对应原 Phase 06）
 
 ---
@@ -40,6 +40,10 @@
    - 用例：开盘价接近涨停（但未涨停）
    - 预期：允许买入，但成交概率受影响
 
+4. **排队+量能成交概率**
+   - 用例：同一标的分别构造高 `queue_ratio` 与低 `queue_ratio`
+   - 预期：`fill_probability(high_queue) > fill_probability(low_queue)`
+
 ---
 
 ## 3. 成交与滑点
@@ -71,6 +75,10 @@
 3. **过户费双边**
    - 用例：买入与卖出
    - 预期：双边收取
+
+4. **流动性分层冲击成本**
+   - 用例：同等订单在 L1/L2/L3 三档流动性
+   - 预期：`impact_cost_bps(L1) < impact_cost_bps(L2) < impact_cost_bps(L3)`
 
 ---
 
@@ -118,11 +126,11 @@
 
 2. **L3 信号缺失**
    - 用例：integrated_recommendation 缺失
-   - 预期：回退上一可用日，标记 degraded
+   - 预期：回退上一可用日，标记 `warn_data_fallback`
 
 3. **BU 活跃度不足**
    - 用例：pas_breadth_daily.pas_sa_ratio < 阈值
-   - 预期：禁用 BU，回退 TD
+   - 预期：禁用 BU，回退 TD，标记 `warn_mode_fallback`
 
 ---
 
@@ -171,6 +179,14 @@
 3. **涨跌停合规扫描**
    - 用例：交易记录回放
    - 预期：无涨停买/跌停卖
+
+4. **状态机覆盖扫描**
+   - 用例：强制触发 Gate FAIL / 数据缺失 / BU 回退 / 不可成交
+   - 预期：`backtest_state` 覆盖 `blocked_gate_fail/warn_data_fallback/warn_mode_fallback/blocked_untradable`
+
+5. **最小闭环命令**
+   - 用例：运行 `local_vectorized + top_down` 单命令
+   - 预期：成功落库 `backtest_results` 与 `backtest_trade_records`
 
 ---
 

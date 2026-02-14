@@ -1,15 +1,17 @@
 # Data Layer 信息流
 
-**版本**: v3.1.3（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（对齐 MSS/IRS/PAS/Integration；代码未落地）
+**版本**: v3.1.4（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计修订完成（含质量门禁闭环信息流）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库 `src/data/` 仅有骨架/占位实现（`fetcher.py`、`repositories/*`、`models/*`）。
-- 本文档为设计信息流，接口/调度/监控在实现阶段落地。
+- 当前仓库 `src/data/` 仍以骨架为主，但已补充：
+  - `src/data/models/snapshots.py` 质量字段契约（`data_quality/stale_days/source_trade_date`）
+  - `src/data/quality_gate.py` 门禁决策流（ready/degraded/blocked）
+- 本文档为设计信息流，后续实现按本流转落地。
 
 ---
 
@@ -243,6 +245,7 @@ T+130min ─────────────── 流水线完成 ───
 | 17:00-17:15 | 算法输出 | MSS/IRS/PAS |
 | 17:15-17:20 | 验证门禁 | Validation Gate（权重选择） |
 | 17:20-17:40 | 集成与质量检查 | integrated_recommendation + pas_breadth_daily + 质量报告 |
+| 11:35 / 14:30（可选） | 盘中增量观测 | intraday_incremental_snapshot（不进入主交易链路） |
 
 ### 2.4 数据依赖关系
 
@@ -517,6 +520,7 @@ historical_stats = api.query_irs_historical_baseline(
 补充门禁：
 - 若 `market_snapshot.stale_days > 3` 或 `industry_snapshot.stale_days > 3`，则置 `is_ready=false`，阻断 MSS/IRS/PAS 并触发 P1 告警。
 - 若 `data_quality in {stale, cold_start}` 且 `stale_days <= 3`，允许继续但必须透传质量标记到下游。
+- 若核心输入存在多个 `source_trade_date`（跨日混用），则置 `status=blocked` 并阻断主流程。
 ┌───────────────────────────────────────────────────────────────┐
 │                   输出验证门禁                                 │
 ├───────────────────────────────────────────────────────────────┤
@@ -554,6 +558,29 @@ historical_stats = api.query_irs_historical_baseline(
 └───────────────────────────────────────────────────────────────┘
 ```
 
+### 5.3 自动化门禁决策流（P0）
+
+```python
+from src.data.quality_gate import evaluate_data_quality_gate
+
+decision = evaluate_data_quality_gate(
+    trade_date=trade_date,
+    coverage_ratio=coverage_ratio,
+    source_trade_dates=source_trade_dates,      # e.g. {"daily":"20260214","limit_list":"20260214"}
+    quality_by_dataset=quality_by_dataset,      # e.g. {"daily":"normal","limit_list":"normal"}
+    stale_days_by_dataset=stale_days_by_dataset # e.g. {"daily":0,"limit_list":0}
+)
+
+if decision.status == "blocked":
+    # 触发告警并停止 MSS/IRS/PAS
+    block_pipeline(decision.issues)
+elif decision.status == "degraded":
+    # 允许继续，但强制透传质量标记到 L2/L3/L4
+    run_pipeline_with_quality_flags(decision.warnings)
+else:
+    run_pipeline()
+```
+
 ---
 
 ## 6. 异常处理流程
@@ -582,7 +609,7 @@ historical_stats = api.query_irs_historical_baseline(
    │       │
    ├───────┼───── 是 ──→ 继续流水线
    │       │
-   └───────┴───── 否 ──→ 告警 + 使用前日数据(degraded mode, 记录 stale_days/source_trade_date)
+   └───────┴───── 否 ──→ 门禁判定（degraded 或 blocked）并记录 stale_days/source_trade_date
 ```
 
 ### 6.2 计算异常处理
@@ -681,12 +708,47 @@ historical_stats = api.query_irs_historical_baseline(
 └──────────────────┘
 ```
 
+### 7.3 分库触发与回迁流程（P2）
+
+```
+日终容量与性能评估
+     │
+     ├── db_size_gb > 120
+     ├── query_p95_sec > 2.0（连续5日）
+     └── daily_rows > 3000万
+     │
+     ▼
+┌──────────────────┐
+│ 触发年度分库     │
+│ emotionquant_YYYY│
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ 跨库一致性校验   │
+│ 行数/校验和/抽样 │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ query_cross_year │
+│ 透明聚合读取     │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ 回迁评估（90日） │
+│ p95 < 1.0 可回迁 │
+└──────────────────┘
+```
+
 ---
 
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.1.4 | 2026-02-14 | 修复 R32（review-010）：实现状态补充已落地门禁原型；时序新增可选盘中增量观测；门禁补充跨日一致性阻断；新增自动化门禁决策流与分库触发/回迁流程 |
 | v3.1.3 | 2026-02-09 | 修复 R31：§3.3 示例口径纠偏（`temperature=65.3` 时 `cycle=divergence`；`position_advice` 由 `70%` 更正为 `40%-60%`） |
 | v3.1.2 | 2026-02-09 | 修复 R26：缺口降级补齐 `data_quality/stale_days/source_trade_date` 契约与 `stale_days>3` 阻断规则；新增 `stock_gene_cache` 120/60 日窗口滚动策略说明 |
 | v3.1.1 | 2026-02-09 | 修复 R23：时间轴补充 `Validation Gate (17:15-17:20)` 并新增调度时间表；补充 IRS 历史基准查询显式传参示例 |

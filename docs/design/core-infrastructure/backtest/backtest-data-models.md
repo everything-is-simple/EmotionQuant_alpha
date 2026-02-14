@@ -1,8 +1,8 @@
 # Backtest 数据模型
 
-**版本**: v3.4.11（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）
+**版本**: v3.5.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -32,6 +32,7 @@ class BacktestConfig:
     # 引擎与模式
     engine_type: str = "qlib"           # qlib/local_vectorized/backtrader_compat
     integration_mode: str = "top_down"  # top_down/bottom_up/dual_verify/complementary
+    mode_switch_policy: str = "config_fixed"  # config_fixed/regime_driven/hybrid_weight
 
     # 时间范围
     start_date: str                     # 开始日期 YYYYMMDD
@@ -49,6 +50,10 @@ class BacktestConfig:
     order_type: str = "auction"         # auction/limit
     slippage_type: str = "auction"      # auction/fixed/variable
     slippage_value: float = 0.001
+    min_fill_probability: float = 0.35
+    queue_participation_rate: float = 0.15
+    impact_cost_bps_cap: float = 35.0
+    liquidity_tier_source: str = "raw_daily"
     fee_config: AShareFeeConfig = field(default_factory=AShareFeeConfig)
 
     # 风控与仓位
@@ -90,6 +95,7 @@ class BacktestSignal:
     direction: str           # Integration 原始方向 bullish/bearish/neutral（追溯字段，不直接决定买卖）
     neutrality: float        # 0-1
     source: str              # integrated / pas_fallback
+    backtest_state: str      # normal/warn_data_fallback/warn_mode_fallback/blocked_gate_fail/blocked_untradable
 ```
 
 ### 1.3 BacktestTrade 交易记录
@@ -118,12 +124,17 @@ class BacktestTrade:
     # 费用
     commission: float
     slippage: float
+    impact_cost_bps: float
     stamp_tax: float
     transfer_fee: float
     total_fee: float
 
     # 状态
     status: str              # pending/filled/partially_filled/rejected
+    fill_probability: float
+    queue_ratio: float
+    liquidity_tier: str      # L1/L2/L3
+    backtest_state: str      # normal/warn_*/blocked_*
     filled_time: str
     filled_reason: str
 
@@ -264,8 +275,13 @@ class BacktestResult:
 | stamp_tax | DECIMAL(12,2) | 印花税 |
 | transfer_fee | DECIMAL(12,4) | 过户费 |
 | slippage | DECIMAL(12,4) | 滑点 |
+| impact_cost_bps | DECIMAL(10,4) | 冲击成本（bps） |
 | total_fee | DECIMAL(16,2) | 总费用 |
 | status | VARCHAR(20) | 状态 |
+| fill_probability | DECIMAL(8,4) | 成交概率 |
+| queue_ratio | DECIMAL(10,4) | 排队可成交比 |
+| liquidity_tier | VARCHAR(10) | 流动性分层 L1/L2/L3 |
+| backtest_state | VARCHAR(40) | 状态机 normal/warn_*/blocked_* |
 | filled_time | VARCHAR(20) | 成交时间 |
 | filled_reason | VARCHAR(50) | 成交原因 |
 | pnl | DECIMAL(16,2) | 盈亏 |
@@ -284,6 +300,7 @@ class BacktestResult:
 - `INDEX idx_signal_date (signal_date)`
 - `INDEX idx_stock (stock_code)`
 - `INDEX idx_status (status)`
+- `INDEX idx_backtest_state (backtest_state)`
 
 ### 2.2 positions（回测运行态快照，非 Business Tables 持久化表）
 
@@ -418,6 +435,17 @@ class EngineType(Enum):
     BACKTRADER_COMPAT = "backtrader_compat"
 ```
 
+### 3.7 BacktestState 回测状态机
+
+```python
+class BacktestState(Enum):
+    NORMAL = "normal"
+    WARN_DATA_FALLBACK = "warn_data_fallback"
+    WARN_MODE_FALLBACK = "warn_mode_fallback"
+    BLOCKED_GATE_FAIL = "blocked_gate_fail"
+    BLOCKED_UNTRADABLE = "blocked_untradable"
+```
+
 ---
 
 ## 4. 输入数据依赖
@@ -426,8 +454,8 @@ class EngineType(Enum):
 
 | 数据源 | 读取方式 | 用途 | 必需字段 |
 |--------|----------|------|----------|
-| validation_gate_decision | 直接读取 | Step 0 前置门控 | final_gate |
-| integrated_recommendation | 直接读取 | 集成信号主输入 | final_score, recommendation, position_size, entry, stop, target, integration_mode, mss_score, irs_score, pas_score, direction |
+| validation_gate_decision | 直接读取 | Step 0 前置门控 | final_gate, selected_weight_plan, position_cap_ratio |
+| integrated_recommendation | 直接读取 | 集成信号主输入 | final_score, recommendation, position_size, entry, stop, target, integration_mode, integration_state, mss_score, irs_score, pas_score, direction |
 | pas_breadth_daily | 直接读取（BU） | BU 活跃度门控 | pas_sa_ratio, industry_sa_ratio |
 | mss_panorama | 间接获取（经 integrated_recommendation 透传） | 风险上下文追溯 | mss_score（如需温度明细再直连） |
 | irs_industry_daily | 间接获取（经 integrated_recommendation 透传） | 行业上下文追溯 | irs_score / industry_code（如需行业明细再直连） |
@@ -446,6 +474,7 @@ class EngineType(Enum):
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.0 | 2026-02-14 | 对应 review-006 闭环修复：`BacktestConfig` 新增模式切换与成交可行性参数；`BacktestSignal/BacktestTrade` 新增 `backtest_state` 与成交可行性字段（`fill_probability/queue_ratio/liquidity_tier/impact_cost_bps`）；新增 `BacktestState` 枚举；L3 依赖补齐 `integration_state/position_cap_ratio` |
 | v3.4.11 | 2026-02-12 | 修复 R13：`Position` dataclass 调整字段顺序，确保默认字段 `direction` 位于无默认字段之后；§4.1 L3 依赖补充 `validation_gate_decision`（`final_gate`） |
 | v3.4.10 | 2026-02-09 | 修复 R28：`BacktestResult` dataclass 补齐 `final_value`（与 DDL 对齐）；明确 `position_summary` 为运行态字段，不持久化到 `backtest_results` |
 | v3.4.9 | 2026-02-09 | 同步 API 语义：`min_recommendation` 注释改为 Recommendation 枚举的“最低等级门槛”定义（含五级顺序） |

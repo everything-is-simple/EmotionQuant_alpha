@@ -1,0 +1,37 @@
+{
+  "schema_version": "nc-v1",
+  "enums": {
+    "trend": ["up", "down", "sideways"],
+    "mss_cycle": [
+      "emergence",
+      "fermentation",
+      "acceleration",
+      "divergence",
+      "climax",
+      "diffusion",
+      "recession",
+      "unknown"
+    ],
+    "pas_direction": ["bullish", "bearish", "neutral"],
+    "rotation_status": ["IN", "OUT", "HOLD"],
+    "validation_gate": ["PASS", "WARN", "FAIL"]
+  },
+  "fields": {
+    "risk_reward_ratio": {
+      "alias_forbidden": ["rr_ratio"],
+      "min": 1.0
+    },
+    "code_boundary": {
+      "l1": "ts_code",
+      "l2_plus": "stock_code"
+    },
+    "contract_version": {
+      "required_in_modules": ["integration", "trading", "backtest"]
+    }
+  },
+  "thresholds": {
+    "strong_buy_min": 75,
+    "buy_min": 70,
+    "pas_grade_b_min": 55
+  }
+}

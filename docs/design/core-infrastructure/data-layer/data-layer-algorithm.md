@@ -1,15 +1,17 @@
 # Data Layer 数据管线设计
 
-**版本**: v3.1.3（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（对齐 MSS/IRS/PAS/Integration；代码未落地）
+**版本**: v3.1.4（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计修订完成（对齐 MSS/IRS/PAS/Integration；含质量门禁闭环）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库 `src/data/` 仅有骨架/占位实现（`fetcher.py`、`repositories/*`、`models/*`）。
-- 本文档为权威设计规格，接口/流程以实现阶段落地为准。
+- 当前仓库 `src/data/` 仍以骨架实现为主（`fetcher.py`、`repositories/*`）。
+- 已落地最小契约：`src/data/models/snapshots.py` 补齐 `data_quality/stale_days/source_trade_date` 字段与约束。
+- 已落地质量门禁原型：`src/data/quality_gate.py`（覆盖率、`stale_days`、跨日一致性前置检查）。
+- 本文档为权威设计规格，接口/流程继续按本规格迭代落地。
 
 ---
 
@@ -553,6 +555,7 @@ CREATE TABLE task_execution_log (
 | 17:00-17:15 | 算法输出 | MSS/IRS/PAS |
 | 17:15-17:20 | Validation Gate | validation_gate_decision + selected_weight_plan |
 | 17:20-17:40 | 集成与质量检查 | integrated_recommendation + pas_breadth_daily + 质量报告 |
+| 11:35 / 14:30（可选） | 盘中增量快照 | intraday_incremental_snapshot（仅观测，不进入主交易流水线） |
 
 ### 7.2 调度器实现
 
@@ -566,6 +569,12 @@ class DailyPipelineScheduler:
     """
     
     def run(self, trade_date: str):
+        # Step 0: 数据准备门禁（覆盖率/stale_days/跨日一致性）
+        gate = self.readiness_checker.check(trade_date)
+        if not gate.is_ready:
+            self.alerting.notify_blocked(gate)
+            return
+
         # Step 1: 数据下载
         self.fetcher.fetch_all(trade_date)
         
@@ -585,6 +594,13 @@ class DailyPipelineScheduler:
         # Step 4: 元数据记录
         self.metadata.log_version(trade_date)
         self.metadata.generate_quality_report(trade_date)
+
+    def run_intraday_incremental(self, trade_date: str, hhmm: str):
+        """
+        可选盘中增量：仅更新观测层，不触发 MSS/IRS/PAS/Integration 主流程。
+        """
+        self.fetcher.fetch_intraday_incremental(trade_date, hhmm=hhmm)
+        self.processor.process_intraday_snapshot(trade_date, hhmm=hhmm)
 ```
 
 ---
@@ -615,6 +631,34 @@ def backfill(table_name: str, start_date: str, end_date: str):
     pass
 ```
 
+### 8.3 质量门禁自动化（P0）
+
+```python
+from src.data.quality_gate import evaluate_data_quality_gate
+
+decision = evaluate_data_quality_gate(
+    trade_date="20260214",
+    coverage_ratio=0.963,
+    source_trade_dates={"daily": "20260214", "limit_list": "20260214"},
+    quality_by_dataset={"daily": "normal", "limit_list": "normal"},
+    stale_days_by_dataset={"daily": 0, "limit_list": 0},
+)
+
+# status ∈ {ready, degraded, blocked}
+# blocked: 覆盖率不足 / stale_days > 3 / 跨日混用
+```
+
+### 8.4 降级策略分级（P1）
+
+| 数据类型 | 轻度降级（继续） | 重度降级（阻断） | 影响面 |
+|----------|------------------|------------------|--------|
+| `daily` / `daily_basic` | `stale_days <= 1` | `stale_days > 1` | 全市场 |
+| `limit_list` | `stale_days <= 1` | `stale_days > 1` | 情绪极值统计 |
+| `index_member` / `index_classify` | `stale_days <= 20` | `stale_days > 20` | 行业映射 |
+| `stock_basic` / `trade_cal` | `stale_days <= 5` | `stale_days > 5` | 基础口径 |
+
+> 统一规则：任一核心输入触发“重度降级”即 `status=blocked`；轻度降级下透传 `data_quality/stale_days/source_trade_date`。
+
 ---
 
 ## 9. 验收与验证（可执行口径）
@@ -637,10 +681,44 @@ def backfill(table_name: str, start_date: str, end_date: str):
 - L2 不直接输出因子得分；L3 仅记录算法输出，不二次归一化。
 - `pas_breadth_daily` 仅允许由 `stock_pas_daily` 聚合，禁止引入跨层新因子。
 
+### 9.4 最小闭环验收（CP-10）
+
+1. `pytest tests/unit/data/models/test_model_contract_alignment.py tests/unit/data/models/test_snapshots.py tests/unit/data/test_quality_gate.py`
+2. `python -m src.data.quality_gate`（若提供 CLI 时）或在调度中调用 `evaluate_data_quality_gate()`
+3. 验收标准：
+   - 模型字段包含 `data_quality/stale_days/source_trade_date`
+   - `stale_days > 3` 能触发阻断
+   - 跨日混用（source date 不一致）能触发阻断
+
+---
+
+## 10. 可选盘中增量层（P1）
+
+- 新增逻辑层：`intraday_incremental_snapshot`（分钟级或半小时级）。
+- 作用范围：仅提供 GUI/Analysis 观测，不直接驱动交易信号。
+- 开关控制：`system_config.enable_intraday_incremental`（默认 `false`）。
+- 防污染约束：盘后主流程仍以 EOD L1 原始数据为唯一事实源。
+
+---
+
+## 11. 分库触发与回迁策略（P2）
+
+- 触发条件（任一满足）：
+  - 主库体积 > 120GB
+  - 单次查询 p95 > 2.0s 且持续 5 个交易日
+  - 日写入记录 > 3000 万
+- 执行动作：
+  - 按年分库（`emotionquant_YYYY.duckdb`）
+  - 保持 `query_cross_year()` 透明聚合能力
+- 回迁策略：
+  - 当近 90 日查询 p95 < 1.0s 且总量回落，可合并回单库
+  - 回迁前后需执行“行数一致 + 校验和一致 + 抽样字段一致”三重校验
+
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.1.4 | 2026-02-14 | 修复 R32（review-010）：补齐 `src/data/models` 质量字段契约落地说明；新增 `src/data/quality_gate.py` 门禁自动化口径（覆盖率/`stale_days`/跨日一致性）；补充降级分级、可选盘中增量层、分库触发与回迁策略 |
 | v3.1.3 | 2026-02-09 | 修复 R23：补充 TuShare 接口-目录-逻辑表名映射；`process_industry_snapshot` 增加 `config.flat_threshold`；补充 `stock_gene_cache` 返回值与异常处理语义 |
 | v3.1.2 | 2026-02-08 | 修复 R14：行业估值聚合改为过滤+Winsorize+median；`stock_pas_daily` DDL 补 `id`；`integrated_recommendation` DDL 补 `weight_plan_id/validation_gate` 且 `stock_code` 统一 `VARCHAR(20)`；调度流程补 `stock_gene_cache` 与 Validation Gate；`flat_count` 阈值改为 `config.flat_threshold` |
 | v3.1.1 | 2026-02-05 | PAS相关字段命名口径对齐（max_pct_chg_history 等） |

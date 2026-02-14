@@ -75,9 +75,11 @@
 ### 3.2 IRS：行业轮动系统
 
 **职责**：评估行业强弱度、判定行业轮动状态、输出TopN行业  
-**输入**：`industry_snapshot`（L2）+ `mss_panorama`（周期信息）  
+**输入**：`industry_snapshot`（L2）+ `benchmark_pct_chg`（来自 `raw_index_daily`）  
 **输出**：`irs_industry_daily`（包含 `industry_score`, `rotation_status`, `rank`）  
 **核心算法**：相对强度、资金流入、龙头强度、牛股基因聚合
+
+> 说明：MSS 不直接作为 IRS 因子输入；MSS 风险敞口约束在 Integration 层协同执行。
 
 ### 3.3 PAS：个股机会系统
 

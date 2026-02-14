@@ -1,7 +1,7 @@
 # PAS 价格行为信号算法设计
 
-**版本**: v3.1.11（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 
 ---
@@ -20,6 +20,9 @@ PAS（Price Action Signals）是个股价格行为信号系统，用于在符合
 | opportunity_grade | 机会等级 | S/A/B/C/D |
 | direction | 方向判断 | bullish/bearish/neutral |
 | risk_reward_ratio | 风险收益比 | ≥1.0（执行最低门槛） |
+| effective_risk_reward_ratio | 有效风险收益比（含成交约束折扣） | ≥1.0（执行最低门槛） |
+| quality_flag | 质量标记 | normal/cold_start/stale |
+| sample_days | 有效样本天数 | ≥0 |
 | neutrality | 中性度 | 0-1（越接近1越中性，越接近0信号越极端） |
 
 命名规范：PAS机会等级与方向命名详见 [naming-conventions.md](../../../naming-conventions.md) §4-5。
@@ -55,11 +58,11 @@ PAS（Price Action Signals）是个股价格行为信号系统，用于在符合
 | 数据来源 | PAS 使用角度 | 粒度 | 回答的问题 |
 |----------|--------------|------|----------------|
 | **涨停** | 牛股基因（个股历史涨停次数） + 行为确认（当日涨停状态） | 个股特征 | 这只股票爆发力如何？ |
-| **成交量** | 行为确认因子（量比 = 当日/20日均量） | 个股特征 | 这只股票放量了吗？ |
+| **成交量** | 行为确认因子（放量质量 = 量比+换手+收盘保真） | 个股特征 | 这只股票放量且放量质量达标了吗？ |
 
 **与 MSS/IRS 的区别**：
 - MSS 看全市场涨停家数，IRS 看行业龙头涨停，PAS 看个股历史涨停频率
-- MSS 看全市场成交波动，IRS 看行业资金流入，PAS 看个股量比
+- MSS 看全市场成交波动，IRS 看行业资金流入，PAS 看个股放量质量
 - 同一数据，三个视角：**全局统计 vs 行业局部 vs 个股特征**
 
 ---
@@ -87,7 +90,7 @@ PAS（Price Action Signals）是个股价格行为信号系统，用于在符合
 |---------|--------------------------|----------------|
 | 历史惯性/基因 | limit_up_120d_ratio、new_high_60d_ratio、max_pct_chg_history | 牛股基因因子 |
 | 结构位置/突破 | price_position、trend_continuity_ratio、breakout_strength | 结构位置因子 |
-| 行为确认/量价 | volume_ratio、pct_chg、limit_up_flag | 行为确认因子 |
+| 行为确认/量价 | volume_quality、pct_chg、limit_up_flag | 行为确认因子 |
 
 ### 2.5 互斥边界说明（允许的“复用”仅限分母/派生）
 
@@ -126,10 +129,22 @@ bull_gene_score = normalize_zscore(bull_gene_raw)
 **⚠️ 铁律合规**：使用价格相对位置替代均线指标
 
 ```text
-定义（ratio）：
-- price_position = (close - low_60d) / max(high_60d - low_60d, ε)
+定义（adaptive）：
+- volatility_20d = std(pct_chg_ratio, 20d)
+- if window_mode == "adaptive":
+    if volatility_20d >= 0.045 or turnover_rate >= 8.0: adaptive_window = 20
+    elif volatility_20d <= 0.020 and turnover_rate <= 3.0: adaptive_window = 120
+    else: adaptive_window = 60
+  else:
+    adaptive_window = 60  # fixed 兼容模式
+- (range_high, range_low, breakout_ref) = choose_by_window(adaptive_window)
+  - 20d  -> (high_20d,  low_20d,  high_20d_prev)
+  - 60d  -> (high_60d,  low_60d,  high_60d_prev)
+  - 120d -> (high_120d, low_120d, high_120d_prev)
+- trend_window = clip(round(adaptive_window / 3), 10, 40)
+- price_position = (close - range_low) / max(range_high - range_low, ε)
 - trend_continuity_ratio = consecutive_up_days / trend_window
-- breakout_strength = (close - high_60d_prev) / max(high_60d_prev, ε)
+- breakout_strength = (close - breakout_ref) / max(breakout_ref, ε)
 
 公式：
 structure_raw = 0.4×price_position
@@ -137,7 +152,7 @@ structure_raw = 0.4×price_position
               + 0.3×breakout_strength
 structure_score = normalize_zscore(structure_raw)
 
-数据来源：raw_daily
+数据来源：raw_daily + raw_daily_basic
 权重：50%
 ```
 
@@ -156,12 +171,18 @@ structure_score = normalize_zscore(structure_raw)
 ```text
 定义（ratio）：
 - volume_ratio = vol / max(volume_avg_20d, ε)
+- turnover_norm = clip(turnover_rate / 12.0, 0, 1)
+- intraday_retention = clip((close - low) / max(high - low, ε), 0, 1)
+- volume_quality = clip(
+    0.60×clip(volume_ratio / 3.0, 0, 1)
+  + 0.25×turnover_norm
+  + 0.15×intraday_retention, 0, 1
+  )
 - limit_up_flag = is_limit_up ? 1.0 : (is_touched_limit_up ? 0.7 : 0.0)
-- volume_ratio_norm = clip(volume_ratio / 3.0, 0, 1)
 - pct_chg_norm = clip((pct_chg + 20) / 40, 0, 1)
 
 公式：
-behavior_raw = 0.4×volume_ratio_norm
+behavior_raw = 0.4×volume_quality
              + 0.3×pct_chg_norm
              + 0.3×limit_up_flag
 behavior_score = normalize_zscore(behavior_raw)
@@ -265,10 +286,24 @@ else:
 reward = max(target - entry, 0)
 risk_reward_ratio = reward / risk
 
+# 成交约束折扣（降低纸面 RR 偏高）
+liquidity_discount = clip(volume_quality, 0.50, 1.00)
+tradability_discount = is_limit_up ? 0.60 : (is_touched_limit_up ? 0.80 : 1.00)
+effective_risk_reward_ratio = risk_reward_ratio × liquidity_discount × tradability_discount
+
+# 输出质量标记
+sample_days = min(history_days, adaptive_window)
+if stale_days > 0:
+    quality_flag = "stale"
+elif sample_days < adaptive_window:
+    quality_flag = "cold_start"
+else:
+    quality_flag = "normal"
+
 判断：
-- risk_reward_ratio ≥ 2 → 高质量机会
-- 1 ≤ risk_reward_ratio < 2 → 可交易但需结合仓位约束
-- risk_reward_ratio < 1 → 回避
+- effective_risk_reward_ratio ≥ 2 → 高质量机会
+- 1 ≤ effective_risk_reward_ratio < 2 → 可交易但需结合仓位约束
+- effective_risk_reward_ratio < 1 → 回避（仅观察，不进入执行层）
 ```
 
 **铁律合规说明**：使用价格高低点而非ATR计算止损止盈。
@@ -296,11 +331,13 @@ neutrality = 1 - |opportunity_score - 50| / 50
 
 | 参数 | 默认值 | 范围 | 说明 |
 |------|--------|------|------|
-| limit_up_window | 120（锁定） | 固定120 | 与 `limit_up_count_120d` 字段耦合，MVP 不开放可调 |
-| new_high_window | 60（锁定） | 固定60 | 与 `new_high_count_60d` 字段耦合，MVP 不开放可调 |
-| price_range_window | 60（锁定） | 固定60 | 与 `high_60d/low_60d/high_60d_prev` 字段耦合 |
-| volume_ma_window | 20（锁定） | 固定20 | 与 `volume_avg_20d` 字段耦合 |
-| trend_window | 20 | 5-40 | 趋势延续判断窗口 |
+| window_mode | adaptive | fixed/adaptive | fixed 使用 60 日窗口；adaptive 按波动+换手自适应 |
+| adaptive_window_set | 20/60/120 | 固定集合 | 自适应窗口候选集合（快/中/慢） |
+| volatility_fast_threshold | 0.045 | 0.03-0.08 | 高波动阈值（20日波动率） |
+| volatility_slow_threshold | 0.020 | 0.01-0.04 | 低波动阈值（20日波动率） |
+| turnover_fast_threshold | 8.0 | 5.0-15.0 | 高换手阈值（%） |
+| turnover_slow_threshold | 3.0 | 1.0-8.0 | 低换手阈值（%） |
+| trend_window | auto=adaptive_window/3 | 10-40 | 趋势延续窗口，随自适应窗口变化 |
 
 ### 8.2 权重参数
 
@@ -318,8 +355,9 @@ neutrality = 1 - |opportunity_score - 50| / 50
 
 - 必备字段：
   - 计数类：limit_up_count_120d、new_high_count_60d、max_pct_chg_history、consecutive_up_days、consecutive_down_days
-  - 连续类：open/high/low/close、vol、volume_avg_20d、pct_chg、high_60d、low_60d、high_60d_prev、high_20d_prev、low_20d_prev、low_20d
-  - 状态类：is_limit_up、is_touched_limit_up
+  - 连续类：open/high/low/close、vol、volume_avg_20d、pct_chg、turnover_rate、high_20d、low_20d、high_60d、low_60d、high_120d、low_120d、high_20d_prev、high_60d_prev、high_120d_prev、low_20d_prev
+  - 状态类：is_limit_up、is_touched_limit_up、history_days、stale_days
+  - 统计类：volatility_20d
 - 约束（零容忍）：
   - high_60d ≥ low_60d
   - volume_avg_20d > 0
@@ -329,7 +367,7 @@ neutrality = 1 - |opportunity_score - 50| / 50
 ### 9.2 尺度一致性（count→ratio→zscore）
 
 - 任一因子的输入如果是“家数/次数”，必须先转为 ratio 或 per-stock 比率。
-- 行为因子中的 `volume_ratio` / `pct_chg` 必须先映射到 `[0,1]` 再加权组合。
+- 行为因子中的 `volume_quality` / `pct_chg` 必须先映射到 `[0,1]` 再加权组合。
 - 归一化只能通过 `normalize_zscore`（或等价实现）完成。
 
 ### 9.3 宏观方向稽核（不得重复覆盖）
@@ -342,7 +380,19 @@ neutrality = 1 - |opportunity_score - 50| / 50
 - opportunity_score 与各因子得分必须位于 [0, 100]
 - opportunity_grade 必须落在 S/A/B/C/D
 - direction 必须落在 bullish/bearish/neutral
-- risk_reward_ratio ≥ 1.0（低于该值仅可用于观察，不进入执行层）
+- risk_reward_ratio ≥ 1.0（名义门槛，供分析）
+- effective_risk_reward_ratio ≥ 1.0（执行最低门槛，低于该值仅可用于观察）
+- quality_flag 必须落在 normal/cold_start/stale
+- sample_days ≥ 0 且 sample_days ≤ adaptive_window
+
+### 9.5 契约漂移自动检查（P2）
+
+- 每日收盘后执行 `scripts/quality/naming_contracts_check.py`（含 PAS 专项）。
+- 检查项至少包括：
+  - `risk_reward_ratio` 与 `effective_risk_reward_ratio` 门槛语义一致性（分析口径 vs 执行口径）。
+  - `opportunity_grade`、`direction`、`quality_flag` 枚举一致性。
+  - `window_mode/adaptive_window` 参数合法性（20/60/120）。
+- 若检查失败：标记 `quality_flag=stale` 并阻断进入 Trading/Backtest 执行链路。
 
 ---
 
@@ -372,6 +422,7 @@ neutrality = 1 - |opportunity_score - 50| / 50
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 修复 review-003：结构因子升级为波动+换手驱动的自适应窗口（20/60/120）；行为因子引入 `volume_quality`；风险收益比新增成交约束折扣并输出 `effective_risk_reward_ratio`；补齐 `quality_flag/sample_days` 与契约漂移自动检查 |
 | v3.1.11 | 2026-02-09 | 修复 R26：核心输出与 §9.4 输出合法性统一为 `risk_reward_ratio ≥ 1.0` 的执行最低门槛 |
 | v3.1.10 | 2026-02-08 | 修复 R19：§5.1 等级边界统一为半开区间；§9.1 数据就绪补齐 `max_pct_chg_history`；§10.1 明确 MSS 不直接进入 PAS 评分 |
 | v3.1.9 | 2026-02-08 | 修复 R13：字段耦合窗口参数（120/60/20）改为锁定口径；§5.2 显式引用 `consecutive_down_days`；§6 增加突破场景目标价下限，避免风险收益比系统性低于 1 |

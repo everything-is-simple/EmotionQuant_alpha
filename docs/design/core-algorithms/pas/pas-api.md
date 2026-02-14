@@ -1,7 +1,7 @@
 # PAS API 接口
 
-**版本**: v3.1.3（重构版）
-**最后更新**: 2026-02-08
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（模块接口；当前仓库无 Web API）
 
 ---
@@ -57,6 +57,17 @@ class PasCalculator:
     def get_top_opportunities(self, trade_date: str, top_n: int = 100, min_grade: str = "B") -> List[StockPasDaily]:
         """获取评分前N的机会"""
         pass
+
+    def run_contract_checks(self, trade_date: str) -> Dict[str, Any]:
+        """
+        执行 PAS 契约漂移检查（供质量门禁调用）
+
+        检查范围：
+        - RR 双口径语义（risk_reward_ratio vs effective_risk_reward_ratio）
+        - 输出枚举（opportunity_grade/direction/quality_flag）
+        - adaptive_window 合法值（20/60/120）
+        """
+        pass
     
 ```
 
@@ -95,9 +106,25 @@ class PasRepository:
 
 ## 3. 错误处理
 
-- 非交易日或数据缺失：抛出 `ValueError`。
-- 详细错误码与处理策略见：
+### 3.1 降级与异常语义
+
+- 非交易日：抛出 `ValueError`。
+- 关键字段缺失（无法计算结构/风险）：抛出 `ValueError`。
+- 历史样本不足：允许计算，但返回 `quality_flag="cold_start"`。
+- 数据滞后（`stale_days > 0`）：允许返回观察结果，但标记 `quality_flag="stale"`，执行层不得入场。
+
+### 3.2 返回契约关键字段（StockPasDaily）
+
+- 名义与执行双口径：`risk_reward_ratio`（分析）+ `effective_risk_reward_ratio`（执行）。
+- 成交约束透明化：`liquidity_discount`、`tradability_discount`。
+- 质量治理字段：`quality_flag`、`sample_days`、`adaptive_window`。
+
+### 3.3 契约漂移处理
+
+- `run_contract_checks()` 失败时返回失败明细并阻断当日执行链路（Backtest/Trading）。
+- 详细规则与处理策略见：
   - `docs/design/core-algorithms/pas/pas-algorithm.md`
+  - `docs/design/core-algorithms/pas/pas-data-models.md`
   - `Governance/Capability/CP-04-pas.md`
 
 ---
@@ -106,6 +133,7 @@ class PasRepository:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 修复 review-003：API 契约补齐 `effective_risk_reward_ratio` 与质量字段语义；新增 `run_contract_checks` 接口与契约漂移阻断规则；明确 stale/cold_start 降级处理 |
 | v3.1.3 | 2026-02-08 | 修复 R19：`PasRepository` 补充 `get_by_grade(trade_date, grades)`，与 Integration info-flow 调用链对齐 |
 | v3.1.2 | 2026-02-08 | 修复 R17：`get_by_industry` 从 `PasCalculator` 迁移到 `PasRepository`，与查询职责分层及 IRS 口径一致 |
 | v3.1.1 | 2026-02-05 | 移除 HTTP 接口示例，改为模块接口定义；与路线图/仓库架构对齐 |

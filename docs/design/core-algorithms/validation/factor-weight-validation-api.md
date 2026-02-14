@@ -1,7 +1,7 @@
 # 因子与权重验证 API
 
-**版本**: v2.1.0  
-**最后更新**: 2026-02-09
+**版本**: v2.2.0  
+**最后更新**: 2026-02-14
 
 ---
 
@@ -59,9 +59,21 @@ def select_weight_plan(
     baseline: dict[str, float],
     signals: "DataFrameLike",
     prices: "DataFrameLike",
+    market_context: dict[str, float] | None = None,
     config: ValidationConfig | None = None,
 ) -> WeightValidationResult
 ```
+
+### 2.3 build_dual_wfa_windows
+
+```python
+def build_dual_wfa_windows(
+    end_date: str,
+    config: ValidationConfig | None = None,
+) -> dict[str, list[tuple[str, str, str]]]
+```
+
+说明：返回 `{"long_cycle": [...], "short_cycle": [...]}` 两套窗口定义。
 
 ---
 
@@ -75,6 +87,7 @@ from typing import Optional
 def decide_gate(
     factor_results: list[FactorValidationResult],
     weight_result: WeightValidationResult,
+    stale_days: int = 0,
     previous_gate: Optional[ValidationGateDecision] = None,
     config: ValidationConfig | None = None,
 ) -> ValidationGateDecision
@@ -140,6 +153,32 @@ def build_integration_inputs(trade_date: str) -> tuple[ValidationGateDecision, W
 def get_run_manifest(run_id: str) -> ValidationRunManifest
 ```
 
+### 4.6 resolve_regime_thresholds
+
+```python
+def resolve_regime_thresholds(
+    trade_date: str,
+    mss_temperature: float,
+    market_volatility_20d: float,
+    config: ValidationConfig | None = None,
+) -> ValidationConfig
+```
+
+说明：在 `threshold_mode=regime` 下返回当日动态阈值配置副本。
+
+### 4.7 classify_fallback
+
+```python
+def classify_fallback(
+    factor_gate: str,
+    weight_gate: str,
+    stale_days: int,
+    config: ValidationConfig | None = None,
+) -> tuple[str, str, float]
+```
+
+说明：返回 `(failure_class, fallback_plan, position_cap_ratio)`。
+
 ---
 
 ## 5. CLI 命令约定
@@ -161,4 +200,15 @@ pytest tests/validation -q
   - `ValidationGateDecision.selected_weight_plan` 是业务键；
   - Integration 前必须通过 `resolve_weight_plan()` 转换为 `WeightPlan` 数值对象；
   - 禁止直接从 `.reports/validation/*.parquet` 读取门禁与权重。
+- 执行降级规则：
+  - Integration/Trading 必须消费 `ValidationGateDecision.position_cap_ratio`；
+  - `stale_days > threshold` 时不得仅告警，必须自动降仓。
 
+---
+
+## 7. 变更记录
+
+| 版本 | 日期 | 变更内容 |
+|------|------|----------|
+| v2.2.0 | 2026-02-14 | 修复 review-004：新增 `build_dual_wfa_windows`、`resolve_regime_thresholds`、`classify_fallback` 接口；`decide_gate` 增加 `stale_days` 入参；补齐自动降仓契约 |
+| v2.1.0 | 2026-02-09 | 修复 R29：补齐 Validation->Integration 桥接接口（`resolve_weight_plan` / `build_integration_inputs`），并明确运行时仅读 DuckDB `validation_*` |

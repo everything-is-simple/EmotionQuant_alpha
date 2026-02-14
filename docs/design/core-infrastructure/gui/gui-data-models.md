@@ -1,8 +1,8 @@
 # GUI 数据模型
 
-**版本**: v3.1.7（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
 
 ---
 
@@ -22,6 +22,9 @@ class DashboardData:
     position_advice: str          # 仓位建议
     # 时间
     trade_date: str               # 交易日期
+    data_asof: str                # 数据时间戳（YYYYMMDD HH:MM:SS）
+    freshness: FreshnessMeta      # 缓存新鲜度
+    active_filter_badges: List[str]  # 当前生效过滤阈值
     # 推荐列表
     top_recommendations: List[RecommendationItem]  # Top N 推荐
     integration_mode_badge: str    # 主模式徽标（传统模式/实验模式/双重验证/互补模式）
@@ -51,6 +54,7 @@ class RecommendationItem:
     target: float                 # 目标价
     irs_score: float              # IRS评分
     pas_score: float              # PAS评分
+    reason_panel: RecommendationReasonPanel = None  # 推荐原因联动面板（可选）
 ```
 
 ### 1.3 IndustryRankItem（行业排名项）
@@ -250,6 +254,64 @@ class IntegratedPageData:
     trade_date: str
     recommendations: List[RecommendationItem]
     pagination: PaginationInfo
+    data_asof: str
+    freshness: FreshnessMeta
+    active_filter_badges: List[str]
+    observability: UiObservabilityPanel
+```
+
+### 1.10 GuiRunResult（最小闭环结果）
+
+```python
+@dataclass
+class GuiRunResult:
+    """最小 GUI 闭环运行结果"""
+    trade_date: str
+    rendered_pages: List[str]     # ["dashboard", "integrated"]
+    data_state: str               # ok/warn_data_fallback/partial_skipped
+    freshness_summary: Dict[str, str]  # 页面 -> fresh/stale_soon/stale
+    created_at: datetime
+```
+
+### 1.11 RecommendationReasonPanel（推荐原因面板）
+
+```python
+@dataclass
+class RecommendationReasonPanel:
+    """推荐原因联动面板（来自 Analysis L4）"""
+    stock_code: str
+    trade_date: str
+    mss_attribution: float
+    irs_attribution: float
+    pas_attribution: float
+    risk_alert: str
+    risk_turning_point: str
+    deviation_hint: str           # signal/execution/cost
+```
+
+### 1.12 FreshnessMeta（缓存新鲜度）
+
+```python
+@dataclass
+class FreshnessMeta:
+    """缓存新鲜度元信息"""
+    data_asof: str                # 源数据时间戳
+    cache_created_at: str         # 缓存写入时间戳
+    cache_age_sec: int            # 缓存年龄（秒）
+    freshness_level: str          # fresh/stale_soon/stale
+```
+
+### 1.13 UiObservabilityPanel（异常观测面板）
+
+```python
+@dataclass
+class UiObservabilityPanel:
+    """GUI 异常观测摘要"""
+    timeout_count_1h: int
+    empty_state_count_1h: int
+    data_fallback_count_1h: int
+    permission_denied_count_1h: int
+    last_error_message: str
 ```
 
 ---
@@ -379,6 +441,8 @@ class GuiConfig:
     top_n_recommendations: int = 10  # Dashboard推荐数
     top_n_industries: int = 5      # Dashboard行业数
     mss_history_days: int = 60     # MSS历史天数
+    show_filter_badges: bool = True  # 显示当前阈值
+    show_freshness_badge: bool = True  # 显示新鲜度徽标
 ```
 
 ### 4.2 FilterConfig（过滤配置）
@@ -398,6 +462,7 @@ class FilterConfig:
     # 集成推荐
     integrated_min_score: float = 70.0
     integrated_min_position: float = 0.05
+    source: str = "env_default"    # env_default/user_override/session_override
 ```
 
 ### 4.3 PermissionConfig（权限配置）
@@ -431,6 +496,8 @@ class PermissionConfig:
 | backtest_results | 回测结果 | Analysis |
 | daily_report | 日报 | Analysis |
 | performance_metrics | 绩效指标 | Analysis |
+| signal_attribution | 三路归因 | Integrated, Analysis |
+| live_backtest_deviation | 偏差分解 | Integrated, Analysis |
 
 ### 5.2 字段映射
 
@@ -443,6 +510,9 @@ class PermissionConfig:
 | level_color | stock_pas_daily.opportunity_grade | S→金色 |
 | integration_mode_badge | integrated_recommendation.integration_mode | 模式中文映射 |
 | pnl_color | positions.unrealized_pnl | >0→红色，<0→绿色，=0→灰色（A股红涨绿跌） |
+| active_filter_badges | FilterConfig | 阈值字符串格式化 |
+| freshness.freshness_level | cache metadata | fresh/stale_soon/stale |
+| reason_panel.risk_turning_point | daily_report.risk_summary | Analysis 风险拐点联动 |
 
 ---
 
@@ -489,12 +559,22 @@ class RotationStatus(Enum):
     HOLD = "HOLD"     # 观望
 ```
 
+### 6.5 FreshnessLevel（新鲜度等级）
+
+```python
+class FreshnessLevel(Enum):
+    FRESH = "fresh"
+    STALE_SOON = "stale_soon"
+    STALE = "stale"
+```
+
 ---
 
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：新增 `GuiRunResult/FreshnessMeta/UiObservabilityPanel/RecommendationReasonPanel`；`DashboardData/IntegratedPageData` 补齐 `data_asof/freshness/active_filter_badges`；依赖表新增 `signal_attribution/live_backtest_deviation`；新增 `FreshnessLevel` 枚举 |
 | v3.1.7 | 2026-02-09 | 修复 R26：`DashboardData/RecommendationItem` 增加 `integration_mode` 与 `integration_mode_badge` 展示字段；§5.2 补充模式映射来源 |
 | v3.1.6 | 2026-02-09 | 修复 R22：补充 `IntegratedPageData`；明确 `neutrality_percent` 为中性度百分比；`pnl_color` 补齐持平分支（gray） |
 | v3.1.5 | 2026-02-08 | 修复 R15：新增 `BacktestSummaryDisplay`；`pnl_color` 改为 A 股红涨绿跌口径；`ChartZone` 增加边界包含约定字段 |

@@ -1,8 +1,8 @@
 # Backtest API接口
 
-**版本**: v3.4.2（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（代码未落地）
+**版本**: v3.5.1（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -41,6 +41,19 @@ class BacktestRunner:
         - execute_date = T+1（开盘执行）
         """
         pass
+
+    def run_minimal(self) -> BacktestResult:
+        """
+        CP-06 最小闭环入口：
+        - engine_type 固定 local_vectorized
+        - integration_mode 固定 top_down
+        - 输出必须落库 backtest_results/backtest_trade_records
+        """
+        pass
+
+    def resolve_mode(self, signal_date: str) -> str:
+        """模式解析：config_fixed / regime_driven / hybrid_weight"""
+        pass
 ```
 
 ### 1.2 引擎适配器
@@ -78,7 +91,11 @@ class IntegrationSignalProvider:
     def generate(self, signal_date: str) -> List[BacktestSignal]:
         """
         - 读取 integrated_recommendation（按 integration_mode）
+        - 前置读取 validation_gate_decision：
+          - final_gate=FAIL -> 返回空列表并标记 blocked_gate_fail
+          - contract_version!="nc-v1" -> 返回空列表并标记 blocked_contract_mismatch
         - 应用 min_final_score / min_recommendation
+        - 应用 risk_reward_ratio 执行过滤（<1.0 过滤，=1.0 允许）
         - 输出 BacktestSignal（signal_date = signal_date）
         """
         pass
@@ -107,7 +124,20 @@ class ExecutionPolicy:
         pass
 ```
 
-### 1.5 FeeModel 费用模型
+### 1.5 ExecutionFeasibilityModel 成交可行性模型
+
+```python
+class ExecutionFeasibilityModel:
+    """排队+量能成交概率模型（tiered_queue）"""
+
+    def estimate_fill_probability(self, order, daily_data) -> float:
+        pass
+
+    def is_tradable(self, order, daily_data, min_fill_probability: float) -> bool:
+        pass
+```
+
+### 1.6 FeeModel 费用模型
 
 ```python
 class FeeModel:
@@ -120,7 +150,18 @@ class FeeModel:
         pass
 ```
 
-### 1.6 OrderSequencer 订单顺序
+```python
+class LiquidityCostModel(FeeModel):
+    """流动性分层成本模型（L1/L2/L3）"""
+
+    def classify_tier(self, daily_data) -> str:
+        pass
+
+    def impact_cost_bps(self, tier: str, order_amount: float) -> float:
+        pass
+```
+
+### 1.7 OrderSequencer 订单顺序
 
 ```python
 class OrderSequencer:
@@ -129,7 +170,7 @@ class OrderSequencer:
         pass
 ```
 
-### 1.7 DataAdapter 数据适配器
+### 1.8 DataAdapter 数据适配器
 
 ```python
 class BacktraderDataAdapter:
@@ -156,6 +197,7 @@ class BacktestConfig:
     # 引擎与模式
     engine_type: str = "qlib"  # qlib/local_vectorized/backtrader_compat
     integration_mode: str = "top_down"  # top_down/bottom_up/dual_verify/complementary
+    mode_switch_policy: str = "config_fixed"  # config_fixed/regime_driven/hybrid_weight
 
     # 时间范围
     start_date: str
@@ -173,6 +215,10 @@ class BacktestConfig:
     order_type: str = "auction"       # auction/limit
     slippage_type: str = "auction"    # auction/fixed/variable
     slippage_value: float = 0.001
+    min_fill_probability: float = 0.35
+    queue_participation_rate: float = 0.15
+    impact_cost_bps_cap: float = 35.0
+    liquidity_tier_source: str = "raw_daily"
     fee_config: AShareFeeConfig = field(default_factory=AShareFeeConfig)
 
     # 风控与仓位
@@ -181,6 +227,23 @@ class BacktestConfig:
     max_holding_days: int = 10
     stop_loss_pct: float = 0.08
     take_profit_pct: float = 0.15
+```
+
+### 2.2 CP-06 最小命令（P0）
+
+```powershell
+python -m src.backtest.runner `
+  --engine local_vectorized `
+  --mode top_down `
+  --start 20250101 --end 20250228 `
+  --config-name cp06_smoke
+```
+
+```text
+预期：
+1) 生成 BacktestResult 并写入 backtest_results
+2) 生成交易记录并写入 backtest_trade_records
+3) 输出 backtest_state 统计（blocked/warn/normal）
 ```
 
 ---
@@ -250,6 +313,8 @@ class BacktestRepository:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.1 | 2026-02-14 | 修复 R34（review-012）：SignalProvider 接口补充 `contract_version` 前置兼容检查语义（`nc-v1`）；显式补齐 Gate FAIL 阻断与 `risk_reward_ratio` 边界执行口径 |
+| v3.5.0 | 2026-02-14 | 对应 review-006 闭环修复：新增 `run_minimal()/resolve_mode()`；补充 `ExecutionFeasibilityModel` 与 `LiquidityCostModel` 接口；`BacktestConfig` 增加模式切换与成交可行性参数；新增 CP-06 最小命令 |
 | v3.4.2 | 2026-02-09 | 修复 R27：`BacktestConfig` 费率字段改为 `fee_config: AShareFeeConfig`（与 data-models 对齐）；`min_recommendation` 注释改为 Recommendation 枚举语义 |
 | v3.4.1 | 2026-02-08 | 修复 R10：BacktestConfig 增加 `risk_free_rate`；同步 `max_position_pct=0.20`、`take_profit_pct=0.15` 与数据模型一致 |
 | v3.4.0 | 2026-02-07 | 统一选型：Qlib 主选；新增本地向量化基线与 backtrader 兼容引擎命名 |

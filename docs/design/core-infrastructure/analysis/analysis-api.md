@@ -1,8 +1,8 @@
 # Analysis API 接口
 
-**版本**: v3.1.5（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
 
 ---
 
@@ -16,11 +16,40 @@ Analysis 层产出 L4 分析指标与报告，不替代 L3 算法；仅消费 L3
 
 ```
 analysis/
+├── analysis_engine.py        # 最小闭环执行入口
 ├── performance_analyzer.py   # 绩效指标计算
 ├── signal_attribution.py     # MSS/IRS/PAS贡献拆解
 ├── risk_reporter.py          # 风险与回撤分析
 ├── report_writer.py          # 报告输出（Markdown/CSV）
 └── visualizer.py             # 可视化输出接口
+```
+
+### 1.1 AnalysisEngine（最小闭环执行器，P0）
+
+```python
+class AnalysisEngine:
+    """Analysis 最小可运行闭环"""
+
+    def __init__(
+        self,
+        repository: DataRepository,
+        analyzer: PerformanceAnalyzer,
+        attributor: SignalAttributor,
+        risk_reporter: RiskReporter,
+        report_writer: ReportWriter
+    ) -> None:
+        ...
+
+    def run_minimal(
+        self,
+        trade_date: str,
+        start_date: str,
+        end_date: str
+    ) -> AnalysisRunResult:
+        """
+        执行最小闭环：
+        compute_metrics -> attribute_signals -> generate_daily_report -> persist/export
+        """
 ```
 
 ---
@@ -160,16 +189,20 @@ class SignalAttributor:
 ```python
 def attribute_signals(
     self,
-    trade_date: str
+    trade_date: str,
+    trim_quantile: float = 0.05,
+    min_sample_count: int = 20
 ) -> SignalAttribution:
     """
     计算单日信号归因
 
     Args:
         trade_date: 交易日期
+        trim_quantile: 双尾截尾分位（默认 5%）
+        min_sample_count: 稳健归因最小样本数
 
     Returns:
-        SignalAttribution: 归因结果
+        SignalAttribution: 归因结果（含 raw/trimmed 样本统计）
     """
 ```
 
@@ -232,6 +265,25 @@ def calculate_rotation_hit_rate(
 
     Returns:
         float: 轮动命中率
+    """
+```
+
+### 3.6 decompose_live_backtest_deviation（实盘-回测偏差归因，P1）
+
+```python
+def decompose_live_backtest_deviation(
+    self,
+    trade_date: str
+) -> LiveBacktestDeviation:
+    """
+    拆解实盘与回测偏差来源
+
+    Args:
+        trade_date: 交易日期
+
+    Returns:
+        LiveBacktestDeviation:
+            {signal_deviation, execution_deviation, cost_deviation, total_deviation, dominant_component}
     """
 ```
 
@@ -302,6 +354,27 @@ def analyze_drawdown_periods(
 
     Returns:
         List[dict]: [{start_date, end_date, max_drawdown, duration}]
+    """
+```
+
+### 4.5 analyze_risk_trend（前瞻风险摘要，P1）
+
+```python
+def analyze_risk_trend(
+    self,
+    trade_date: str,
+    lookback_days: int = 20
+) -> RiskSummary:
+    """
+    计算风险变化率与拐点
+
+    Args:
+        trade_date: 交易日期
+        lookback_days: 回看窗口
+
+    Returns:
+        RiskSummary:
+            {high_risk_change_rate, low_risk_change_rate, risk_turning_point, risk_regime}
     """
 ```
 
@@ -401,6 +474,26 @@ def export_metrics_csv(
     """
 ```
 
+### 5.6 export_dashboard_snapshot（GUI/治理对接，P2）
+
+```python
+def export_dashboard_snapshot(
+    self,
+    report_date: str,
+    format: str = "json"
+) -> str:
+    """
+    导出统一快照，供 GUI 与治理看板读取
+
+    Args:
+        report_date: 报告日期
+        format: 导出格式（默认 json）
+
+    Returns:
+        str: 快照文件路径（如 `.reports/analysis/dashboard_snapshot_20260131_153000.json`）
+    """
+```
+
 ---
 
 ## 6. Visualizer（可视化接口）
@@ -466,6 +559,7 @@ def build_score_distribution(
 ## 7. 完整调用示例
 
 ```python
+from analysis.analysis_engine import AnalysisEngine
 from analysis.performance_analyzer import PerformanceAnalyzer
 from analysis.signal_attribution import SignalAttributor
 from analysis.risk_reporter import RiskReporter
@@ -476,6 +570,16 @@ analyzer = PerformanceAnalyzer(repository)
 attributor = SignalAttributor(repository)
 risk_reporter = RiskReporter(repository)
 report_writer = ReportWriter(repository)
+engine = AnalysisEngine(repository, analyzer, attributor, risk_reporter, report_writer)
+
+# 最小闭环（P0）
+result = engine.run_minimal(
+    trade_date="20260131",
+    start_date="20260101",
+    end_date="20260131"
+)
+print(result.state)
+print(result.saved_tables)
 
 # 计算绩效指标
 metrics = analyzer.compute_metrics(
@@ -487,17 +591,29 @@ metrics = analyzer.compute_metrics(
 print(f"总收益: {metrics.total_return:.2%}")
 print(f"夏普比率: {metrics.sharpe_ratio:.2f}")
 
-# 信号归因
-attribution = attributor.attribute_signals("20260131")
+# 信号归因（稳健口径）
+attribution = attributor.attribute_signals(
+    trade_date="20260131",
+    trim_quantile=0.05,
+    min_sample_count=20
+)
 print(f"MSS贡献: {attribution.mss_attribution:.4f}")
 print(f"IRS贡献: {attribution.irs_attribution:.4f}")
 print(f"PAS贡献: {attribution.pas_attribution:.4f}")
+print(f"归因方法: {attribution.attribution_method}")
+
+# 实盘-回测偏差归因（P1）
+deviation = attributor.decompose_live_backtest_deviation("20260131")
+print(f"总偏差: {deviation.total_deviation:.4f}")
+print(f"主导偏差: {deviation.dominant_component}")
 
 # 风险分析
 positions = repository.get_positions()
 concentration = risk_reporter.analyze_concentration(positions)
+risk_summary = risk_reporter.analyze_risk_trend("20260131", lookback_days=20)
 print(f"HHI: {concentration['hhi']:.4f}")
 print(f"最大行业占比: {concentration['max_concentration']:.2%}")
+print(f"风险拐点: {risk_summary.risk_turning_point}")
 
 # 生成日报
 report_data = report_writer.generate_daily_report("20260131")
@@ -508,6 +624,10 @@ print(f"报告已导出: {path}")  # .reports/analysis/daily_report_{YYYYMMDD_HH
 # 导出绩效CSV
 csv_path = report_writer.export_metrics_csv(metrics)
 print(f"指标已导出: {csv_path}")
+
+# 导出 GUI/治理统一快照（P2）
+snapshot_path = report_writer.export_dashboard_snapshot("20260131")
+print(f"快照已导出: {snapshot_path}")
 ```
 
 ---
@@ -521,6 +641,8 @@ print(f"指标已导出: {csv_path}")
 | 月报 | .reports/analysis/monthly_report_{YYYYMMDD_HHMMSS}.md | .reports/analysis/monthly_report_20260131_153000.md |
 | 绩效指标 | .reports/analysis/performance_metrics_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/performance_metrics_20260131_153000.csv |
 | 归因结果 | .reports/analysis/signal_attribution_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/signal_attribution_20260131_153000.csv |
+| 偏差归因 | .reports/analysis/live_backtest_deviation_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/live_backtest_deviation_20260131_153000.csv |
+| 看板快照 | .reports/analysis/dashboard_snapshot_{YYYYMMDD_HHMMSS}.json | .reports/analysis/dashboard_snapshot_20260131_153000.json |
 | 回测报告 | .reports/analysis/backtest_report_{YYYYMMDD_HHMMSS}.md | .reports/analysis/backtest_report_20260131_153000.md |
 | 归档（可选） | .reports/archive/analysis/{YYYYMM}/analysis_reports_{YYYYMMDD_HHMMSS}.zip | .reports/archive/analysis/202601/analysis_reports_20260131_153000.zip |
 
@@ -530,6 +652,7 @@ print(f"指标已导出: {csv_path}")
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：新增 `AnalysisEngine.run_minimal`；`attribute_signals` 补齐稳健归因参数；新增 `decompose_live_backtest_deviation`、`analyze_risk_trend`、`export_dashboard_snapshot`；落盘路径补齐偏差与看板快照 |
 | v3.1.5 | 2026-02-12 | 路径整理：归档目录口径由 `.archive/analysis/` 统一为 `.reports/archive/analysis/` |
 | v3.1.4 | 2026-02-09 | 修复 R27：`build_score_distribution` 参数类型更正为 `List[StockPasDaily]`，与 PAS data-model/API 一致 |
 | v3.1.3 | 2026-02-09 | 修复 R21：`compute_metrics` 增加 `trades` 可选参数并明确默认回源；`export_to_file` 增加 `output_dir` 可选参数并显式默认 `.reports/analysis/` |

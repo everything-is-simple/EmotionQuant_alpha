@@ -1,8 +1,8 @@
 # Trading API 接口
 
-**版本**: v3.1.5（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.1（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -17,8 +17,10 @@
 
 ```
 trading/
+├── trading_engine.py      # CP-07最小闭环编排器
 ├── order_manager.py       # 订单管理器
 ├── executor.py            # 交易执行器
+├── execution_feasibility.py # 成交可行性模型
 ├── position_manager.py    # 持仓管理器
 ├── risk_manager.py        # 风险管理器
 ├── t1_tracker.py          # T+1追踪器
@@ -174,7 +176,8 @@ class AuctionExecutor:
         self,
         db: Database,
         t1_tracker: T1Tracker,
-        commission_model: CommissionModel
+        commission_model: CommissionModel,
+        execution_feasibility: ExecutionFeasibilityModel
     ) -> None:
         """
         初始化执行器
@@ -183,6 +186,7 @@ class AuctionExecutor:
             db: 数据库连接
             t1_tracker: T+1追踪器
             commission_model: 佣金模型
+            execution_feasibility: 成交可行性模型
         """
 ```
 
@@ -192,7 +196,8 @@ class AuctionExecutor:
 def execute_auction(
     self,
     order: Order,
-    trade_date: str
+    trade_date: str,
+    execution_mode: str = "auction_single"
 ) -> Order:
     """
     执行集合竞价
@@ -206,7 +211,8 @@ def execute_auction(
 
     Note:
         - 自动获取开盘价
-        - 开盘价成交（滑点默认为0）
+        - 基于 fill_probability/fill_ratio 计算成交股数
+        - 按流动性分层估计冲击成本（impact_cost_bps）
         - 更新T+1冻结状态
         - 持久化成交记录
     """
@@ -236,6 +242,48 @@ def execute_limit(
         买单：current_price <= order.price 时成交
         卖单：current_price >= order.price 时成交
     """
+```
+
+### 3.4 execute_sliced（分批执行实验）
+
+```python
+def execute_sliced(
+    self,
+    order: Order,
+    trade_date: str,
+    slices: List[str]
+) -> List[Order]:
+    """
+    分批执行（实验接口，默认不作为生产主流程）
+
+    Note:
+        - 切片示例：09:25-09:30 / 09:30-10:00 / 10:00-11:30
+        - 每个子单仍复用 A 股约束（T+1、涨跌停、手数）
+        - 返回子单明细用于冲击成本与成交率评估
+    """
+```
+
+### 3.5 ExecutionFeasibilityModel（成交可行性模型）
+
+```python
+class ExecutionFeasibilityModel:
+    """成交可行性评估"""
+
+    def estimate(
+        self,
+        stock_code: str,
+        trade_date: str,
+        order_shares: int,
+        participation_rate: float
+    ) -> ExecutionFeasibilityResult:
+        """
+        Returns:
+            ExecutionFeasibilityResult:
+                - fill_probability: float
+                - fill_ratio: float
+                - liquidity_tier: str  # L1/L2/L3
+                - impact_cost_bps: float
+        """
 ```
 
 ---
@@ -412,8 +460,10 @@ def check_order(
     order: Order,
     positions: Dict[str, Position],
     cash: float,
-    total_equity: float
-) -> Tuple[bool, str]:
+    total_equity: float,
+    mss_temperature: float,
+    market_volatility_20d: float
+) -> Tuple[bool, RejectReason]:
     """
     检查订单是否通过风控
 
@@ -424,19 +474,35 @@ def check_order(
         total_equity: 总权益
 
     Returns:
-        Tuple[bool, str]: (是否通过, 拒绝原因)
+        Tuple[bool, RejectReason]: (是否通过, 标准拒单原因)
 
     检查项:
+        0. 按市场状态解析风险阈值（fixed/regime）
         1. 资金充足性（买单）
         2. 单股仓位上限（买单）
+        2.5 行业集中度上限（买单）
         3. 总仓位上限（买单）
         4. T+1限制（卖单）
         5. 涨跌停限制
-        6. 行业集中度上限（买单，默认30%）
     """
 ```
 
-### 5.3 check_stop_loss
+### 5.3 resolve_regime_thresholds
+
+```python
+def resolve_regime_thresholds(
+    self,
+    mss_temperature: float,
+    market_volatility_20d: float
+) -> RiskConfig:
+    """
+    按市场状态解析阈值：
+    - fixed: 直接使用 20/30/80
+    - regime: 高温/高波动下调仓位上限
+    """
+```
+
+### 5.4 check_stop_loss
 
 ```python
 def check_stop_loss(
@@ -461,7 +527,7 @@ def check_stop_loss(
     """
 ```
 
-### 5.4 check_max_drawdown
+### 5.5 check_max_drawdown
 
 ```python
 def check_max_drawdown(
@@ -492,8 +558,10 @@ def check_order_v2(
     positions: Dict[str, Position],
     cash: float,
     total_equity: float,
-    validation: ValidationResult
-) -> Tuple[bool, str, ValidationResult]:
+    validation: ValidationResult,
+    mss_temperature: float,
+    market_volatility_20d: float
+) -> Tuple[bool, RejectReason, ValidationResult]:
     """
     v2.0订单检查（基于ValidationResult）
 
@@ -505,7 +573,7 @@ def check_order_v2(
         validation: 信号验证结果
 
     Returns:
-        Tuple[bool, str, ValidationResult]: (是否通过, 拒绝原因, 验证结果)
+        Tuple[bool, RejectReason, ValidationResult]: (是否通过, 标准拒单原因, 验证结果)
 
     Note:
         - 执行基础风控检查
@@ -732,34 +800,78 @@ def build_trade_signals(
 
     Processing:
         1. Gate FAIL 前置检查（读取 validation_gate_decision；若 final_gate=FAIL 则直接返回空列表）
-        2. MSS温度门控
-        3. IRS行业筛选
-        4. 获取集成推荐
-        5. 评分过滤
-        6. 构建TradeSignal
+        2. 契约版本兼容检查（`contract_version=="nc-v1"`；不兼容时阻断并设置 `trading_state=blocked_contract_mismatch`）
+        3. 获取 integrated_recommendation
+        4. 主门槛过滤（final_score/recommendation/opportunity_grade/risk_reward_ratio）
+           - `risk_reward_ratio < 1.0` 过滤
+           - `risk_reward_ratio = 1.0` 允许进入执行层
+        5. 构建 TradeSignal（含 integration_mode/source_direction 透传）
 
     Note:
-        信号来源优先级：integrated > PAS > IRS
+        当前执行主链仅消费 integrated 信号
     """
 ```
 
 ---
 
-## 11. 完整调用示例
+## 11. TradingEngine（最小闭环编排）
+
+### 11.1 run_minimal
+
+```python
+def run_minimal(self, trade_date: str) -> Dict[str, int]:
+    """
+    CP-07 最小可运行闭环：
+    signal -> order -> execution -> positions/t1_frozen
+
+    Returns:
+        Dict[str, int]:
+            {
+                "signals": int,
+                "submitted": int,
+                "filled": int,
+                "partially_filled": int,
+                "rejected": int
+            }
+    """
+```
+
+### 11.2 run_sandbox
+
+```python
+def run_sandbox(
+    self,
+    trade_date: str,
+    execution_mode: str = "auction_single"
+) -> Dict[str, float]:
+    """
+    执行策略沙盘对照：
+    - auction_single（默认）
+    - auction_sliced
+    - time_windowed
+    """
+```
+
+---
+
+## 12. 完整调用示例
 
 ```python
 from trading.order_manager import OrderManager
 from trading.executor import AuctionExecutor
+from trading.execution_feasibility import ExecutionFeasibilityModel
 from trading.position_manager import PositionManager
 from trading.risk_manager import RiskManagerV2
 from trading.t1_tracker import T1Tracker
 from trading.commission import CommissionConfig
 from trading.v2.signal_validator import SignalValidator
+from trading.trading_engine import TradingEngine
 
 # 初始化组件
 db = Database.from_env()
 t1_tracker = T1Tracker(db)
 commission = CommissionConfig()
+feasibility = ExecutionFeasibilityModel(db)
 
 # 初始化管理器
 order_manager = OrderManager(db)
@@ -784,18 +896,30 @@ positions = position_manager.get_positions()
 cash = position_manager.get_cash()
 total_equity = position_manager.get_total_equity()
 
-passed, reason, validation = risk_manager.check_order_v2(
-    order, positions, cash, total_equity, validation
+passed, reject_reason, validation = risk_manager.check_order_v2(
+    order, positions, cash, total_equity, validation, mss_temperature=58.0, market_volatility_20d=0.022
 )
 
 if passed:
     # 提交并执行
     order_manager.submit_order(order)
-    executor = AuctionExecutor(db, t1_tracker, commission)
-    executed = executor.execute_auction(order, "20260131")
-    print(f"成交: {executed.filled_shares}股 @ {executed.filled_price}")
+    executor = AuctionExecutor(db, t1_tracker, commission, feasibility)
+    executed = executor.execute_auction(order, "20260131", execution_mode="auction_single")
+    print(f"成交: {executed.filled_shares}股 @ {executed.filled_price}, fill_ratio={executed.fill_ratio:.2f}")
 else:
-    print(f"订单被拒绝: {reason}")
+    print(f"订单被拒绝: {reject_reason}")
+
+# 最小闭环运行（CP-07）
+engine = TradingEngine(
+    signal_builder=SignalBuilder(),
+    order_manager=order_manager,
+    risk_manager=risk_manager,
+    executor=executor,
+    position_manager=position_manager,
+    t1_tracker=t1_tracker,
+)
+summary = engine.run_minimal("20260131")
+print(summary)
 ```
 
 ---
@@ -804,6 +928,8 @@ else:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.1 | 2026-02-14 | 修复 R34（review-012）：`build_trade_signals` 处理链补充 `contract_version` 前置兼容检查（`nc-v1`）与 `blocked_contract_mismatch` 阻断语义；显式标注 RR=1.0 可执行边界 |
+| v3.2.0 | 2026-02-14 | 对应 review-007 闭环修复：`AuctionExecutor` 增加 `ExecutionFeasibilityModel` 依赖与 `execute_sliced()`；`RiskManager` 增加 `resolve_regime_thresholds()` 与 `RejectReason` 返回类型；新增 `TradingEngine.run_minimal()/run_sandbox()`；示例代码补齐最小闭环链路 |
 | v3.1.5 | 2026-02-09 | 修复 R27：`validate_signal` 参数 `pas` 类型改为 `StockPasDaily`；`build_trade_signals` 增补 Gate FAIL 前置检查；`stock_code` 示例统一为内部格式 `000001` |
 | v3.1.4 | 2026-02-09 | 修复 R20：`check_order` 检查项补齐“行业集中度上限（买单）”，与 trading-algorithm §3.1 Step 2.5 对齐 |
 | v3.1.3 | 2026-02-08 | 修复 R16：`add_position()` 补充必填参数 `industry_code`，与 `Position` 数据模型对齐 |

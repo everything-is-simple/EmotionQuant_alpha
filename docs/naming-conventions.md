@@ -1,13 +1,29 @@
 # EmotionQuant 命名规范
 
-**版本**: v3.0.7
-**最后更新**: 2026-02-09
+**版本**: v3.0.8
+**最后更新**: 2026-02-14
 **状态**: 规范文档
 
 ---
 
 > **重要**：本文档为 EmotionQuant 系统的**唯一权威命名规范**。
 > 所有模块文档应引用本文档，不应重复定义。
+
+> **Schema-first**：机器可读契约源位于 `docs/naming-contracts.schema.json`，文档与检查脚本均应与该文件保持一致。
+
+---
+
+## 0. 机器可读契约源（Schema-first）
+
+- 权威 Schema：`docs/naming-contracts.schema.json`
+- 当前契约版本：`nc-v1`
+- 关键阈值（机器可读）：
+  - `strong_buy_min = 75`
+  - `buy_min = 70`
+  - `pas_grade_b_min = 55`
+  - `risk_reward_ratio_min = 1.0`
+
+> 变更规则：阈值或枚举更新时，先改 Schema，再同步本文档与受影响模块文档。
 
 ---
 
@@ -138,6 +154,8 @@ class PasDirection(Enum):
 | SELL | 卖出 | final_score 30-49 | - |
 | AVOID | 回避 | final_score < 30 | - |
 
+> 边界要求：`final_score = 75` 必须命中 `STRONG_BUY/BUY` 分支判定；`final_score = 70` 必须命中 `BUY` 分支。
+
 ### 5.2 PAS 机会等级
 
 | 等级 | 评分区间 | 操作建议 |
@@ -147,6 +165,8 @@ class PasDirection(Enum):
 | B | [55, 70) | 轻仓试探 |
 | C | [40, 55) | 观望 |
 | D | <40 | 回避 |
+
+> 边界要求：`opportunity_score = 55` 必须命中 `B`，`opportunity_score = 70` 必须命中 `A`。
 
 ---
 
@@ -280,12 +300,34 @@ def zscore_normalize(value: float, mean: float, std: float) -> float:
 | 股票代码（内部） | stock_code | ts_code | L2+ 内部统一 6 位代码（如 `000001`，不含交易所后缀） |
 | 股票代码（外部） | ts_code | stock_code | L1/外部接口使用 TuShare 格式（如 `000001.SZ`、`600519.SH`） |
 
+### 9.4 契约版本字段（跨模块）
+
+| 字段 | 类型 | 说明 | 适用模块 |
+|------|------|------|----------|
+| contract_version | VARCHAR(20) | 命名/契约版本标识（当前 `nc-v1`） | Integration / Trading / Backtest |
+
+用途：
+- 在 Integration/Trading/Backtest 执行前做版本兼容检查。
+- 版本不兼容时必须阻断执行并给出迁移提示（不得静默降级）。
+
+---
+
+## 10. 术语字典与变更模板
+
+- 术语字典：`docs/naming-contracts-glossary.md`
+- 变更模板：`Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md`
+
+使用规则：
+1. 新增枚举、阈值、字段前，先更新术语字典中的受影响模块映射。
+2. 提交契约变更时，必须附带变更模板并列出联动文件。
+
 ---
 
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.0.8 | 2026-02-14 | 修复 R34（review-012）：新增 Schema-first 机器可读契约源（`docs/naming-contracts.schema.json`）；补充关键阈值边界语义（75/70/55/1.0）；新增 `contract_version` 跨模块字段规范；补充术语字典与契约变更模板入口 |
 | v3.0.7 | 2026-02-09 | 修复 R30：§8.2/§8.3 补齐 Validation 核心表与中间表命名清单（`validation_gate_decision/validation_weight_plan/validation_factor_report/validation_weight_report/validation_run_manifest`） |
 | v3.0.6 | 2026-02-09 | 修复 R29：§4 合规说明与系统铁律统一为“可对照/辅助特征，但不得独立决策” |
 | v3.0.5 | 2026-02-09 | 修复 R27：§9.3 增加 `stock_code/ts_code` 全局格式约定（内部 6 位无后缀，外部 TuShare 含后缀） |

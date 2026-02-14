@@ -1,15 +1,16 @@
 # Data Layer 数据模型
 
-**版本**: v3.2.5（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（对齐 MSS/IRS/PAS/Integration；代码未落地）
+**版本**: v3.2.6（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计修订完成（含质量门禁契约）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前 `src/data/models/*.py` 仅包含简化占位数据类，字段与本文档不一致。
-- 本文档为权威数据模型口径，实际实现以本表为准。
+- 当前 `src/data/models/*.py` 仍以最小实现为主，但 `MarketSnapshot/IndustrySnapshot` 已补齐 `data_quality/stale_days/source_trade_date` 字段。
+- `src/data/quality_gate.py` 已提供最小门禁决策模型（`DataGateDecision`）。
+- 本文档为权威数据模型口径，后续实现继续按本表补齐。
 
 ---
 
@@ -565,6 +566,9 @@ L4 为业务分析层，表结构详见 [analysis-data-models.md](../analysis/an
 
 推荐配置键（Data Layer 聚合相关）：
 - `flat_threshold`（默认 `0.5`，单位 `%`）
+- `min_coverage_ratio`（默认 `0.95`）
+- `stale_hard_limit_days`（默认 `3`）
+- `enable_intraday_incremental`（默认 `false`）
 
 ### 6.2 data_version_log 数据版本日志
 
@@ -603,7 +607,27 @@ L4 为业务分析层，表结构详见 [analysis-data-models.md](../analysis/an
 | actual_value | TEXT | 实际值 |
 | deviation | DECIMAL(10,4) | 偏差 |
 | status | VARCHAR(20) | 状态 PASS/WARN/FAIL |
+| gate_status | VARCHAR(20) | 门禁状态 ready/degraded/blocked |
+| affected_layers | VARCHAR(50) | 受影响层 L1/L2/L3 |
+| action | VARCHAR(20) | 动作 continue/block/fallback |
 | created_at | DATETIME | 创建时间 |
+
+### 6.5 data_readiness_gate 数据就绪门禁决策
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| trade_date | VARCHAR(8) | 交易日期 |
+| status | VARCHAR(20) | ready/degraded/blocked |
+| is_ready | BOOLEAN | 是否允许进入主流程 |
+| coverage_ratio | DECIMAL(8,4) | 覆盖率 |
+| max_stale_days | INTEGER | 最大 stale_days |
+| cross_day_consistent | BOOLEAN | 是否跨日一致 |
+| issues | JSON | 阻断原因列表 |
+| warnings | JSON | 降级警告列表 |
+| created_at | DATETIME | 创建时间 |
+
+**索引**：
+- `PRIMARY KEY (trade_date)`
 
 ---
 
@@ -731,12 +755,25 @@ L4 为业务分析层，表结构详见 [analysis-data-models.md](../analysis/an
 | neutrality | 0-1 | 中性度（越接近1越中性，越接近0信号越极端） |
 | position_size | 0-1 | 仓位比例 |
 
+### 8.3 质量与降级规范
+
+| 字段 | 约束 | 说明 |
+|------|------|------|
+| data_quality | normal/stale/cold_start | 统一质量枚举 |
+| stale_days | >= 0 | 质量时滞（交易日） |
+| source_trade_date | YYYYMMDD | 实际来源交易日 |
+
+- `data_quality=normal` 时，`stale_days` 必须为 `0`。
+- `stale_days > 3` 时，门禁必须输出 `blocked`。
+- 存在多个 `source_trade_date` 混用时，门禁必须输出 `blocked`（跨日不一致）。
+
 ---
 
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.6 | 2026-02-14 | 修复 R32（review-010）：实现状态更新为“质量字段最小落地”；`system_config` 增补覆盖率/`stale`/盘中开关配置键；`data_quality_report` 扩展门禁字段；新增 `data_readiness_gate` 决策表与质量降级约束 |
 | v3.2.5 | 2026-02-09 | 修复 R30：§1.1 L3 总览图补充 `validation_*` 行，与 §4.6 Validation 表清单保持一致 |
 | v3.2.4 | 2026-02-09 | 修复 R29：L3 表清单补充 Validation 持久化表（`validation_factor_report/validation_weight_report/validation_gate_decision/validation_weight_plan/validation_run_manifest`），明确 Validation 运行数据纳入正式数据架构 |
 | v3.2.3 | 2026-02-09 | 修复 R28：`integrated_recommendation` 补齐 `consistency/w_mss/w_irs/w_pas/mss_cycle/opportunity_grade`；`irs_industry_daily` 补齐 `quality_flag/sample_days`；L3 主键策略统一为 `id` 主键 + 业务唯一键；`direction` 宽度统一为 `VARCHAR(20)` |

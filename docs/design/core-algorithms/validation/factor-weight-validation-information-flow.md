@@ -1,7 +1,7 @@
 # 因子与权重验证信息流
 
-**版本**: v2.1.1
-**最后更新**: 2026-02-09
+**版本**: v2.2.0
+**最后更新**: 2026-02-14
 
 ---
 
@@ -9,8 +9,9 @@
 
 ```text
 L2/L3 输入数据
+   -> regime 阈值解析（温度+波动）
    -> 因子验证（IC/RankIC/稳定性/衰减）
-   -> 权重候选评估（baseline vs candidate）
+   -> 权重候选评估（dual WFA: long+short）
    -> Gate 决策（PASS/WARN/FAIL）
    -> 输出验证报告
    -> PASS/WARN: 进入 Integration -> Backtest/Trading
@@ -24,7 +25,9 @@ L2/L3 输入数据
 ```text
 T=15:30  MSS/IRS/PAS 完成
 T+0.2m   Validation.run_daily_gate(trade_date=T)
-T+0.6m   生成 validation_gate_decision + validation_weight_plan
+T+0.3m   resolve_regime_thresholds(temperature, volatility_20d)
+T+0.5m   build_dual_wfa_windows() 并行评估（252/63/63 + 126/42/42）
+T+0.7m   生成 validation_gate_decision + validation_weight_plan
 T+0.7m   CP-05 从 DuckDB 读取 gate + weight_plan（非 parquet）
 T+1.0m   Integration 生成 integrated_recommendation
 T+2.0m   CP-06/07 使用 CP-05 输出执行后续流程
@@ -83,7 +86,7 @@ Sync: 更新 final.md + records + 相关 CP 契约
 |---|---|---|
 | factor_validation_report | CP-05/治理 | 因子有效性审计 |
 | weight_validation_report | CP-05/治理 | 权重替换依据 |
-| validation_gate_decision | CP-05/06/07 | 门禁与回退 |
+| validation_gate_decision | CP-05/06/07 | 门禁与回退（含 `failure_class/position_cap_ratio`） |
 | validation_weight_plan | CP-05/06/07 | `selected_weight_plan` 到 `WeightPlan` 的数值桥接 |
 | validation_run_manifest | 治理/审计 | run/test/artifact 运行轨迹 |
 
@@ -97,7 +100,16 @@ Sync: 更新 final.md + records + 相关 CP 契约
 | 因子样本不足 | P1 | 标记 WARN 并剔除该因子 |
 | 候选不优于 baseline | P1 | 回退 baseline |
 | 验证任务超时 | P2 | 使用最近有效结果并标记 stale |
-| 验证数据过期（`stale_days > config.stale_days_threshold`） | P1 | 使用最近有效结果并标记 stale，触发告警并要求人工介入 |
+| 验证数据过期（`stale_days > config.stale_days_threshold`） | P1 | 使用最近有效结果并标记 stale，触发 `position_cap_ratio<1` 自动降仓 |
+
+### 6.1 分层回退（failure_class）
+
+| failure_class | fallback_plan | position_cap_ratio | 执行语义 |
+|---|---|---|---|
+| factor_failure | baseline | 0.50 | 保守运行 |
+| weight_failure | baseline | 0.70 | 轻度降仓 |
+| data_failure | halt | 0.00 | 直接阻断 |
+| data_stale | last_valid | 0.60 | 降仓并持续告警 |
 
 ---
 
@@ -117,5 +129,6 @@ Sync: 更新 final.md + records + 相关 CP 契约
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v2.2.0 | 2026-02-14 | 修复 review-004：总流程加入 regime 阈值解析与 dual WFA；输出边界补齐 `failure_class/position_cap_ratio`；`stale_days` 超阈值改为自动降仓而非仅告警 |
 | v2.1.1 | 2026-02-09 | 修复 R30：§4.1 因子映射表补齐 15/15（新增 MSS 3 因子 + IRS 3 因子） |
 | v2.1.0 | 2026-02-09 | 修复 R29：增加 Validation->Integration 桥接输出（`validation_weight_plan`）；明确 DuckDB `validation_*` 为运行时契约、`.reports` 仅可读摘要 |

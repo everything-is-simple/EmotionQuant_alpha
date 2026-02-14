@@ -1,7 +1,7 @@
 # PAS 信息流
 
-**版本**: v3.1.11（重构版）
-**最后更新**: 2026-02-08
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 
 ---
@@ -122,12 +122,14 @@
    - 近60日新高次数
    - 历史最大涨幅
 3. 计算结构位置数据（铁律合规）：
-   - 60日高低点
+   - 20/60/120 日高低点
    - 20日方向/止损窗口（high_20d_prev, low_20d_prev, low_20d）
+   - 120日突破参考（high_120d_prev）
    - 价格位置（0-1）
    - 连续上涨/下跌天数
+   - 波动率与换手（volatility_20d, turnover_rate）
 4. 计算行为确认数据：
-   - 量比（当日/20日均量）
+   - 放量质量（量比 + 换手 + 收盘保真）
    - 涨跌停状态
 
 依赖组件：StockSnapshotAggregator
@@ -148,18 +150,28 @@
    bull_gene = normalize_zscore(bull_gene_raw)
 
 2. 结构位置因子（50%）【铁律合规】
-   price_position = (close - low_60d) / max(high_60d - low_60d, ε)
+   if window_mode == "adaptive":
+       if volatility_20d >= 0.045 or turnover_rate >= 8.0: adaptive_window = 20
+       elif volatility_20d <= 0.020 and turnover_rate <= 3.0: adaptive_window = 120
+       else: adaptive_window = 60
+   else:
+       adaptive_window = 60
+   (range_high, range_low, breakout_ref) = choose_by_window(adaptive_window)
+   trend_window = clip(round(adaptive_window / 3), 10, 40)
+   price_position = (close - range_low) / max(range_high - range_low, ε)
    trend_continuity_ratio = consecutive_up_days / trend_window
-   breakout_strength = (close - high_60d_prev) / max(high_60d_prev, ε)
+   breakout_strength = (close - breakout_ref) / max(breakout_ref, ε)
    structure_raw = 0.4×price_position + 0.3×trend_continuity_ratio + 0.3×breakout_strength
    structure = normalize_zscore(structure_raw)
 
 3. 行为确认因子（30%）
    volume_ratio = vol / max(volume_avg_20d, ε)
+   turnover_norm = clip(turnover_rate / 12.0, 0, 1)
+   intraday_retention = clip((close - low) / max(high - low, ε), 0, 1)
+   volume_quality = clip(0.60×clip(volume_ratio / 3.0, 0, 1) + 0.25×turnover_norm + 0.15×intraday_retention, 0, 1)
    limit_up_flag = is_limit_up ? 1.0 : (is_touched_limit_up ? 0.7 : 0.0)
-   volume_ratio_norm = clip(volume_ratio / 3.0, 0, 1)
    pct_chg_norm = clip((pct_chg + 20) / 40, 0, 1)
-   behavior_raw = 0.4×volume_ratio_norm + 0.3×pct_chg_norm + 0.3×limit_up_flag
+   behavior_raw = 0.4×volume_quality + 0.3×pct_chg_norm + 0.3×limit_up_flag
    behavior = normalize_zscore(behavior_raw)
 
 依赖组件：PasFactorCalculator
@@ -195,7 +207,7 @@ opportunity_score = bull_gene × 0.20
 
 ```
 输入：机会评分 + 价格数据
-输出：止损止盈 + risk_reward_ratio
+输出：止损止盈 + risk_reward_ratio + effective_risk_reward_ratio + 质量标记
 
 公式：
 entry = close
@@ -210,9 +222,15 @@ else:
     target = max(target_ref, entry × 1.03)
 reward = max(target - entry, 0)
 risk_reward_ratio = reward / risk
+liquidity_discount = clip(volume_quality, 0.50, 1.00)
+tradability_discount = is_limit_up ? 0.60 : (is_touched_limit_up ? 0.80 : 1.00)
+effective_risk_reward_ratio = risk_reward_ratio × liquidity_discount × tradability_discount
+sample_days = min(history_days, adaptive_window)
+quality_flag = (stale_days > 0) ? "stale" : ((sample_days < adaptive_window) ? "cold_start" : "normal")
 
 过滤规则（可选）：
-- risk_reward_ratio < 1 的机会可降级为 D 级（由策略层决定）
+- effective_risk_reward_ratio < 1 的机会降级为观察，不进入执行层
+- quality_flag = stale 的机会仅保留分析用途，不进入执行层
 
 依赖组件：PasRiskCalculator
 ```
@@ -228,7 +246,8 @@ risk_reward_ratio = reward / risk
 2. 批量写入 stock_pas_daily 表
 3. 写入 pas_factor_intermediate 表
 4. 记录等级变化到 pas_opportunity_log
-5. 返回 API 响应（按评分排序）
+5. 执行 run_contract_checks（RR 门槛、枚举、窗口）
+6. 返回 API 响应（按评分排序）
 
 依赖组件：PasRepository
 ```
@@ -291,8 +310,9 @@ T+5.0min: PasEngine.calculate(snapshots)
          ├─ 计算结构位置因子（无MA）
          └─ 计算行为确认因子
 T+8.0min: PasGrader.grade() -> S/A/B/C/D 分级
-T+8.5min: PasRiskCalculator.calculate_risk_reward_ratio() -> 风险收益比
+T+8.5min: PasRiskCalculator.calculate_risk_reward_ratio() -> 名义/有效风险收益比 + 质量标记
 T+9.0min: PasRepository.save_batch() -> 持久化
+T+9.2min: PasCalculator.run_contract_checks() -> 契约漂移检查
 T+10.0min: 返回结果（S级15只，A级120只）
 ```
 
@@ -301,6 +321,7 @@ T+10.0min: 返回结果（S级15只，A级120只）
 ```
 Step 1 -> Step 2:
   raw_daily DataFrame (5000 stocks × 120 days)
+  raw_daily_basic DataFrame
   raw_limit_list DataFrame
 
 Step 2 -> Step 3:
@@ -311,9 +332,14 @@ Step 2 -> Step 3:
       limit_up_count_120d: 3
       high_60d: 13.00
       low_60d: 10.50
+      high_120d: 13.40
+      low_120d: 9.80
+      volatility_20d: 0.031
       high_20d_prev: 12.80
       low_20d_prev: 11.90
       low_20d: 11.80
+      history_days: 120
+      stale_days: 0
       consecutive_up_days: 5
       ...
 
@@ -329,15 +355,15 @@ Step 3 -> Step 4:
       }
 
 Step 4 -> Step 5:
-  Dict[stock_code, Tuple[score, grade]]
+  Dict[stock_code, Dict[score, grade, adaptive_window]]
       {
-        "000001": (88.5, "S"),
-        "600000": (72.3, "A"),
+        "000001": {"score": 88.5, "grade": "S", "adaptive_window": 20},
+        "600000": {"score": 72.3, "grade": "A", "adaptive_window": 60},
         ...
       }
 
 Step 5 -> Step 6:
-  List[StockPasDaily] (5000个)
+  List[StockPasDaily] (5000个，含 effective_risk_reward_ratio/quality_flag/sample_days)
 ```
 
 ---
@@ -372,12 +398,13 @@ IRS -> PAS:
 ```
 PAS -> Integration:
   - List[StockPasDaily] (S/A/B/C/D全量)
+  - effective_risk_reward_ratio 与 quality_flag（执行层降级输入）
   - 行业内机会分布统计
 
 Integration 汇总 MSS + IRS + PAS，生成三三制集成信号：
 - 市场允许（MSS温度适中）
 - 行业优选（IRS超配）
-- 个股评分（PAS S/A/B/C/D）
+- 个股评分（PAS S/A/B/C/D + effective_risk_reward_ratio + quality_flag）
 ```
 
 ---
@@ -397,8 +424,8 @@ Integration 汇总 MSS + IRS + PAS，生成三三制集成信号：
 | 因子 | 数据来源 | 合规状态 |
 |------|----------|----------|
 | 牛股基因 | raw_daily + raw_limit_list | ✅ 基础行情 |
-| 结构位置 | raw_daily (OHLC) | ✅ 基础行情 |
-| 行为确认 | raw_daily + raw_limit_list | ✅ 基础行情 |
+| 结构位置 | raw_daily + raw_daily_basic（波动率/换手） | ✅ 基础行情 |
+| 行为确认 | raw_daily + raw_daily_basic + raw_limit_list | ✅ 基础行情 |
 
 ---
 
@@ -408,17 +435,18 @@ Integration 汇总 MSS + IRS + PAS，生成三三制集成信号：
 
 | 异常情况 | 检测方式 | 处理策略 |
 |----------|----------|----------|
-| 个股停牌 | vol = 0 | 跳过计算 |
-| 数据缺失 | close is None | 使用前一日数据 |
+| 个股停牌 | vol = 0 | 标记 `quality_flag=stale`，仅保留分析 |
+| 数据缺失 | close is None | 抛出 `ValueError`（关键字段缺失不降级复用） |
 | 涨跌停数据缺失 | raw_limit_list 为空 | 基于 pct_chg 推断 |
 
 ### 7.2 计算异常
 
 | 异常情况 | 检测方式 | 处理策略 |
 |----------|----------|----------|
-| 除零错误 | high_60d = low_60d | 返回中性值 0.5 |
-| 历史数据不足 | history < 60d | 跳过牛股基因因子 |
+| 除零错误 | range_high = range_low | 当前子因子回退中性值并记录告警 |
+| 历史数据不足 | history_days < adaptive_window | 继续计算并标记 `quality_flag=cold_start` |
 | 评分超界 | score > 100 | 裁剪到边界值 |
+| 契约漂移 | run_contract_checks 失败 | 阻断执行链路并保留审计记录 |
 
 ---
 
@@ -426,6 +454,7 @@ Integration 汇总 MSS + IRS + PAS，生成三三制集成信号：
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 修复 review-003：Step 2/3 引入波动+换手驱动自适应窗口与 `volume_quality`；Step 5 输出 `effective_risk_reward_ratio` 与质量标记；Step 6 增加契约漂移检查；异常处理改为冷启动/滞后分级语义 |
 | v3.1.11 | 2026-02-08 | 修复 R18：§5.3 PAS→Integration 传递范围改为 `S/A/B/C/D全量`，与 Integration 读取口径一致 |
 | v3.1.10 | 2026-02-08 | 修复 R14：§5.1 明确 MSS 温度调整职责位于 Integration（非 PAS 直接输入） |
 | v3.1.9 | 2026-02-08 | 修复 R13：Step 3 锁定牛股基因窗口口径（120/60）；方向判断显式引用 `consecutive_down_days`；Step 5 增加突破场景目标价下限（RR≥1） |

@@ -1,8 +1,15 @@
 # GUI 核心算法
 
-**版本**: v3.1.6（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
+
+---
+
+## 实现状态（仓库现状）
+
+- `src/gui/app.py` 当前仅为入口占位（输出 `"GUI entrypoint is not implemented"`）。
+- 最小可运行闭环尚未落地；本文档补齐 CP-09 闭环契约，供实现阶段对齐。
 
 ---
 
@@ -14,11 +21,47 @@ GUI层是系统的展示与交互层，核心职责：
 2. **信号展示**：MSS/IRS/PAS/集成推荐的直观呈现
 3. **风控概览**：持仓、盈亏、风险指标一览
 4. **只读展示**：遵循系统铁律，不引入技术指标计算
+5. **最小闭环**：优先落地 `DataService + Dashboard + IntegratedPage`
 
 **运行形态**：Streamlit 为正式 GUI；Jupyter 仅用于内部原型/探索（不作为生产界面）。
 
 **重要约束**：GUI层不执行任何算法计算，所有数据来自L3/L4层预计算结果。
 **色彩约定**：遵循 A 股红涨绿跌（盈利/上涨用红色，亏损/下跌用绿色）。
+
+### 1.1 CP-09 最小可运行 GUI（P0）
+
+```
+输入: trade_date
+输出: GuiRunResult(state, rendered_pages, data_freshness)
+
+def run_minimal_gui(trade_date):
+    # 1) 初始化数据服务与页面控制器
+    data_service = DataService(repository, cache_service, filter_service, formatter_service)
+    dashboard_page = DashboardPage(data_service)
+    integrated_page = IntegratedPage(data_service)
+
+    # 2) 拉取数据（按默认过滤配置）
+    dashboard_data = data_service.get_dashboard_data(trade_date=trade_date, top_n=10)
+    integrated_data = data_service.get_integrated_page_data(
+        trade_date=trade_date,
+        filters=data_service.resolve_filter_config("integrated"),
+        page=1,
+        page_size=50
+    )
+
+    # 3) 渲染最小页面集合
+    dashboard_page.render(dashboard_data)
+    integrated_page.render(integrated_data)
+
+    return GuiRunResult(
+        state="running",
+        rendered_pages=["dashboard", "integrated"],
+        data_freshness={
+            "dashboard": dashboard_data.freshness_level,
+            "integrated": integrated_data.freshness_level
+        }
+    )
+```
 
 ---
 
@@ -154,11 +197,11 @@ def multi_sort(items, sort_fields, directions):
 
 | 页面 | 过滤条件 |
 |------|----------|
-| Dashboard | final_score >= 60, top_n = 10 |
+| Dashboard | final_score >= `filter_config.dashboard_min_score`, top_n = `gui_config.top_n_recommendations` |
 | MSS曲线 | 近60交易日 |
-| IRS行业 | rank <= 10, rotation_status IN ("IN") |
-| PAS个股 | opportunity_score >= 60, opportunity_grade >= "B"（即 S/A/B） |
-| 集成推荐 | final_score >= 70, position_size >= 0.05 |
+| IRS行业 | rank <= `filter_config.irs_max_rank`, rotation_status IN `filter_config.irs_rotation_status` |
+| PAS个股 | opportunity_score >= `filter_config.pas_min_score`, opportunity_grade >= `filter_config.pas_min_level` |
+| 集成推荐 | final_score >= `filter_config.integrated_min_score`, position_size >= `filter_config.integrated_min_position` |
 | 交易执行 | trade_date = 最新交易日 |
 | 分析报告 | report_date = 最新交易日 |
 
@@ -194,6 +237,29 @@ def apply_filters(items, filters):
         elif op == "range":
             result = [x for x in result if value[0] <= x[field] <= value[1]]
     return result
+```
+
+### 4.3 过滤阈值可视化（P0）
+
+```
+输入: page_name, filter_config
+输出: filter_preset_badges
+
+def build_filter_preset_badges(page_name, filter_config):
+    # 在页面头部显式展示“当前过滤阈值”，避免隐式过滤误判
+    if page_name == "dashboard":
+        return [f"final_score >= {filter_config.dashboard_min_score}"]
+    if page_name == "integrated":
+        return [
+            f"final_score >= {filter_config.integrated_min_score}",
+            f"position_size >= {filter_config.integrated_min_position:.2f}"
+        ]
+    if page_name == "pas":
+        return [
+            f"opportunity_score >= {filter_config.pas_min_score}",
+            f"opportunity_grade >= {filter_config.pas_min_level}"
+        ]
+    return []
 ```
 
 ---
@@ -284,6 +350,26 @@ def should_refresh(cache_entry, data_type):
     age = now() - cache_entry.created_at
     return age > ttl
 ```
+
+### 6.4 新鲜度分级与时间戳展示（P1）
+
+```
+输入: cache_entry, ttl
+输出: freshness_level, freshness_text
+
+def classify_freshness(cache_entry, ttl):
+    age_sec = (now() - cache_entry.created_at).total_seconds()
+    if age_sec <= 0.5 * ttl:
+        return ("fresh", f"{int(age_sec)}s")
+    if age_sec <= ttl:
+        return ("stale_soon", f"{int(age_sec)}s")
+    return ("stale", f"{int(age_sec)}s")
+```
+
+展示规则：
+- 页面头部展示 `data_asof`（源数据时间）与 `cache_created_at`（缓存时间）
+- 统一展示 `freshness_level` 徽标：`fresh / stale_soon / stale`
+- `stale` 状态不隐藏数据，但顶部给出黄色提醒条
 
 ---
 
@@ -436,12 +522,55 @@ def export_markdown(report_data, template="daily_report"):
     return path
 ```
 
+## 9. 可观测性与 Analysis 联动
+
+### 9.1 异常可观测性计数（P1）
+
+```
+输入: event_type, page_name, trace_id
+输出: ui_observability counters
+
+def record_ui_event(event_type, page_name, trace_id):
+    # event_type: timeout / empty_state / data_fallback / permission_denied
+    logger.warn(
+        "ui_event",
+        event_type=event_type,
+        page=page_name,
+        trace_id=trace_id
+    )
+    metrics.increment(f"gui.{page_name}.{event_type}.count")
+```
+
+### 9.2 推荐原因联动面板（P2）
+
+```
+输入: stock_code, trade_date
+输出: recommendation_reason_panel
+
+def build_recommendation_reason_panel(stock_code, trade_date):
+    # 读取 Analysis L4，缩短“看推荐 -> 看原因”路径
+    attribution = repo.get_signal_attribution(trade_date)
+    risk_summary = repo.get_daily_report_risk_summary(trade_date)
+    deviation = repo.get_live_backtest_deviation(trade_date)
+
+    return {
+        "stock_code": stock_code,
+        "mss_attribution": attribution.mss_attribution,
+        "irs_attribution": attribution.irs_attribution,
+        "pas_attribution": attribution.pas_attribution,
+        "risk_alert": risk_summary.risk_alert,
+        "risk_turning_point": risk_summary.risk_turning_point,
+        "deviation_hint": deviation.dominant_component
+    }
+```
+
 ---
 
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：新增 CP-09 最小闭环 `run_minimal_gui`；默认过滤阈值改为配置驱动并增加可视化阈值徽标；新增缓存新鲜度分级与时间戳展示；新增 UI 观测事件计数与 Analysis 原因联动面板 |
 | v3.1.6 | 2026-02-09 | 修复 R22：统一 `ChartZone` 字段为 `min_value/max_value` 并补充 `label`；明确 `unknown` 周期降级逻辑；统一 PAS 默认过滤表述与缓存键占位符规则 |
 | v3.1.5 | 2026-02-08 | 修复 R16：`STRONG_BUY` 显示语义由“绿色强调”改为“红色强调”，对齐 A 股红涨绿跌约定 |
 | v3.1.4 | 2026-02-08 | 修复 R15：补充 A 股红涨绿跌色彩约定；温度 `zones` 增加 `include_min/include_max` 并明确边界契约 |

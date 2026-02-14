@@ -1,7 +1,7 @@
 # MSS API 接口
 
-**版本**: v3.1.2（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（模块接口；当前仓库无 Web API）
 
 ---
@@ -75,6 +75,10 @@ class MssCalculator:
     def get_position_advice(self, trade_date: str) -> str:
         """获取指定日期的仓位建议"""
         pass
+
+    def get_extreme_direction_bias(self, trade_date: str) -> float:
+        """获取指定日期的极端方向偏置（-1~1）"""
+        pass
 ```
 
 ### 2.2 数据仓库接口
@@ -108,9 +112,17 @@ class MssRepository:
 
 ## 3. 错误处理
 
-- 非交易日或输入数据缺失：抛出 `ValueError`。
-- 依赖数据未就绪：抛出 `DataNotReadyError`。
-- 周期输出 `unknown`：表示可计算但历史窗口不足，不属于错误，不抛异常。
+| 场景 | 行为 | 说明 |
+|------|------|------|
+| 非交易日 | 抛 `ValueError` | 输入非法，拒绝计算 |
+| 必备字段缺失 | 抛 `ValueError` | 不允许“沿用前值”兜底 |
+| `stale_days > 3` | 抛 `DataNotReadyError` | 依赖数据未就绪，阻断主流程 |
+| `stale_days <= 3` | 允许计算（降级） | 结果可用，但必须打质量标记 |
+| 统计参数缺失（mean/std） | 对缺失因子回退 50 分 | 不抛错，记录告警 |
+| 趋势输入异常 | 输出 `cycle=unknown` | 属于合法降级，不抛异常 |
+
+强制约束：
+- 不允许沿用上一交易日 `temperature/cycle/trend` 作为兜底输出。
 - 详细错误码与处理策略见：
   - `docs/design/core-algorithms/mss/mss-algorithm.md`
   - `Governance/Capability/CP-02-mss.md`
@@ -121,6 +133,7 @@ class MssRepository:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 落地 review-001 修复：增加 `get_extreme_direction_bias()` 读取接口；错误处理改为矩阵化定义，明确 `stale_days` 分层处理与“禁止沿用前值”约束 |
 | v3.1.2 | 2026-02-09 | 修复 R27：`get_cycle()` 返回值文档补充 `unknown` 合法降级语义；错误处理补充 `unknown` 与 `DataNotReadyError` 的边界 |
 | v3.1.1 | 2026-02-05 | 移除 HTTP 接口示例，改为模块接口定义；与路线图/仓库架构对齐 |
 | v3.1.0 | 2026-02-04 | 同步 MSS v3.1.0：补齐验收口径（count→ratio→zscore）；factors 示例补充 final_weight/inverse_score 并与温度公式一致 |

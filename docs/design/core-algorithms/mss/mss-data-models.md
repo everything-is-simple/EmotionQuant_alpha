@@ -1,7 +1,7 @@
 # MSS 数据模型
 
-**版本**: v3.1.6（重构版）
-**最后更新**: 2026-02-09
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 
 ---
@@ -58,8 +58,8 @@ class MssMarketSnapshot:
     new_100d_low_count: int      # 100日新低家数
     
     # 大涨大跌统计
-    strong_up_count: int         # 涨幅>5%家数
-    strong_down_count: int       # 跌幅<-5%家数
+    strong_up_count: int         # 分板块归一后强上行家数（pct_chg >= strong_move_ratio × board_limit）
+    strong_down_count: int       # 分板块归一后强下行家数（pct_chg <= -strong_move_ratio × board_limit）
     
     # 连续性统计
     continuous_limit_up_2d: int  # 连续2日涨停家数
@@ -83,8 +83,8 @@ class MssMarketSnapshot:
 | rise_count | `pct_chg > 0` 的股票数 |
 | fall_count | `pct_chg < 0` 的股票数 |
 | flat_count | `abs(pct_chg) <= 0.5%` 的股票数 |
-| strong_up_count | `pct_chg > 5%` 的股票数 |
-| strong_down_count | `pct_chg < -5%` 的股票数 |
+| strong_up_count | `pct_chg >= strong_move_ratio × board_limit` 的股票数（`board_limit`: 主板10%/创业板与科创板20%/ST 5%） |
+| strong_down_count | `pct_chg <= -strong_move_ratio × board_limit` 的股票数（与 `strong_up_count` 对称） |
 | new_100d_high_count | 收盘价创100日新高的股票数 |
 | new_100d_low_count | 收盘价创100日新低的股票数 |
 | high_open_low_close_count | `open > pre_close * 1.02` 且 `close < open * 0.94` |
@@ -96,6 +96,7 @@ class MssMarketSnapshot:
 > 计数语义说明（避免歧义）：
 > - `flat_count` 与 `rise_count`/`fall_count` **允许交叉覆盖**（例如 `pct_chg=0.3%` 同时计入 `rise_count` 与 `flat_count`）。
 > - `rise_count + fall_count + flat_count` 不是互斥分桶总和，不应按 `== total_stocks` 断言。
+> - `strong_up_count/strong_down_count` 必须按板块制度归一阈值统计，不允许使用全市场固定 ±5%。
 
 ---
 
@@ -121,10 +122,12 @@ class MssPanorama:
     loss_effect: float           # 亏钱效应得分 0-100
     continuity_factor: float     # 连续性因子得分 0-100
     extreme_factor: float        # 极端因子得分 0-100
+    extreme_direction_bias: float  # 极端方向偏置 -1~1（负值偏恐慌，正值偏逼空）
     volatility_factor: float     # 波动因子得分 0-100
     
     # 辅助信息
     neutrality: float            # 中性度 0-1（越接近1越中性，越接近0信号越极端）
+    trend_quality: str           # 趋势质量 normal/cold_start/degraded
     rank: int                    # 历史排名
     percentile: float            # 百分位排名 0-100
 ```
@@ -194,10 +197,12 @@ CREATE TABLE mss_panorama (
     loss_effect DECIMAL(8,4) COMMENT '亏钱效应得分',
     continuity_factor DECIMAL(8,4) COMMENT '连续性因子得分',
     extreme_factor DECIMAL(8,4) COMMENT '极端因子得分',
+    extreme_direction_bias DECIMAL(8,4) COMMENT '极端方向偏置 -1~1',
     volatility_factor DECIMAL(8,4) COMMENT '波动因子得分',
     
     -- 辅助信息
     neutrality DECIMAL(8,4) COMMENT '中性度 0-1（越接近1越中性，越接近0信号越极端）',
+    trend_quality VARCHAR(20) COMMENT '趋势质量 normal/cold_start/degraded',
     rank INT COMMENT '历史排名',
     percentile DECIMAL(8,4) COMMENT '百分位排名 0-100',
     
@@ -284,6 +289,7 @@ CREATE TABLE mss_alert_log (
 | flat_count | ≤ total_stocks |
 | rise_count + fall_count + flat_count | 允许 > total_stocks（flat_count 与 rise/fall 可重叠） |
 | limit_up_count | ≤ touched_limit_up |
+| strong_up_count / strong_down_count | 0 ≤ x ≤ total_stocks（按分板块归一口径统计） |
 | pct_chg_std | ≥ 0 |
 
 ### 5.2 输出验证
@@ -295,6 +301,8 @@ CREATE TABLE mss_alert_log (
 | trend | IN ('up', 'down', 'sideways') |
 | position_advice | IN ('80%-100%','60%-80%','50%-70%','40%-60%','30%-50%','20%-40%','0%-20%') |
 | neutrality | 0 ≤ x ≤ 1 |
+| extreme_direction_bias | -1 ≤ x ≤ 1 |
+| trend_quality | IN ('normal','cold_start','degraded') |
 
 ---
 
@@ -302,6 +310,7 @@ CREATE TABLE mss_alert_log (
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 落地 review-001 修复：`strong_up/down` 口径改为分板块制度归一（主板10%/创业板科创板20%/ST 5%）；输出模型与主表新增 `extreme_direction_bias`、`trend_quality` 字段及验证约束 |
 | v3.1.6 | 2026-02-09 | 修复 R28：DDL 中 `trade_date` 统一为 `VARCHAR(8)`；时间戳命名统一为 `created_at`；移除 L3 主表 `update_time`（append-only 口径） |
 | v3.1.5 | 2026-02-08 | 修复 R18：补充 `position_advice` 的固定格式与 `PositionAdvice` 枚举，并在输出验证中增加合法值约束 |
 | v3.1.4 | 2026-02-08 | 修复 R17：`mss_factor_intermediate` 统计参数扩展为 6 因子独立 `mean/std`；`mss_alert_log.alert_type` 枚举补齐 `tail_activity` |

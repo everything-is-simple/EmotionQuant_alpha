@@ -1,8 +1,8 @@
 # Integration 信息流
 
-**版本**: v3.4.9（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（验收口径补齐；代码未落地）
+**版本**: v3.5.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -108,7 +108,7 @@ Integration 输出 integrated_recommendation（记录 integration_mode）
 
 在 BU 下：
 - MSS 不作为“是否允许选股”的硬阻断项，但仍是总仓位与风险的上限约束。
-- BU 产出的仓位不得超过同周期 TD 的上限（见 `integration-algorithm.md` §10.4）。
+- BU 产出的仓位不得超过同周期 TD 的上限，且方向冲突时仅可在 Alpha 子预算内调整结构（见 `integration-algorithm.md` §10.5）。
 
 ---
 
@@ -126,8 +126,9 @@ Integration 输出 integrated_recommendation（记录 integration_mode）
 3. 读取 PAS 当日输出（stock_pas_daily 表，S/A/B/C/D全量）
 4. 读取 Validation Gate 当日决策（validation_gate_decision）
 5. 读取 Weight Plan（validation_weight_plan 表）
-6. 数据完整性检查
-7. 缺失则降级使用“上次可用数据”，并标记质量状态与来源
+6. 读取候选执行约束字段（`tradability_pass_ratio/impact_cost_bps/candidate_exec_pass/position_cap_ratio`）
+7. 数据完整性检查
+8. 按统一状态机映射质量状态（`normal/warn_*/blocked_*`）
 
 数据格式：
 - MssInput: 单条记录
@@ -135,15 +136,17 @@ Integration 输出 integrated_recommendation（记录 integration_mode）
 - PasInput: N条记录（S/A/B/C/D全量个股）
 - ValidationGateDecision: 单条记录
 - WeightPlan: 单条记录
+- IntegrationState: 单条状态（由 Gate + 质量字段映射）
 ```
 
-### 2.2 Step 2：评分校准
+### 2.2 Step 2：状态参数解析 + 评分校准
 
 ```
-输入：原始评分
-输出：统一尺度评分
+输入：原始评分 + MSS 周期 + 市场波动
+输出：regime_parameters + 统一尺度评分
 
 处理流程：
+0. `resolve_regime_parameters(mss_cycle, market_volatility_20d)` 得到 `risk_on/neutral/risk_off`
 1. MSS温度已是0-100，直接使用
 2. IRS行业评分已是0-100，直接使用
 3. PAS机会评分已是0-100，直接使用
@@ -168,6 +171,7 @@ final_score = mss_score × w_mss + irs_score × w_irs + pas_score × w_pas
 - w_mss + w_irs + w_pas = 1
 - 权重来自当日 validation_gate_decision 对应的 selected_weight_plan
 - 若无候选方案，回退 baseline：w_mss=w_irs=w_pas=1/3
+- 若 `candidate_exec_pass=false` 或 `tradability_pass_ratio/impact_cost_bps` 不达标：回退 baseline，并进入 `warn_candidate_exec`
 
 示例：
 mss_score = 65.3（市场温度）
@@ -237,9 +241,9 @@ else: direction = "neutral"
 
 3. IRS配置权重（行业层约束）：
    if allocation_advice == "回避":
-       pas_score *= 0.85
+       pas_score *= regime_parameters.irs_avoid_discount
    if allocation_advice == "超配":
-       pas_score *= 1.05
+       pas_score *= regime_parameters.irs_overweight_boost
    pas_score = clip(pas_score, 0, 100)  # 协同约束后边界重裁剪
    # 重新计算 final_score（沿用 Step 3 的权重公式）
 
@@ -294,17 +298,17 @@ base_position = final_score / 100
 调整因子：
 - mss_factor = 1 - |mss_temperature - 50| / 100
 - irs_factor:
-  - 超配: 1.2
-  - 标配: 1.0
-  - 减配: 0.7
-  - 回避: 0.3
+  - 超配: regime_parameters.position_multiplier_overweight
+  - 标配: regime_parameters.position_multiplier_neutral
+  - 减配: regime_parameters.position_multiplier_underweight
+  - 回避: regime_parameters.position_multiplier_avoid
 - pas_factor:
-  - S级: 1.2
-  - A级: 1.0
-  - B级: 0.7
-  - C/D级: 0.3
+  - S级: regime_parameters.grade_multiplier_s
+  - A级: regime_parameters.grade_multiplier_a
+  - B级: regime_parameters.grade_multiplier_b
+  - C/D级: regime_parameters.grade_multiplier_cd
 
-position_size = base_position × mss_factor × irs_factor × pas_factor
+position_size = base_position × mss_factor × irs_factor × pas_factor × position_cap_ratio
 position_size = clip(position_size, 0, single_stock_limit)
 
 单股上限：
@@ -386,9 +390,12 @@ T+0.2min: IrsRepository.get_by_date() -> List[IrsInput] (31个)
 T+0.5min: PasRepository.get_by_grade("20260131", ["S","A","B","C","D"]) -> List[PasInput] (N个)
 T+0.7min: ValidationRepository.get_gate_decision() -> ValidationGateDecision
 T+0.8min: ValidationRepository.get_weight_plan() -> WeightPlan
+T+0.9min: IntegrationEngine.resolve_regime_parameters() -> RegimeParameters
 T+1.0min: IntegrationEngine.calculate()
          ├─ 评分校准
+         ├─ 状态机分类（normal/warn_*/blocked_*）
          ├─ baseline/candidate 权重融合
+         ├─ 候选执行约束检查（tradability/impact_cost）
          ├─ 方向一致性检查
          ├─ 协同约束
          ├─ 信号生成
@@ -453,9 +460,9 @@ Step 8:
 
 | 缺失系统 | 处理策略 |
 |----------|----------|
-| MSS缺失 | 使用上次可用MSS数据，标记degraded |
-| IRS缺失 | 该行业不参与推荐，标记degraded |
-| PAS缺失 | 该个股不参与推荐，标记degraded |
+| MSS缺失 | 使用上次可用MSS数据，标记 `warn_data_stale` |
+| IRS缺失 | 该行业不参与推荐，标记 `warn_data_stale` |
+| PAS缺失 | 该个股不参与推荐，标记 `warn_data_stale` |
 
 ### 5.2 计算异常
 
@@ -463,6 +470,7 @@ Step 8:
 |----------|----------|
 | 评分超界 | clip到[0,100] |
 | 除零错误 | 返回中性值50 |
+| Gate=FAIL | 进入 `blocked_gate_fail` 并抛 `ValidationGateError` |
 | 三系统全缺失 | 暂停当日集成，生成告警 |
 
 ---
@@ -471,6 +479,7 @@ Step 8:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.0 | 2026-02-14 | 对应 review-005 闭环修复：Step 1 补齐候选执行约束字段采集；Step 2 新增 regime 参数解析；Step 3/5/7 改为 regime 参数驱动；异常处理统一为状态机 `normal/warn_*/blocked_*` |
 | v3.4.9 | 2026-02-09 | 修复 R30：§4.1 Validation 获取时序返回类型精确化（`get_gate_decision() -> ValidationGateDecision`，`get_weight_plan() -> WeightPlan`），并明确 WeightPlan 来源 `validation_weight_plan` |
 | v3.4.8 | 2026-02-08 | 修复 R19：§2.1 Step 1 补齐 Validation Gate 与 Weight Plan 采集步骤，输入格式同步补齐 |
 | v3.4.7 | 2026-02-08 | 修复 R18：§4.2 示例 `temperature=65.3 + trend=up` 的 `cycle` 改为 `divergence`（与 MSS 判定口径一致） |

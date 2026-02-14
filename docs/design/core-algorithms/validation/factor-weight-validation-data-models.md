@@ -1,7 +1,7 @@
 # 因子与权重验证数据模型
 
-**版本**: v2.1.1  
-**最后更新**: 2026-02-09  
+**版本**: v2.2.0  
+**最后更新**: 2026-02-14  
 **状态**: 设计完成（DuckDB 持久化为主，`.reports/validation/` 仅存放可读报告）
 
 ---
@@ -69,6 +69,10 @@ class WeightValidationResult:
     trade_date: str              # 交易日 YYYYMMDD
     candidate_id: str            # 候选权重 ID
     window_id: str               # Walk-Forward 窗口
+    window_set: str              # long_cycle/short_cycle
+    long_vote: str               # PASS/WARN/FAIL
+    short_vote: str              # PASS/WARN/FAIL
+    vote_detail: str             # 双窗口关键指标摘要（JSON 字符串）
     w_mss: float
     w_irs: float
     w_pas: float
@@ -77,6 +81,8 @@ class WeightValidationResult:
     sharpe: float
     turnover: float
     cost_sensitivity: float
+    impact_cost_bps: float
+    tradability_pass_ratio: float
     vs_baseline: str             # BETTER/EQUAL/WORSE
     decision: str                # PASS/WARN/FAIL
     reason: str
@@ -94,7 +100,9 @@ class ValidationGateDecision:
     final_gate: str              # PASS/WARN/FAIL
     selected_weight_plan: str    # baseline/candidate_id（业务键）
     stale_days: int
+    failure_class: str           # factor_failure/weight_failure/data_failure/data_stale/none
     fallback_plan: str
+    position_cap_ratio: float    # [0,1]，执行层仓位上限乘子
     reason: str
     created_at: datetime
 ```
@@ -138,6 +146,7 @@ class ValidationRunManifest:
 class ValidationConfig:
     min_sample_count: int = 5000
     stale_days_threshold: int = 3
+    threshold_mode: str = "regime"   # fixed/regime
 
     ic_pass: float = 0.02
     ic_warn: float = 0.00
@@ -148,11 +157,25 @@ class ValidationConfig:
     coverage_pass: float = 0.95
     coverage_warn: float = 0.90
 
-    wfa_train_days: int = 252
-    wfa_validate_days: int = 63
-    wfa_oos_days: int = 63
+    # regime 分层阈值（温度+波动）
+    regime_hot_temperature: float = 70.0
+    regime_cold_temperature: float = 40.0
+    regime_high_volatility: float = 0.035
+    regime_low_volatility: float = 0.020
+
+    # 双窗口 WFA
+    wfa_long_train_days: int = 252
+    wfa_long_validate_days: int = 63
+    wfa_long_oos_days: int = 63
+    wfa_short_train_days: int = 126
+    wfa_short_validate_days: int = 42
+    wfa_short_oos_days: int = 42
+
     max_weight_per_module: float = 0.60
     max_drawdown_tolerance: float = 0.02
+    turnover_cap: float = 0.35
+    impact_cost_cap_bps: float = 35.0
+    min_tradability_ratio: float = 0.80
 ```
 
 ---
@@ -161,7 +184,8 @@ class ValidationConfig:
 
 - `validation_gate_decision.selected_weight_plan` 仅存 `plan_id`（`baseline`/`candidate_xxx`）。
 - Integration 入参 `WeightPlan` 由 `validation_weight_plan` 表按 `(trade_date, plan_id)` 解析得到。
-- 若 `plan_id` 缺失：`final_gate=WARN` 时回退 `baseline`；`final_gate=FAIL` 直接阻断。
+- 若 `plan_id` 缺失：`final_gate=WARN` 时按 `failure_class` 回退 `baseline/last_valid`；`final_gate=FAIL` 直接阻断。
+- `position_cap_ratio` 为执行层自动降仓契约字段（`1.0`=不降仓，`0.0`=硬阻断）。
 
 ---
 
@@ -205,6 +229,10 @@ CREATE TABLE validation_weight_report (
     trade_date VARCHAR(8) NOT NULL,
     candidate_id VARCHAR(40) NOT NULL,
     window_id VARCHAR(40) NOT NULL,
+    window_set VARCHAR(20) NOT NULL,
+    long_vote VARCHAR(10),
+    short_vote VARCHAR(10),
+    vote_detail VARCHAR(1000),
     w_mss DECIMAL(8,6) NOT NULL,
     w_irs DECIMAL(8,6) NOT NULL,
     w_pas DECIMAL(8,6) NOT NULL,
@@ -213,6 +241,8 @@ CREATE TABLE validation_weight_report (
     sharpe DECIMAL(12,6),
     turnover DECIMAL(12,6),
     cost_sensitivity DECIMAL(12,6),
+    impact_cost_bps DECIMAL(12,6),
+    tradability_pass_ratio DECIMAL(12,6),
     vs_baseline VARCHAR(10),
     decision VARCHAR(10),
     reason VARCHAR(500),
@@ -232,7 +262,9 @@ CREATE TABLE validation_gate_decision (
     final_gate VARCHAR(10) NOT NULL,
     selected_weight_plan VARCHAR(40) NOT NULL,
     stale_days INTEGER NOT NULL,
+    failure_class VARCHAR(30) NOT NULL,
     fallback_plan VARCHAR(50),
+    position_cap_ratio DECIMAL(8,6) NOT NULL,
     reason VARCHAR(500),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_trade_date (trade_date)
@@ -287,6 +319,7 @@ CREATE TABLE validation_run_manifest (
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v2.2.0 | 2026-02-14 | 修复 review-004：新增 regime 阈值与双窗口 WFA 配置；补齐 `impact_cost_bps/tradability_pass_ratio`；Gate 增加 `failure_class/position_cap_ratio` 以支持分层回退与自动降仓 |
 | v2.1.1 | 2026-02-09 | 修复 R30：`FactorValidationResult/WeightValidationResult/ValidationRunManifest` 补齐 `trade_date`；`ValidationRunManifest` 补齐 `created_at`，与 Validation DDL 对齐 |
 | v2.1.0 | 2026-02-09 | 修复 R29：统一为 `@dataclass` 风格；新增 `ValidatedFactor` 与 `ValidationConfig`；补齐 5 张 DDL（含桥接表 `validation_weight_plan` 与 `validation_run_manifest`）；明确 DuckDB 为权威存储、`.reports` 仅报告 |
 | v2.0.1 | 2026-02-09 | 修复 R28：`ValidationGateDecision` 增加 `created_at`；`selected_weight_plan` 注释补充“可从 weight_validation_report 查询权重值” |

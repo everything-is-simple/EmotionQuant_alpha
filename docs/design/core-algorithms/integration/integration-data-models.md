@@ -1,8 +1,8 @@
 # Integration 数据模型
 
-**版本**: v3.4.10（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（验收口径补齐；代码未落地）
+**版本**: v3.5.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）
 
 ---
 
@@ -15,7 +15,7 @@
 | MSS | mss_panorama | temperature, cycle, trend, neutrality |
 | IRS | irs_industry_daily | industry_score, rotation_status, allocation_advice, quality_flag, sample_days |
 | PAS | stock_pas_daily | opportunity_score, opportunity_grade, direction |
-| Validation | validation_gate_decision / weight_plan | final_gate, selected_weight_plan, w_mss, w_irs, w_pas |
+| Validation | validation_gate_decision / weight_plan | final_gate, selected_weight_plan, w_mss, w_irs, w_pas, tradability_pass_ratio, impact_cost_bps, candidate_exec_pass, position_cap_ratio |
 
 ---
 ### 1.2 BU 模式派生聚合（可选）
@@ -128,6 +128,10 @@ class ValidationGateDecision:
     final_gate: str              # PASS/WARN/FAIL
     selected_weight_plan: str    # baseline / candidate_id
     stale_days: int              # 距离上次有效验证天数
+    tradability_pass_ratio: float# 候选方案可成交性通过率 0-1
+    impact_cost_bps: float       # 候选方案冲击成本（bps）
+    candidate_exec_pass: bool    # 候选方案是否满足执行约束
+    position_cap_ratio: float    # Validation 下发仓位上限比例 0-1
     fallback_plan: str           # FAIL/WARN 时回退策略
     reason: str                  # 决策原因
     created_at: datetime         # 决策生成时间（审计追溯）
@@ -156,6 +160,8 @@ class IntegratedRecommendation:
     w_irs: float                 # 当次权重快照
     w_pas: float                 # 当次权重快照
     validation_gate: str         # PASS/WARN/FAIL
+    integration_state: str       # normal/warn_*/blocked_*
+    position_cap_ratio: float    # 全局仓位上限比例 0-1
     
     # 三系统输入评分
     mss_score: float             # MSS评分（温度）
@@ -238,6 +244,11 @@ CREATE TABLE integrated_recommendation (
     w_irs DECIMAL(6,4) COMMENT 'IRS权重快照',
     w_pas DECIMAL(6,4) COMMENT 'PAS权重快照',
     validation_gate VARCHAR(10) COMMENT '验证门禁 PASS/WARN/FAIL',
+    integration_state VARCHAR(40) COMMENT '集成状态机 normal/warn_*/blocked_*',
+    position_cap_ratio DECIMAL(6,4) COMMENT '仓位上限比例 0-1',
+    tradability_pass_ratio DECIMAL(6,4) COMMENT '候选方案可成交性通过率 0-1',
+    impact_cost_bps DECIMAL(10,4) COMMENT '候选方案冲击成本（bps）',
+    candidate_exec_pass BOOLEAN COMMENT '候选方案执行约束是否通过',
     recommendation VARCHAR(20) COMMENT '推荐等级',
     position_size DECIMAL(8,4) COMMENT '仓位建议',
     mss_cycle VARCHAR(20) COMMENT '当日MSS周期（追溯STRONG_BUY条件）',
@@ -258,7 +269,8 @@ CREATE TABLE integrated_recommendation (
     UNIQUE KEY uk_trade_date_stock_code (trade_date, stock_code),
     KEY idx_final_score (final_score),
     KEY idx_recommendation (recommendation),
-    KEY idx_validation_gate (validation_gate)
+    KEY idx_validation_gate (validation_gate),
+    KEY idx_integration_state (integration_state)
 );
 ```
 
@@ -279,6 +291,10 @@ CREATE TABLE integrated_recommendation (
 | validation_gate_decision.final_gate | IN ('PASS', 'WARN', 'FAIL')；`FAIL` 时不得进入 Integration |
 | irs_input.quality_flag | IN ('normal', 'cold_start', 'stale') |
 | irs_input.sample_days | x ≥ 0 |
+| validation_gate_decision.tradability_pass_ratio | 0 ≤ x ≤ 1 |
+| validation_gate_decision.impact_cost_bps | x ≥ 0 |
+| validation_gate_decision.candidate_exec_pass | IN (true, false) |
+| validation_gate_decision.position_cap_ratio | 0 ≤ x ≤ 1 |
 
 ### 5.2 输出验证
 
@@ -287,9 +303,11 @@ CREATE TABLE integrated_recommendation (
 | final_score | 0 ≤ x ≤ 100 |
 | integration_mode | IN ('top_down', 'bottom_up', 'dual_verify', 'complementary') |
 | validation_gate | IN ('PASS', 'WARN', 'FAIL') |
+| integration_state | IN ('normal', 'warn_data_cold_start', 'warn_data_stale', 'warn_gate_fallback', 'warn_candidate_exec', 'blocked_gate_fail') |
 | mss_cycle | IN ('emergence', 'fermentation', 'acceleration', 'divergence', 'climax', 'diffusion', 'recession', 'unknown') |
 | recommendation | IN ('STRONG_BUY', 'BUY', 'HOLD', 'SELL', 'AVOID') |
 | position_size | 0 ≤ x ≤ 1 |
+| position_cap_ratio | 0 ≤ x ≤ 1 |
 | neutrality | 0 ≤ x ≤ 1 |
 
 ---
@@ -298,6 +316,7 @@ CREATE TABLE integrated_recommendation (
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.0 | 2026-02-14 | 对应 review-005 闭环修复：`ValidationGateDecision` 与输出模型补齐执行约束字段（`tradability_pass_ratio/impact_cost_bps/candidate_exec_pass/position_cap_ratio`）；新增 `integration_state` 统一状态机字段；DDL 与校验规则同步 |
 | v3.4.10 | 2026-02-09 | 修复 R29：`ValidationGateDecision` 补齐 `created_at` 字段，与 Validation 模块定义一致 |
 | v3.4.9 | 2026-02-09 | 修复 R28：主表 DDL 的 `trade_date` 统一为 `VARCHAR(8)`；`stock_code/stock_name/industry_name/opportunity_grade` 宽度与 Data Layer 对齐；时间戳命名统一为 `created_at` 并移除 `update_time` |
 | v3.4.8 | 2026-02-09 | 修复 R26：§1.1/§2.2 增补 IRS `quality_flag/sample_days` 输入契约；§5.1 增加质量字段校验规则；§5.2 输出验证补齐 `mss_cycle=unknown` 合法值 |

@@ -1,8 +1,8 @@
 # Backtest 回测算法设计
 
-**版本**: v3.4.8（重构版）
-**最后更新**: 2026-02-12
-**状态**: 设计完成（代码未落地）；与 MSS/IRS/PAS/Integration + Data Layer 对齐
+**版本**: v3.5.1（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环落地口径补齐；代码待实现）；与 MSS/IRS/PAS/Integration + Data Layer 对齐
 
 ---
 
@@ -35,6 +35,24 @@ Backtest Layer 是 EmotionQuant 系统的策略验证层，核心职责：
 - **Qlib 主选（研究平台）**：用于研究回测、因子实验与实验管理。
 - **向量化基线（执行口径）**：用于快速迭代与 A 股规则一致性回放。
 - **backtrader 兼容适配**：保留兼容能力，不作为主选引擎。
+
+### 1.4 CP-06 最小可运行闭环（P0）
+
+```text
+目标：先跑通 local_vectorized + top_down 单一主路径，再扩展其它模式/引擎。
+
+最小命令（示意）：
+python -m src.backtest.runner ^
+  --engine local_vectorized ^
+  --mode top_down ^
+  --start 20250101 --end 20250228 ^
+  --config-name cp06_smoke
+
+最小验收：
+1) 成功落库 backtest_results/backtest_trade_records
+2) 输出 signal_date / execute_date 分离审计字段
+3) 通过 Gate=FAIL / T+1 / 涨跌停 / RR<1 四组回放
+```
 
 ---
 
@@ -74,11 +92,17 @@ T+1 交易日开盘（execute_date = T+1）：
 Step 0: 数据就绪检查（本地数据优先）
     gate = get_validation_gate_decision(signal_date)
     if gate.final_gate == "FAIL":
+        set_backtest_state("blocked_gate_fail")
         log.warning(f"Gate=FAIL on {signal_date}, skip backtest signal generation")
+        return []
+    if gate.contract_version != "nc-v1":
+        set_backtest_state("blocked_contract_mismatch")
+        log.error(f"unsupported contract_version={gate.contract_version}")
         return []
 
     readiness = check_data_ready(signal_date)
     if not readiness.is_ready:
+        set_backtest_state("warn_data_fallback")
         return []  # 缺口必须先落库/补全，不直连远端
 
 Step 1: 读取集成推荐（Top-Down）
@@ -125,7 +149,8 @@ Step 3: 构建回测信号（使用集成输出）
             pas_score=row.pas_score,
             direction=row.direction,
             neutrality=row.neutrality,
-            source="integrated"
+            source="integrated",
+            backtest_state="normal"
         ))
 ```
 
@@ -138,7 +163,12 @@ Step 3: 构建回测信号（使用集成输出）
 Step 0: Validation Gate 检查
     gate = get_validation_gate_decision(signal_date)
     if gate.final_gate == "FAIL":
+        set_backtest_state("blocked_gate_fail")
         log.warning(f"Gate=FAIL on {signal_date}, skip bottom_up signal generation")
+        return []
+    if gate.contract_version != "nc-v1":
+        set_backtest_state("blocked_contract_mismatch")
+        log.error(f"unsupported contract_version={gate.contract_version}")
         return []
 
 Step 1: 读取集成推荐（Bottom-Up）
@@ -151,7 +181,8 @@ Step 1: 读取集成推荐（Bottom-Up）
 Step 2: 结构性活跃度验证（pas_breadth_daily）
     pas_breadth = get_pas_breadth(signal_date)
     if pas_breadth.pas_sa_ratio < config.min_pas_breadth_ratio:
-        return []  # BU 活跃度不足
+        set_backtest_state("warn_mode_fallback")
+        return generate_top_down_signals(signal_date)  # BU 活跃度不足回退 TD
 
 Step 3: 构建回测信号
     recommendation_rank = {"AVOID": 0, "SELL": 1, "HOLD": 2, "BUY": 3, "STRONG_BUY": 4}
@@ -166,13 +197,34 @@ Step 3: 构建回测信号
             continue
         if row.risk_reward_ratio < 1.0:
             continue
-        signals.append(BacktestSignal(..., integration_mode="bottom_up", signal_date=signal_date))
+        signals.append(BacktestSignal(..., integration_mode="bottom_up", signal_date=signal_date, backtest_state="normal"))
 
 约束：BU 仓位不得突破同周期 TD 上限（Integration 已完成该约束）
 说明：`recession` 周期的 PAS 折扣（×0.8）已在 Integration 协同约束完成，Backtest 仅消费 `final_score` 与执行字段。
 ```
 
-### 3.3 仓位计算
+### 3.3 模式切换策略（P2：配置化 -> 状态驱动）
+
+```python
+def resolve_backtest_mode(signal_date: str, config: BacktestConfig) -> str:
+    if config.mode_switch_policy == "config_fixed":
+        return config.integration_mode
+
+    regime = get_market_regime(signal_date)  # risk_on / neutral / risk_off
+    if config.mode_switch_policy == "regime_driven":
+        return "bottom_up" if regime == "risk_on" else "top_down"
+
+    # hybrid_weight：双轨同时运行，按状态权重融合净仓位
+    return "hybrid_weight"
+```
+
+```text
+hybrid_weight 融合示意：
+final_target_position = td_target_position × td_weight + bu_target_position × bu_weight
+其中 (td_weight, bu_weight) 由 regime 与 gate 状态决定，且 td_weight + bu_weight = 1
+```
+
+### 3.4 仓位计算
 
 > **初始资金**：来自 `BacktestConfig.initial_cash`（默认 1,000,000 元）
 
@@ -202,14 +254,17 @@ shares = floor(target_cash / signal.entry / 100) × 100
 ### 4.2 成交模拟（集合竞价 + 滑点）
 
 ```text
-成交概率模型（示意）：
-- 涨停开盘：成交概率 = 0
-- 高开幅度越大：成交概率越低
-- 成交量越大：成交概率越高
+成交可行性模型（tiered_queue，P0）：
+- limit_lock_factor：涨停开盘买单=0，跌停开盘卖单=0
+- queue_factor = clip(volume_auction / max(order_amount, 1), 0, 1)
+- participation_factor = clip(volume_day / max(free_float_shares, 1) / turnover_ref, 0, 1)
+- fill_probability = limit_lock_factor × (0.45 × queue_factor + 0.55 × participation_factor)
+- 若 fill_probability < config.min_fill_probability：订单记为 rejected（reason=auction_fail）
 
 成交价：
 - auction：开盘价 ± 滑点
 - fixed/variable：固定或与量能相关的滑点
+- tiered：按流动性分层映射 `slippage_bps` 与 `impact_cost_bps`
 ```
 
 > Qlib 与本地向量化实现共享同一执行口径；backtrader 仅作为兼容适配实现。
@@ -295,6 +350,22 @@ execute_date = next_trading_day(signal_date)
    - 次交易日继续按同一原因优先尝试卖出，直到可成交。
 ```
 
+### 4.10 流动性分层成本模型（P1）
+
+```text
+按成交额与换手率分层：
+- L1（高流动性）：impact_cost_bps = 5~12
+- L2（中流动性）：impact_cost_bps = 12~25
+- L3（低流动性）：impact_cost_bps = 25~45
+
+总成本：
+total_cost = commission + stamp_tax + transfer_fee + slippage_cost + impact_cost
+
+约束：
+- impact_cost_bps > config.impact_cost_bps_cap 时，买单降权或拒绝；
+- 同一信号在 L3 档位下需降低 position_size（例如 ×0.6）。
+```
+
 ---
 
 ## 5. 绩效计算口径
@@ -348,10 +419,12 @@ Calmar Ratio:
 
 | 缺失数据 | 处理策略 |
 |----------|----------|
-| Validation Gate = FAIL | 跳过当日信号生成并记录 `blocked_by_gate` |
-| L1 行情缺失 | 跳过该股票/交易日 |
-| L3 集成信号缺失 | 仅在 Gate 非 FAIL 时退回上一可用日（标记 degraded） |
-| pas_breadth_daily 缺失 | 禁用 BU，回退 TD |
+| Validation Gate = FAIL | `backtest_state=blocked_gate_fail`，跳过当日信号生成 |
+| contract_version 不兼容 | `backtest_state=blocked_contract_mismatch`，阻断并提示迁移 |
+| L1 行情缺失 | `backtest_state=warn_data_fallback`，跳过该股票/交易日 |
+| L3 集成信号缺失 | `backtest_state=warn_data_fallback`，仅在 Gate 非 FAIL 时退回上一可用日 |
+| pas_breadth_daily 缺失 | `backtest_state=warn_mode_fallback`，禁用 BU 回退 TD |
+| 涨跌停/停牌导致不可成交 | `backtest_state=blocked_untradable`，订单拒绝或顺延 |
 
 > 降级仅使用“上次可用数据”，不得直连远端。
 
@@ -361,13 +434,23 @@ Calmar Ratio:
 
 ```text
 1. 选择引擎（qlib / local_vectorized / backtrader_compat）
-2. 选择模式（top_down / bottom_up / dual_verify / complementary）
+2. 解析模式（config_fixed / regime_driven / hybrid_weight）
 3. 读取本地 L1/L3 数据
 4. 以 signal_date 生成信号（T 日收盘后）
 5. 在 execute_date 执行订单（T+1 开盘）
-6. 执行成交模拟与持仓更新
-7. 计算绩效并落库
+6. 执行成交可行性评估（queue/participation/fill_probability）
+7. 执行成交模拟与持仓更新
+8. 计算绩效并落库
 ```
+
+---
+
+## 8. 闭环验收（P0）
+
+- 至少提供 1 条可运行命令：`local_vectorized + top_down`。
+- 至少通过 4 组必测：`Gate=FAIL`、`T+1`、`涨跌停不可成交`、`RR<1 过滤`。
+- 至少落库 3 类产物：`backtest_results`、`backtest_trade_records`、`state 统计`。
+- 必须输出状态机字段：`normal/warn_data_fallback/warn_mode_fallback/blocked_gate_fail/blocked_contract_mismatch/blocked_untradable`。
 
 ---
 
@@ -375,6 +458,8 @@ Calmar Ratio:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.1 | 2026-02-14 | 修复 R34（review-012）：增加 `contract_version` 前置兼容检查（当前 `nc-v1`）；不兼容时 `backtest_state=blocked_contract_mismatch` 并阻断 |
+| v3.5.0 | 2026-02-14 | 对应 review-006 闭环修复：新增 CP-06 最小可运行闭环命令与验收；成交模型升级为 queue+volume+fill_probability；新增流动性分层成本模型；`blocked_by_gate/degraded/fallback` 统一为 `backtest_state` 状态机；模式切换增加 `regime_driven/hybrid_weight` 口径 |
 | v3.4.8 | 2026-02-12 | 修复 R13：§3.1 Step 2 与 §3.2 Step 3 的 recommendation 过滤改为基于 `config.min_recommendation` 的等级比较（`STRONG_BUY > BUY > HOLD > SELL > AVOID`），消除硬编码集合造成的门槛偏差 |
 | v3.4.7 | 2026-02-09 | 修复 R26：§3.1/§3.2 增加 Validation Gate FAIL 前置阻断；新增 `risk_reward_ratio < 1.0` 执行层软过滤；补充 recession 协同约束由 Integration 处理说明；§6 增补 Gate FAIL 降级策略 |
 | v3.4.6 | 2026-02-09 | 修复 R20：§3.1/§3.2 增加 `direction=neutral` 过滤并与 Trading 对齐；§4 新增 `§4.9` 止损/止盈退出规则（触发条件、执行时点、优先级、不可成交顺延） |

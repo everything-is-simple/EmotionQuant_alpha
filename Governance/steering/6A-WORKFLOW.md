@@ -1,7 +1,7 @@
 # EmotionQuant 6A 工作流（Spiral 闭环版）
 
-**版本**: v6.1.2  
-**最后更新**: 2026-02-12  
+**版本**: v6.1.3  
+**最后更新**: 2026-02-14  
 **状态**: 当前唯一权威工作流
 
 ---
@@ -107,10 +107,31 @@
 
 ---
 
+## 8. 跨文档变更联动模板（执行清单）
+
+涉及以下任一变更时，除本圈功能交付外，必须完成联动同步：
+
+| 变更类型 | 必改文档（最小集） | 校验要求 |
+|---|---|---|
+| 数据契约变更（字段/语义） | 对应 `docs/design/**/data-models.md` + `Governance/Capability/CP-*.md` + `docs/naming-conventions.md`（若命名变更） | 字段名/枚举/阈值一致，新增字段需给出默认与降级语义 |
+| 风控阈值或 Gate 规则变更 | 对应 `docs/design/**/algorithm.md` + `Governance/steering/TRD.md` + `Governance/Capability/CP-*.md` | FAIL/WARN/PASS 语义一致，阻断条件可复现 |
+| 数据边界变更（本地优先/远端补采） | `docs/system-overview.md` + `Governance/steering/系统铁律.md` + 对应 Data Layer 设计文档 | 不得出现主流程远端直读，降级字段口径一致 |
+
+执行记录要求：
+1. 在当圈 `review.md` 增加“跨文档联动”小节，列出已同步文件。
+2. 在当圈 `final.md` 标注“联动已完成/未涉及”。
+3. 若未完成联动，不得收口。
+4. 推荐执行一致性检查：`python -m scripts.quality.local_quality_check --governance`
+
+模板文件：`Governance/steering/CROSS-DOC-CHANGE-LINKAGE-TEMPLATE.md`
+
+---
+
 ## 变更记录
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
+| v6.1.3 | 2026-02-14 | 修复 R33（review-011）：新增“跨文档变更联动模板”执行清单（契约/风控/数据边界），并明确 review/final 记录要求 |
 | v6.1.2 | 2026-02-12 | 链接整理：历史文件说明改为“已并入本文件”，移除失效归档目录引用 |
 | v6.1.1 | 2026-02-11 | 修正 A3 冻结区表述：补充 Integration 模块 |
 | v6.1.0 | 2026-02-10 | 旧 `phase-to-task/task-to-step` 文件归档；明确本文件为唯一执行入口 |

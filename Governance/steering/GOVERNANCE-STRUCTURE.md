@@ -1,7 +1,7 @@
 # EmotionQuant 治理结构与目录规范（Spiral 版）
 
-**版本**: v3.5.0  
-**最后更新**: 2026-02-12
+**版本**: v3.5.1  
+**最后更新**: 2026-02-14
 
 ---
 
@@ -14,6 +14,7 @@
 - `Governance/SpiralRoadmap/`：系统实现路线与跨圈依赖桥梁
 - `Governance/steering/`：铁律、原则、流程
 - `Governance/steering/TRD.md`：技术需求与选型权威口径（技术源头）
+- `Governance/steering/CROSS-DOC-CHANGE-LINKAGE-TEMPLATE.md`：跨文档变更联动模板
 - `Governance/record/`：状态、债务、复用资产
 - `Governance/specs/spiral-s*/`：每圈 specs 与复盘
 - `Governance/Capability/archive-legacy-linear-v4-20260207/`：线性旧版只读归档
@@ -36,6 +37,7 @@
 | 改进行动主计划看哪里 | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |
 | 不可违反什么 | `Governance/steering/系统铁律.md` |
 | 核心原则看哪里 | `Governance/steering/CORE-PRINCIPLES.md` |
+| 跨文档联动怎么做 | `Governance/steering/CROSS-DOC-CHANGE-LINKAGE-TEMPLATE.md` |
 | 命名规范看哪里 | `docs/naming-conventions.md` |
 | 系统总览看哪里 | `docs/system-overview.md` |
 | 模块索引看哪里 | `docs/module-index.md` |
@@ -78,6 +80,7 @@ CP 文档仅在契约变化时更新。
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
+| v3.5.1 | 2026-02-14 | 修复 R33（review-011）：治理目录与 SoT 矩阵新增“跨文档变更联动模板”入口 |
 | v3.5.0 | 2026-02-12 | 新增 TRD 作为技术源头 SoT；SpiralRoadmap 入口由 `draft/` 收敛到 `VORTEX-EVOLUTION-ROADMAP.md`，并补充 `DEPENDENCY-MAP.md` 入口 |
 | v3.4.1 | 2026-02-11 | 修复 R1：收敛 SpiralRoadmap 表述为候选草稿；SoT 补充核心原则/命名规范/系统总览/模块索引；修正 .claude 迁移列表缩进 |
 | v3.4.0 | 2026-02-11 | 补充设计目录三层结构与 SoT 映射（核心算法/核心基础设施/外挂增强） |

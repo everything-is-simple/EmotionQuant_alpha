@@ -1,8 +1,15 @@
 # Analysis 核心算法
 
-**版本**: v3.1.6（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
+
+---
+
+## 实现状态（仓库现状）
+
+- `src/analysis/` 当前仅有 `__init__.py` 占位；分析计算与落盘实现尚未落地。
+- 本文档为闭环设计口径；实现阶段需以此为准并同步更新记录。
 
 ---
 
@@ -13,6 +20,7 @@ Analysis层负责对回测与实盘结果进行复盘分析，核心职责：
 1. **绩效分析**：计算收益率、风险指标、交易统计
 2. **信号评估**：评估MSS/IRS/PAS信号的有效性与贡献度
 3. **报告输出**：生成日报/周报级别的分析摘要
+4. **闭环落地**：执行 `compute_metrics -> attribute_signals -> generate_daily_report -> persist/export`
 
 **重要约束**：遵循系统铁律，不引入技术指标计算；Analysis 仅消费 L3 算法输出与回测/实盘结果，产出 L4 分析指标与报告，不替代 L3 算法。
 
@@ -24,7 +32,43 @@ Analysis层负责对回测与实盘结果进行复盘分析，核心职责：
 
 **输入/输出**：
 - 输入：`mss_panorama`、`irs_industry_daily`、`stock_pas_daily`、`integrated_recommendation`；`trade_records` / `backtest_trade_records`、`backtest_results`（含 equity_curve）、`positions`
-- 输出：`performance_metrics`、`signal_attribution`、`daily_report`（含周报/月报汇总）及 `.reports/analysis/` 下的报告文件
+- 输出：`performance_metrics`、`signal_attribution`、`daily_report`、`live_backtest_deviation`、`analysis_dashboard_snapshot`（含周报/月报汇总）及 `.reports/analysis/` 下的报告文件
+
+### 1.1 CP-08 最小可运行闭环（P0）
+
+```
+输入: trade_date, start_date, end_date
+输出: AnalysisRunResult(state, saved_tables, exported_files)
+
+def run_minimal(trade_date, start_date, end_date):
+    # 1) 绩效计算 + 落库
+    metrics = compute_metrics(start_date, end_date)
+    repo.save_performance_metrics(metrics)
+
+    # 2) 信号归因（稳健口径）+ 落库
+    attribution = attribute_signals(
+        trade_date=trade_date,
+        trim_quantile=0.05,     # 去极值：双尾 5%
+        min_sample_count=20
+    )
+    repo.save_signal_attribution(attribution)
+
+    # 3) 日报构建 + 落库
+    report = generate_daily_report(trade_date)
+    repo.save_daily_report(report)
+
+    # 4) 文件导出（标准目录）
+    md_path = export_to_file(render_markdown(report), "daily_report", "md")
+    csv_metrics = export_metrics_csv(metrics, "performance_metrics")
+    csv_attr = export_signal_attribution_csv(attribution, "signal_attribution")
+    dashboard_json = export_dashboard_snapshot(trade_date)
+
+    return AnalysisRunResult(
+        state="completed",
+        saved_tables=["performance_metrics", "signal_attribution", "daily_report"],
+        exported_files=[md_path, csv_metrics, csv_attr, dashboard_json]
+    )
+```
 
 ---
 
@@ -162,9 +206,9 @@ avg_price_deviation = mean(deviations)
 
 ```
 输入: trade_date
-输出: mss_attribution, irs_attribution, pas_attribution
+输出: mss_attribution, irs_attribution, pas_attribution, sample_count
 
-def attribute_signals(trade_date):
+def attribute_signals(trade_date, trim_quantile=0.05, min_sample_count=20):
     # 获取当日推荐和成交
     recs = repo.get_integrated_recommendation(trade_date)
     is_backtest = repo.is_backtest_context(trade_date)
@@ -195,11 +239,29 @@ def attribute_signals(trade_date):
         irs_contrib.append(rec.irs_score * execution_deviation)
         pas_contrib.append(rec.pas_score * execution_deviation)
 
+    raw_sample_count = len(mss_contrib)
+    if raw_sample_count < min_sample_count:
+        # 冷启动样本不足：降级到原始均值，避免过度截尾
+        mss_robust = mss_contrib
+        irs_robust = irs_contrib
+        pas_robust = pas_contrib
+        method = "mean_fallback_small_sample"
+    else:
+        # 稳健口径：双尾分位截尾（去极值）
+        mss_robust = trim_by_quantile(mss_contrib, lower=trim_quantile, upper=1-trim_quantile)
+        irs_robust = trim_by_quantile(irs_contrib, lower=trim_quantile, upper=1-trim_quantile)
+        pas_robust = trim_by_quantile(pas_contrib, lower=trim_quantile, upper=1-trim_quantile)
+        method = f"trimmed_mean_q{trim_quantile:.2f}"
+
     return {
-        "mss_attribution": sum(mss_contrib) / max(len(mss_contrib), 1),
-        "irs_attribution": sum(irs_contrib) / max(len(irs_contrib), 1),
-        "pas_attribution": sum(pas_contrib) / max(len(pas_contrib), 1),
-        "sample_count": len(mss_contrib)
+        "mss_attribution": sum(mss_robust) / max(len(mss_robust), 1),
+        "irs_attribution": sum(irs_robust) / max(len(irs_robust), 1),
+        "pas_attribution": sum(pas_robust) / max(len(pas_robust), 1),
+        "sample_count": len(mss_robust),
+        "raw_sample_count": raw_sample_count,
+        "trimmed_sample_count": len(mss_robust),
+        "trim_ratio": 1 - (len(mss_robust) / max(raw_sample_count, 1)),
+        "attribution_method": method
     }
 ```
 
@@ -225,6 +287,44 @@ for date, irs_data in irs_signals:
 rotation_hit_rate = mean(hits)
 ```
 
+### 4.3 实盘-回测偏差归因（P1）
+
+```
+输入: trade_date
+输出: signal_deviation, execution_deviation, cost_deviation, total_deviation
+
+def decompose_live_backtest_deviation(trade_date):
+    # 同日双口径对比：实盘与回测必须共享同一推荐池（按 stock_code 对齐）
+    live = repo.get_live_recommendation_outcome(trade_date)
+    bt = repo.get_backtest_recommendation_outcome(trade_date)
+
+    # 信号偏差：推荐池本身收益差（选股/打分层）
+    signal_deviation = mean(live.forward_return_5d) - mean(bt.forward_return_5d)
+
+    # 成交偏差：执行偏差差值（成交价相对 entry）
+    execution_deviation = mean(live.execution_deviation) - mean(bt.execution_deviation)
+
+    # 成本偏差：佣金+滑点+冲击成本差值
+    live_cost_rate = mean(live.commission_rate + live.slippage_rate + live.impact_cost_rate)
+    bt_cost_rate = mean(bt.commission_rate + bt.slippage_rate + bt.impact_cost_rate)
+    cost_deviation = live_cost_rate - bt_cost_rate
+
+    total_deviation = signal_deviation + execution_deviation - cost_deviation
+    dominant_component = argmax_abs({
+        "signal": signal_deviation,
+        "execution": execution_deviation,
+        "cost": cost_deviation
+    })
+
+    return {
+        "signal_deviation": signal_deviation,
+        "execution_deviation": execution_deviation,
+        "cost_deviation": cost_deviation,
+        "total_deviation": total_deviation,
+        "dominant_component": dominant_component
+    }
+```
+
 ---
 
 ## 5. 风险分析算法
@@ -235,7 +335,7 @@ rotation_hit_rate = mean(hits)
 输入: recommendations
 输出: risk_distribution
 
-# 基于ValidationResult.risk_level统计
+# 基于 ValidationResult.risk_level + neutrality 统计
 risk_counts = {"low": 0, "medium": 0, "high": 0}
 
 # 基于 neutrality 分级（越低越极端）
@@ -248,10 +348,41 @@ for rec in recommendations:
         risk_counts["high"] += 1  # 中性度高→信号不明确→高风险
 
 total = sum(risk_counts.values())
+prev = repo.get_previous_risk_summary()
+high_risk_change_rate = (
+    (risk_counts["high"] - prev.high_risk_count) / max(prev.high_risk_count, 1)
+    if prev else 0
+)
+low_risk_change_rate = (
+    (risk_counts["low"] - prev.low_risk_count) / max(prev.low_risk_count, 1)
+    if prev else 0
+)
+risk_turning_point = (
+    "risk_up_turn"
+    if high_risk_change_rate > 0.2 and low_risk_change_rate < -0.1
+    else "risk_down_turn"
+    if high_risk_change_rate < -0.2 and low_risk_change_rate > 0.1
+    else "none"
+)
+risk_regime = (
+    "risk_on"
+    if risk_counts["low"] >= risk_counts["high"] * 1.5
+    else "risk_off"
+    if risk_counts["high"] >= risk_counts["low"] * 1.5
+    else "neutral"
+)
+
 risk_distribution = {
+    "low_risk_count": risk_counts["low"],
+    "medium_risk_count": risk_counts["medium"],
+    "high_risk_count": risk_counts["high"],
     "low_pct": risk_counts["low"] / total,
     "medium_pct": risk_counts["medium"] / total,
-    "high_pct": risk_counts["high"] / total
+    "high_pct": risk_counts["high"] / total,
+    "high_risk_change_rate": high_risk_change_rate,
+    "low_risk_change_rate": low_risk_change_rate,
+    "risk_turning_point": risk_turning_point,
+    "risk_regime": risk_regime
 }
 ```
 
@@ -375,6 +506,42 @@ def render_report(data, template="daily_report"):
     return content
 ```
 
+### 6.3 GUI/治理对接快照（P2）
+
+```
+输入: report_date, metrics, attribution, risk_summary, deviation
+输出: analysis_dashboard_snapshot
+
+def build_dashboard_snapshot(report_date, metrics, attribution, risk_summary, deviation):
+    # 单一快照供 GUI 与治理看板复用，避免二次手工汇总
+    return {
+        "report_date": report_date,
+        "analysis_state": "ok",
+        "summary": {
+            "total_return": metrics.total_return,
+            "max_drawdown": metrics.max_drawdown,
+            "sharpe_ratio": metrics.sharpe_ratio,
+            "win_rate": metrics.win_rate
+        },
+        "attribution": {
+            "mss_attribution": attribution.mss_attribution,
+            "irs_attribution": attribution.irs_attribution,
+            "pas_attribution": attribution.pas_attribution,
+            "sample_count": attribution.sample_count,
+            "attribution_method": attribution.attribution_method
+        },
+        "risk": {
+            "high_risk_pct": risk_summary.high_risk_pct,
+            "high_risk_change_rate": risk_summary.high_risk_change_rate,
+            "risk_turning_point": risk_summary.risk_turning_point
+        },
+        "deviation": {
+            "total_deviation": deviation.total_deviation,
+            "dominant_component": deviation.dominant_component
+        }
+    }
+```
+
 ---
 
 ## 7. 完整绩效计算流程
@@ -441,7 +608,7 @@ def compute_performance_metrics(start_date, end_date, equity_curve, trades):
 
 ## 8. 异常与缺失处理口径
 
-- **数据缺失**：关键输入缺失则跳过该项计算并标记 `degraded`（不引入跨层回填）
+- **数据缺失**：关键输入缺失则跳过该项计算并标记 `analysis_state="warn_data_fallback"`（不引入跨层回填）
 - **净值序列不足**：`equity_curve` 为空或长度不足时跳过绩效计算
 - **无交易**：`win_rate = 0`，`profit_factor = 0`，`avg_holding_days = 0`
 - **分母为 0**：`std=0` 则 Sharpe/Sortino 置 0；`max_drawdown=0` 则 Calmar 置 0
@@ -451,6 +618,7 @@ def compute_performance_metrics(start_date, end_date, equity_curve, trades):
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：补齐 `run_minimal` 最小链路；归因升级为分位截尾稳健均值；新增实盘-回测偏差分解与前瞻风险字段；新增 GUI/治理快照输出；异常状态统一为 `analysis_state` |
 | v3.1.6 | 2026-02-09 | 修复 R21：Sortino 下行分母变量改名为 `downside_deviations/downside_std`；归因与日报流程补齐实盘/回测成交分支；行业集中度补充 `top_industry` 输出 |
 | v3.1.5 | 2026-02-08 | 修复 R14：§4.1 将 `pnl_pct` 更名为 `execution_deviation` 并明确语义为执行偏差（非交易盈亏） |
 | v3.1.4 | 2026-02-08 | 修复 R12：年化收益率样本数改为 `len(equity_curve)-1`；持仓天数字段统一为 `hold_days`；归因成交价兼容 `filled_price/price` |

@@ -1,7 +1,7 @@
 # IRS 信息流
 
-**版本**: v3.2.7（重构版）
-**最后更新**: 2026-02-08
+**版本**: v3.3.0（重构版）
+**最后更新**: 2026-02-14
 **状态**: 设计完成（验收口径补齐；代码未落地）
 
 ---
@@ -142,9 +142,11 @@
    → normalize_zscore → continuity_score
 
 3. 资金流向 = Σ(amount_delta, 10d)
-   → normalize_zscore → capital_flow_score
+   + flow_share + relative_volume - 拥挤惩罚
+   → capital_flow_score
 
-4. 估值因子：valuation_raw = -pe_ttm（PE 越低越优）
+4. 估值因子：生命周期校准估值
+   valuation_raw = w_pe(style)×z(-pe_ttm) + w_pb(style)×z(-pb)
    → normalize_zscore(valuation_raw, 3y) → valuation_score
 
 注：
@@ -201,16 +203,13 @@ industry_score = 0.25 × relative_strength
 
 处理流程：
 1. 按 industry_score 降序排名
-2. 根据排名映射配置建议
-   - 前3名 → 超配
-   - 4-10名 → 标配
-   - 11-26名 → 减配
-   - 后5名（27-31）→ 回避
-3. 检测轮动状态（需至少3日历史）
-   - industry_score 连续3日上升 → IN
-   - industry_score 连续3日下降 → OUT
+2. 计算动态阈值与集中度（q25/q55/q80 + HHI）
+3. 根据分位 + 集中度映射配置建议（支持 fixed 兼容模式）
+4. 检测轮动状态（robust slope + MAD band）
+   - rotation_slope >= +rotation_band → IN
+   - rotation_slope <= -rotation_band → OUT
    - 其他 → HOLD
-4. 识别轮动详情（强势领涨/轮动加速/趋势反转...）
+5. 识别轮动详情（强势领涨/轮动加速/趋势反转...）
 
 依赖组件：IrsRanker, IrsRotationDetector
 ```
@@ -355,7 +354,7 @@ MSS -> Integration（非 IRS 直接输入）:
 
 ```
 IRS -> PAS:
-  - 超配行业列表（前3名）
+  - 超配行业列表（按 allocation_mode 映射）
   - 行业权重建议
 
 用途：
@@ -383,9 +382,9 @@ Integration 汇总 MSS + IRS + PAS，生成三三制集成信号：
 
 | 异常情况 | 检测方式 | 处理策略 |
 |----------|----------|----------|
-| 行业成分股缺失 | stock_count < 10 | 使用前一日数据 |
+| 行业成分股缺失 | stock_count < 10 | 标记 `quality_flag=stale`；若 `stale_days>3` 阻断 |
 | 涨跌停数据异常 | limit_up > stock_count/3 | 人工确认后计算 |
-| 估值数据缺失 | pe_ttm is None | 使用行业历史均值 |
+| 估值数据缺失 | pe_ttm/pb is None | 使用行业历史均值并标记 `stale` |
 
 ### 6.2 计算异常
 
@@ -401,6 +400,7 @@ Integration 汇总 MSS + IRS + PAS，生成三三制集成信号：
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.3.0 | 2026-02-14 | 落地 review-002 修复：Step 3 资金流向增加 `flow_share + 拥挤惩罚`；估值改为生命周期校准（PE/PB 联合）；Step 6 改为“分位+集中度”动态映射与“slope+MAD band”轮动判定；异常处理补充 `stale_days>3` 阻断 |
 | v3.2.7 | 2026-02-08 | 修复 R17：§5.2 IRS→PAS 协同阈值由 `PAS≥80` 对齐为 `PAS≥85（S级）` |
 | v3.2.6 | 2026-02-08 | 修复 R14：§5.1 明确 MSS 温度由 Integration 消费（非 IRS 直接输入） |
 | v3.2.5 | 2026-02-08 | 修复 R13：轮动状态判定字段显式为 `industry_score`（连续3日） |

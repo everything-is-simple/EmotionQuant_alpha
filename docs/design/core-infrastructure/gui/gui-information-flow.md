@@ -1,8 +1,8 @@
 # GUI 信息流
 
-**版本**: v3.1.6（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（代码未落地）
+**版本**: v3.2.0（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（闭环口径补齐；代码待实现）
 
 ---
 
@@ -85,6 +85,28 @@
 
 ---
 
+### 1.1 CP-09 最小可运行闭环（P0）
+
+```
+GUI 启动
+  │
+  ▼
+DataService.run_minimal(trade_date)
+  │
+  ├── get_dashboard_data(trade_date, top_n)
+  ├── get_integrated_page_data(trade_date, filters, page=1)
+  ├── render Dashboard
+  └── render IntegratedPage
+  │
+  ▼
+输出: GuiRunResult
+  - rendered_pages=["dashboard","integrated"]
+  - data_state
+  - freshness_summary
+```
+
+---
+
 ## 2. 页面数据流
 
 ### 2.1 Dashboard页面流程
@@ -117,8 +139,10 @@
 │  │     - format_temperature() → 颜色/标签   │                            │
 │  │     - format_cycle() → 中文标签          │                            │
 │  │     - format_integration_mode() → 模式徽标│                            │
+│  │     - resolve_filter_config() → 生效阈值  │                            │
 │  │     - apply_filters() → 筛选推荐         │                            │
 │  │     - apply_sort() → 按评分排序          │                            │
+│  │     - get_freshness_meta() → 新鲜度      │                            │
 │  └────────────────┬────────────────────────┘                            │
 │                   │                                                      │
 │                   ▼                                                      │
@@ -127,6 +151,8 @@
 │  │     - temperature_card                  │                            │
 │  │     - cycle_badge                       │                            │
 │  │     - integration_mode_badge            │                            │
+│  │     - active_filter_badges              │                            │
+│  │     - freshness_badge/data_asof         │                            │
 │  │     - top_recommendations               │                            │
 │  │     - top_industries                    │                            │
 │  └────────────────┬────────────────────────┘                            │
@@ -268,7 +294,8 @@ integrated_recommendation (原始数据)
      │
      ▼
 ┌────────────────────────────────┐
-│  过滤: final_score >= 60       │
+│  读取阈值: resolve_filter_config│
+│  过滤: final_score >= cfg.min  │
 │  排序: final_score DESC        │
 │  分页: top_n = 10              │
 └────────────────────────────────┘
@@ -281,6 +308,7 @@ integrated_recommendation (原始数据)
 │    - direction_icon            │
 │    - integration_mode_badge    │
 │    - position_size_percent     │
+│    - reason_panel(Analysis L4) │
 └────────────────────────────────┘
      │
      ▼
@@ -295,6 +323,28 @@ List[RecommendationItem]
 │  │  2   │ YYY  │ 82  │ 6%  │  │
 │  └──────────────────────────┘  │
 └────────────────────────────────┘
+```
+
+### 3.3 推荐原因联动流（P2）
+
+```
+用户点击推荐项(stock_code)
+     │
+     ▼
+DataService.get_recommendation_reason_panel(stock_code, trade_date)
+     │
+     ├── read signal_attribution (L4)
+     ├── read daily_report.risk_summary (L4)
+     └── read live_backtest_deviation (L4)
+     │
+     ▼
+RecommendationReasonPanel
+     │
+     ▼
+Integrated 页面侧边栏展示:
+  - MSS/IRS/PAS attribution
+  - risk_turning_point
+  - deviation_hint
 ```
 
 ---
@@ -428,15 +478,15 @@ List[RecommendationItem]
 
 ### 6.1 刷新时机
 
-| 页面 | 刷新策略 | 刷新间隔 |
-|------|----------|----------|
-| Dashboard | 自动刷新 | 60秒 |
-| MSS | 日更新 | 盘后刷新 |
-| IRS | 日更新 | 盘后刷新 |
-| PAS | 日更新 | 盘后刷新 |
-| Integrated | 日更新 | 盘后刷新 |
-| Trading | 分钟级 | 60秒 |
-| Analysis | 日更新 | 盘后刷新 |
+| 页面 | 刷新策略 | 刷新间隔 | 新鲜度展示 |
+|------|----------|----------|------------|
+| Dashboard | 自动刷新 | 60秒 | fresh/stale_soon/stale |
+| MSS | 日更新 | 盘后刷新 | fresh/stale_soon/stale |
+| IRS | 日更新 | 盘后刷新 | fresh/stale_soon/stale |
+| PAS | 日更新 | 盘后刷新 | fresh/stale_soon/stale |
+| Integrated | 日更新 | 盘后刷新 | fresh/stale_soon/stale |
+| Trading | 分钟级 | 60秒 | fresh/stale_soon/stale |
+| Analysis | 日更新 | 盘后刷新 | fresh/stale_soon/stale |
 
 ### 6.2 刷新流程
 
@@ -468,6 +518,7 @@ List[RecommendationItem]
 | 数据未就绪 | 显示加载中 | "数据未就绪，请稍后刷新" |
 | 接口超时 | 重试3次 | "请求超时，请重试" |
 | 空结果 | 显示空状态 | "无符合条件的数据" |
+| 数据降级 | 展示可用子集并标记 `warn_data_fallback` | "部分数据缺失，已降级展示" |
 | 权限不足 | 隐藏操作 | "权限不足，请联系管理员" |
 
 ### 7.2 错误边界
@@ -482,12 +533,26 @@ List[RecommendationItem]
 │      show_loading_skeleton()            │
 │  except TimeoutError:                   │
 │      show_retry_button()                │
+│      record_ui_event("timeout")         │
 │  except PermissionError:                │
 │      show_permission_denied()           │
+│      record_ui_event("permission_denied")│
 │  except Exception:                      │
 │      show_generic_error()               │
 │      log_error_to_console()             │
+│      record_ui_event("unknown_error")   │
 └─────────────────────────────────────────┘
+```
+
+### 7.3 异常观测面板（P1）
+
+```
+ui_observability_panel
+  - timeout_count_1h
+  - empty_state_count_1h
+  - data_fallback_count_1h
+  - permission_denied_count_1h
+  - last_error_message
 ```
 
 ---
@@ -496,6 +561,7 @@ List[RecommendationItem]
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.2.0 | 2026-02-14 | 闭环修订：新增 CP-09 最小闭环流程；Dashboard 流程补齐阈值解析与新鲜度展示；推荐流改为配置阈值并联动 Analysis 原因面板；异常处理补齐 `warn_data_fallback` 与事件计数，新增异常观测面板 |
 | v3.1.6 | 2026-02-09 | 修复 R26：Dashboard/推荐列表流程补充 `integration_mode` 转换与 `integration_mode_badge` 展示，确保模式来源可视化追溯 |
 | v3.1.5 | 2026-02-09 | 修复 R22：温度卡片示例将兜底分支显式化为 `<30 → blue`，避免与三段阈值误读 |
 | v3.1.4 | 2026-02-08 | 修复 R16：温度卡片示例补全 `>=30→cyan` 与 `else→blue` 分支说明，避免误读为三段分级 |

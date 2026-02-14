@@ -1,8 +1,8 @@
 # Integration API 接口
 
-**版本**: v3.4.4（重构版）
-**最后更新**: 2026-02-09
-**状态**: 设计完成（模块接口；当前仓库无 Web API）
+**版本**: v3.5.1（重构版）
+**最后更新**: 2026-02-14
+**状态**: 设计完成（模块接口闭环口径补齐；当前仓库无 Web API）
 
 ---
 
@@ -35,7 +35,8 @@ class IntegrationEngine:
         irs_inputs: List[IrsInput],
         pas_inputs: List[PasInput],
         weight_plan: WeightPlan,
-        validation_gate_decision: ValidationGateDecision
+        validation_gate_decision: ValidationGateDecision,
+        contract_version: str = "nc-v1"
     ) -> List[IntegratedRecommendation]:
         """
         计算集成推荐
@@ -45,13 +46,15 @@ class IntegrationEngine:
             irs_inputs: 当日各行业IRS数据（读取 quality_flag/sample_days；当 quality_flag ∈ {cold_start, stale} 时强制回退 baseline 权重并提升 Gate 状态为 WARN）
             pas_inputs: 当日各股票PAS数据
             weight_plan: 已通过验证的权重方案（含 plan_id 与 w_mss/w_irs/w_pas；需由 Validation `resolve_weight_plan(trade_date, gate.selected_weight_plan)` 解析）
-            validation_gate_decision: 验证门禁决策（建议从 Validation `validation_gate_decision` 表读取）
+            validation_gate_decision: 验证门禁决策（含 `tradability_pass_ratio/impact_cost_bps/candidate_exec_pass/position_cap_ratio`）
+            contract_version: 契约版本（当前仅支持 `nc-v1`，不兼容时拒绝执行）
         Returns:
-            集成推荐列表（按final_score降序）
+            集成推荐列表（按final_score降序，输出需包含 `integration_state` 与 `position_cap_ratio`）
         Raises:
             ValueError: 输入数据无效
             WeightViolationError: 权重方案违反约束
             ValidationGateError: validation_gate_decision.final_gate=FAIL，不允许进入集成
+            ContractVersionError: contract_version 与当前运行时不兼容
         """
         pass
     
@@ -83,6 +86,32 @@ class IntegrationEngine:
             abs(sum(weights) - 1.0) < 1e-8 and
             all(v <= self.MAX_MODULE_WEIGHT for v in weights)
         )
+
+    def resolve_regime_parameters(
+        self,
+        mss_cycle: str,
+        market_volatility_20d: float,
+        mode: str = "auto"
+    ) -> RegimeParameters:
+        """解析风险状态参数组（fixed/auto）"""
+        pass
+
+    def classify_integration_state(
+        self,
+        gate: ValidationGateDecision,
+        irs_quality_flag: str
+    ) -> str:
+        """统一状态机：normal / warn_* / blocked_*"""
+        pass
+
+    def check_candidate_executability(
+        self,
+        gate: ValidationGateDecision,
+        tradability_pass_floor: float = 0.90,
+        impact_cost_bps_cap: float = 35.0
+    ) -> bool:
+        """候选方案执行约束检查（可成交性+冲击成本）"""
+        pass
 ```
 
 ### 2.2 Validation 桥接调用约定
@@ -96,6 +125,7 @@ signals = integration_engine.calculate(
     pas_inputs=pas,
     weight_plan=weight_plan,
     validation_gate_decision=gate,
+    contract_version=gate.contract_version,  # 当前要求 nc-v1
 )
 ```
 
@@ -124,14 +154,32 @@ class IntegrationRepository:
         pass
 ```
 
+### 2.4 最小实现闭环（P0）
+
+```python
+def run_integration_contract_tests() -> dict:
+    """
+    最小闭环契约测试（CP-05）：
+    1) PASS + candidate -> 使用 candidate 权重
+    2) WARN + candidate 缺失 -> baseline + warn_gate_fallback
+    3) FAIL -> ValidationGateError
+    4) cold_start/stale -> baseline + warn_data_*
+    5) candidate_exec_pass=False -> baseline + warn_candidate_exec
+    6) contract_version != "nc-v1" -> ContractVersionError
+    """
+    pass
+```
+
 ---
 
 ## 3. 错误处理
 
 - 权重违规：抛出 `WeightViolationError`。
-- 输入数据缺失：抛出 `ValueError` 或记录降级标记。
+- 输入数据缺失：抛出 `ValueError` 或进入统一状态机 `warn_*`。
 - Gate=FAIL：抛出 `ValidationGateError` 并阻断集成输出。
+- 契约版本不兼容（`contract_version != "nc-v1"`）：抛出 `ContractVersionError` 并阻断输出。
 - 若 IRS 输入全部为 `quality_flag="cold_start"`：不抛异常，强制回退 baseline 权重并按 WARN 继续输出（用于下游识别低置信度）。
+- 若候选方案执行约束不达标（可成交性/冲击成本）：不抛异常，回退 baseline，并标记 `warn_candidate_exec`。
 - 详细错误码与处理策略见：
   - `docs/design/core-algorithms/integration/integration-algorithm.md`
   - `Governance/Capability/CP-05-integration.md`
@@ -142,6 +190,8 @@ class IntegrationRepository:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.5.1 | 2026-02-14 | 修复 R34（review-012）：`calculate()` 增加 `contract_version` 输入；桥接调用显式透传 `gate.contract_version`；错误处理补充契约版本不兼容阻断 |
+| v3.5.0 | 2026-02-14 | 对应 review-005 闭环修复：新增 `resolve_regime_parameters/classify_integration_state/check_candidate_executability` 接口；补充最小闭环契约测试接口；异常处理统一到 `warn_*` 状态机语义 |
 | v3.4.4 | 2026-02-09 | 修复 R29：补充 Validation -> Integration 权重桥接调用约定（通过 Validation Orchestrator 解析 `selected_weight_plan` 为 `WeightPlan`） |
 | v3.4.3 | 2026-02-09 | 修复 R27：`calculate()` 参数说明补充 IRS `quality_flag/sample_days` 对 Gate 与权重回退的影响；错误处理补充 `Gate=FAIL` 与“全行业 cold_start”行为 |
 | v3.4.2 | 2026-02-08 | 修复 R17：`weight_plan` 参数类型由 `dict` 收敛为 `WeightPlan`，保留 `plan_id` 追溯并增强类型约束 |
