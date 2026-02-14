@@ -1,5 +1,11 @@
 # SpiralRoadmap 目录说明
 
+**状态**: Active  
+**更新时间**: 2026-02-14  
+**定位**: Spiral 执行路线与依赖图目录（执行伴随文档，不替代上位 SoT）
+
+---
+
 本目录存放 Spiral 路线执行文档与依赖关系文档。
 
 ## 当前执行入口
@@ -17,13 +23,32 @@
 
 ## 执行环境口径
 
-- 本地系统目录：`G:\EmotionQuant-glm`
-- 本地数据库目录：`G:\EmotionQuant_data`
-- 远端主库：`https://github.com/everything-is-simple/EmotionQuant-glm`
-- 远端备份库：`https://gitee.com/wangweiyun2233/emotion-quant-glm`
+- 仓库根目录：`${REPO_ROOT}`（当前工作目录）
+- 数据目录：`${DATA_PATH}`（见 `.env` / `.env.example`）
+- DuckDB 目录：`${DUCKDB_DIR}`（见 `.env` / `.env.example`）
+- 远端主库：`${REPO_REMOTE_URL}`
+- 远端备份库：`backup`（本地 git remote 配置）
 - Git 远端约定：`origin=主库`，`backup=备份库`
+
+## 统一门禁入口（执行前）
+
+- 本地一致性检查（推荐最小门禁）：
+  - `python -m scripts.quality.local_quality_check --contracts --governance`
+- 可选补充（硬编码路径扫描）：
+  - `python -m scripts.quality.local_quality_check --scan`
+- CI 阻断工作流：
+  - `.github/workflows/quality-gates.yml`
 
 ## 清理原则
 
 - 过时评审、旧版归档原文、历史草稿、空文件全部删除
 - 本目录文档不得替代上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v1.1 | 2026-02-14 | 增加目录元信息；执行环境改为环境变量口径；新增统一门禁入口（local quality + CI） |
+| v1.0 | 2026-02-13 | 首版 |

@@ -1,7 +1,7 @@
 # EmotionQuant 实战螺旋路线手册（S0-S7a）
 
 **状态**: Active  
-**更新时间**: 2026-02-13  
+**更新时间**: 2026-02-14  
 **用途**: 给出可直接执行的多路线方案，避免“提案遗忘”。
 
 ---
@@ -11,6 +11,7 @@
 1. 所有路线必须遵守 `Governance/steering/系统铁律.md` 与 `Governance/steering/6A-WORKFLOW.md`。
 2. 每圈必须有 `run/test/artifact/review/sync` 五件套。
 3. 一旦启用 ENH-10/ENH-11，必须作为独立圈收口，不允许“顺手做了不留证据”。
+4. S2 及后续圈默认启用契约门禁：`python -m scripts.quality.local_quality_check --contracts --governance`。
 
 ---
 
@@ -79,6 +80,7 @@
 4. `review`：偏差、风险、降级方案写入 `review.md`。
 5. `sync`：完成 5 文件最小同步。
 6. `A股规则`：涉及推荐/交易必须检查 T+1、涨跌停、交易时段、申万行业映射。
+7. `contracts`：S2/S3/S4/S5 必须保证 `contract_version=nc-v1` 兼容口径与 RR 执行门槛一致（`risk_reward_ratio >= 1.0`）。
 
 ---
 
@@ -136,4 +138,5 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.1 | 2026-02-14 | 每圈原则与统一门禁补充契约检查（`--contracts --governance`）；新增执行口径约束（`contract_version=nc-v1`、`risk_reward_ratio >= 1.0`） |
 | v1.0 | 2026-02-13 | 首次发布：给出三套完整实战路线，固化 ENH-10/11，加入防遗忘机制 |

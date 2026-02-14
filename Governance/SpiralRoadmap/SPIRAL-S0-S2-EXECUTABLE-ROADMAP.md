@@ -1,7 +1,7 @@
-# EmotionQuant S0-S2 真螺旋执行路线图（执行版 v0.3）
+# EmotionQuant S0-S2 真螺旋执行路线图（执行版 v0.4）
 
 **状态**: Active  
-**更新时间**: 2026-02-13  
+**更新时间**: 2026-02-14  
 **适用范围**: S0-S2（数据层到 MSS+IRS+PAS 最小推荐闭环）  
 **文档角色**: S0-S2 执行合同（不是上位 SoT 替代）
 
@@ -23,12 +23,13 @@
 
 ---
 
-## 1. 现实基线快照（As-Is, 2026-02-13）
+## 1. 现实基线快照（As-Is, 2026-02-14）
 
 1. `eq` 命令入口尚未落地（`pyproject.toml` 未定义 `project.scripts.eq`）。
 2. `python -m src.pipeline.main` 当前未实现业务逻辑（仅抛出 `NotImplementedError`）。
-3. 已存在且可复用的单测主路径：`tests/unit/config/*`、`tests/unit/data/models/*`、`tests/unit/scripts/test_local_quality_check.py`。
-4. 质量扫描脚本可执行：`scripts/quality/local_quality_check.py`。
+3. 已存在且可复用的单测主路径：`tests/unit/config/*`、`tests/unit/data/models/*`、`tests/unit/data/test_quality_gate.py`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_naming_contracts_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
+4. 本地质量门禁脚本可执行：`python -m scripts.quality.local_quality_check --contracts --governance`（必要）与 `--scan`（可选补充）。
+5. CI 质量门禁已存在：`.github/workflows/quality-gates.yml`。
 
 执行口径采用双层：
 
@@ -51,6 +52,7 @@
 
 - `consumption`: 记录“谁消费/怎么消费/消费结论”。
 - `gate`: 门禁结论（PASS/WARN/FAIL）与阻断理由。
+- `contracts`: 契约/治理一致性检查通过（`python -m scripts.quality.local_quality_check --contracts --governance`）。
 
 统一证据目录：
 
@@ -84,7 +86,8 @@
 
 ```bash
 .\.venv\Scripts\python.exe --version
-.\.venv\Scripts\python.exe scripts/quality/local_quality_check.py --scan
+.\.venv\Scripts\python.exe -m scripts.quality.local_quality_check --contracts --governance
+.\.venv\Scripts\python.exe -m scripts.quality.local_quality_check --scan
 .\.venv\Scripts\pytest.exe tests/unit/config tests/unit/data/models -q
 ```
 
@@ -113,7 +116,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 ---
 
-## 5. 各圈执行合同（v0.3）
+## 5. 各圈执行合同（v0.4）
 
 ### S0a
 
@@ -189,6 +192,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
   - `irs_industry_daily` 当日记录数 `> 0`。
   - `stock_pas_daily` 当日记录数 `> 0`。
   - `validation_gate_decision` 当日可追溯。
+  - `validation_gate_decision.contract_version = "nc-v1"`。
   - FAIL 必须产出 `validation_prescription`。
 - 产物：`irs_industry_daily_sample.parquet`, `stock_pas_daily_sample.parquet`, `validation_gate_decision_sample.parquet`
 - 消费：S2b 记录“使用 gate 决策驱动集成”。
@@ -202,6 +206,8 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 - 门禁：
   - `integrated_recommendation` 当日记录数 `> 0`。
   - `quality_gate_report.status in (PASS, WARN)`。
+  - 契约版本兼容：`contract_version = "nc-v1"`。
+  - RR 执行边界一致：`risk_reward_ratio >= 1.0`（`<1.0` 必须被执行层过滤）。
   - A 股规则字段可追溯：`t1_restriction_hit`、`limit_guard_result`、`session_guard_result`。
   - FAIL 不得进入 S3a/S3，必须进入 S2r。
 - 产物：`integrated_recommendation_sample.parquet`, `quality_gate_report.md`, `s2_go_nogo_decision.md`
@@ -237,6 +243,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 2. `consumption.md` 缺失，不得 `completed`。
 3. `blocked` 超过 1 天，必须在 `review.md` 提交降级策略。
 4. S2b FAIL 仅允许进入 S2r，不允许跳过进入后续圈。
+5. `contracts` 检查未通过时，状态必须标记 `blocked`，不得推进到 S3a/S3。
 
 ---
 
@@ -252,7 +259,8 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 ```bash
 .\.venv\Scripts\python.exe --version
-.\.venv\Scripts\python.exe scripts/quality/local_quality_check.py --scan
+.\.venv\Scripts\python.exe -m scripts.quality.local_quality_check --contracts --governance
+.\.venv\Scripts\python.exe -m scripts.quality.local_quality_check --scan
 .\.venv\Scripts\pytest.exe tests/unit/config tests/unit/data/models -q
 ```
 
@@ -281,6 +289,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.4 | 2026-02-14 | 基线快照升级到“契约门禁已落地”口径：补充 contracts/governance 本地检查与 CI 门禁；S2a/S2b 门禁补充 `contract_version=nc-v1` 与 RR 执行边界；推进规则新增 contracts 阻断条件 |
 | v0.3 | 2026-02-13 | 升级为实战口径：纳入 PAS（CP-04）、补 A 股规则门禁、修复基线可执行描述、补充与 S3a 衔接 |
 | v0.2 | 2026-02-13 | 修复可执行性断点：补 SoT 定位、引入 baseline/target 双命令口径、补 CP Slice、统一参数占位符、重写微圈合同 |
 | v0.1 | 2026-02-13 | 初稿 |
