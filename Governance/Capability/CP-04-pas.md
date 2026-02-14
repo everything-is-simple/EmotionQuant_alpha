@@ -1,7 +1,7 @@
 # ROADMAP Capability Pack CP-04｜PAS（个股信号）
 
 **文件名**: `CP-04-pas.md`  
-**版本**: v6.0.1  
+**版本**: v6.0.2  
 > ⚠️ 历史说明（2026-02-13）
 > 本文件为线性阶段能力包留档，仅供回顾历史，不作为当前路线图执行入口。
 > 当前执行入口：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/DEPENDENCY-MAP.md`。
@@ -28,7 +28,7 @@
 
 | 输出 | 消费方 | 验收 |
 |---|---|---|
-| `stock_pas_daily` | CP-05/08/09 | score 范围合法 |
+| `stock_pas_daily` | CP-05/08/09 | score 范围合法；direction/grade 枚举合法；`risk_reward_ratio >= 1.0`（执行边界） |
 
 ---
 
@@ -52,6 +52,7 @@
 
 - 单指标不得独立决策
 - 输出可被 CP-05 直接消费
+- 执行参考字段满足 `risk_reward_ratio >= 1.0`（`<1.0` 仅观察，不进入执行层）
 - 至少 1 条 PAS 自动化测试通过
 
 ---
@@ -62,6 +63,7 @@
 |---|---|---|
 | 停牌或缺行情 | P1 | 跳过并标注 |
 | 输入字段缺失 | P0 | 阻断 |
+| `risk_reward_ratio` 异常（空值/负值/低于门槛） | P1 | 降级为观察，阻断执行层消费 |
 
 ---
 
@@ -71,6 +73,15 @@
 2. 等级或方向规则变化
 3. 风险字段口径变化
 4. 门禁变化
+5. `risk_reward_ratio` 执行边界变化
+
+---
+
+## 7. 变更记录
+
+| 版本 | 日期 | 变更内容 |
+|---|---|---|
+| v6.0.2 | 2026-02-14 | 补齐 PAS 执行边界：明确 `risk_reward_ratio >= 1.0` 为执行门槛，并同步 Exit Gate/风险/更新触发条件 |
 
 
 

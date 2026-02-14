@@ -1,7 +1,7 @@
 # ROADMAP Capability Pack CP-07｜Trading（交易与风控）
 
 **文件名**: `CP-07-trading.md`  
-**版本**: v6.0.0  
+**版本**: v6.0.1  
 > ⚠️ 历史说明（2026-02-13）
 > 本文件为线性阶段能力包留档，仅供回顾历史，不作为当前路线图执行入口。
 > 当前执行入口：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/DEPENDENCY-MAP.md`。
@@ -20,9 +20,9 @@
 
 | 输入 | 来源 | 就绪条件 | 失败处理 |
 |---|---|---|---|
-| `integrated_recommendation` | CP-05 | 当日信号可用 | P0 |
+| `integrated_recommendation` | CP-05 | 当日信号可用；`contract_version="nc-v1"`；`risk_reward_ratio` 可解析 | P0 |
 | `raw_daily` / `raw_trade_cal` | CP-01 | 行情与交易日可用 | P0 |
-| `validation_gate_decision` | CP-10 | Gate 非 FAIL（或显式 WARN） | FAIL 阻断 |
+| `validation_gate_decision` | CP-10 | Gate 非 FAIL（或显式 WARN）且可追溯 | FAIL 阻断 |
 
 ### 2.2 输出
 
@@ -51,11 +51,13 @@
 - CP-05 信号可用
 - CP-10 Gate 非 FAIL
 - A 股规则可检查
+- 契约版本兼容：`contract_version = "nc-v1"`
 
 ### 4.2 Exit
 
 - 订单状态可重放
 - 风控结果可审计
+- 执行前已应用 `risk_reward_ratio >= 1.0` 过滤
 - 与 CP-06 回测口径可对齐
 
 ---
@@ -67,6 +69,7 @@
 | 非交易日下单 | P0 | 阻断 |
 | 风控规则冲突 | P0 | 采用更严格规则 |
 | 开盘无法成交 | P1 | 保持待执行并记录 |
+| `contract_version` 不兼容 | P0 | `trading_state=blocked_contract_mismatch` 并阻断 |
 
 ---
 
@@ -76,6 +79,15 @@
 2. 风控规则变化
 3. 输出日志结构变化
 4. 回测对齐口径变化
+5. `contract_version` 或 `risk_reward_ratio` 执行边界变化
+
+---
+
+## 7. 变更记录
+
+| 版本 | 日期 | 变更内容 |
+|---|---|---|
+| v6.0.1 | 2026-02-14 | 补齐 Trading 执行边界：前置 `contract_version=nc-v1` 检查；显式 `risk_reward_ratio >= 1.0` 过滤；新增版本不兼容阻断语义 |
 
 
 

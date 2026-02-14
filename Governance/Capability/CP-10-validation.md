@@ -1,7 +1,7 @@
 # ROADMAP Capability Pack CP-10｜Validation（因子与权重验证）
 
 **文件名**: `CP-10-validation.md`  
-**版本**: v1.0.1  
+**版本**: v1.1.0  
 > ⚠️ 历史说明（2026-02-13）
 > 本文件为线性阶段能力包留档，仅供回顾历史，不作为当前路线图执行入口。
 > 当前执行入口：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/DEPENDENCY-MAP.md`。
@@ -31,7 +31,7 @@
 |---|---|---|
 | `validation_factor_report` | CP-05/09/治理 | 指标与窗口完整 |
 | `validation_weight_report` | CP-05/09/治理 | baseline 对照完整 |
-| `validation_gate_decision` | CP-05/06/07 | `PASS/WARN/FAIL` + reason 可追溯 |
+| `validation_gate_decision` | CP-05/06/07 | `PASS/WARN/FAIL` + reason 可追溯；`contract_version="nc-v1"` |
 | `validation_weight_plan` | CP-05 | 对应 `plan_id` 可解析 |
 | `validation_run_manifest` | 治理 | 运行记录可审计 |
 
@@ -54,11 +54,13 @@
 - CP-01 数据窗口就绪（交易日历 + 行情）
 - CP-02/03/04 输出可读
 - baseline 与候选权重方案已声明
+- 命名契约源可读取：`docs/naming-contracts.schema.json`（`nc-v1`）
 
 ### 4.2 Exit
 
 - 当日 `validation_gate_decision` 已生成
 - `PASS/WARN/FAIL` 判定规则可审计
+- `validation_gate_decision.contract_version = "nc-v1"`
 - FAIL 时已触发回退 baseline
 
 ---
@@ -71,6 +73,7 @@
 | 单因子样本不足 | P1 | 标记 WARN，剔除该因子 |
 | 候选权重不优于 baseline | P1 | 回退 baseline |
 | 验证任务执行超时 | P2 | 使用最近一次有效结果并标记 stale |
+| 命名契约版本漂移（Schema 与运行时不一致） | P0 | 阻断并要求迁移到 `nc-v1` |
 
 ---
 
@@ -81,6 +84,15 @@
 3. baseline 或候选权重策略变化
 4. 验证窗口/频率变化
 5. 回退策略变化
+6. `contract_version` 口径变化
+
+---
+
+## 7. 变更记录
+
+| 版本 | 日期 | 变更内容 |
+|---|---|---|
+| v1.1.0 | 2026-02-14 | 补齐 Validation 输出契约：`validation_gate_decision` 显式携带 `contract_version=nc-v1`；Entry/Exit 增加 Schema 依赖与版本门禁 |
 
 
 

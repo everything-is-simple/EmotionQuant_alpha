@@ -1,7 +1,7 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v6.3.0  
-**最后更新**: 2026-02-13  
+**版本**: v6.4.0  
+**最后更新**: 2026-02-14  
 **适用对象**: 个人开发、个人使用
 
 ---
@@ -92,6 +92,8 @@
 
 - CP-05 输出必须可被 CP-06/07/08/09 复用。
 - 分析报告必须可追溯到输入数据和参数。
+- S2-S6 执行链路必须统一 `contract_version = "nc-v1"`。
+- 执行层统一门槛：`risk_reward_ratio >= 1.0`（`=1.0` 可执行，`<1.0` 必须过滤）。
 
 ### 6.3 错误分级
 
@@ -100,6 +102,11 @@
 | P0 | 核心输入缺失、规则冲突、合规违规 | 阻断 |
 | P1 | 局部数据缺失、局部计算失败 | 降级 + 标记 |
 | P2 | 非关键异常 | 重试 + 记录 |
+
+### 6.4 质量门禁
+
+- S2-S6 收口前必须通过：`python -m scripts.quality.local_quality_check --contracts --governance`
+- CI 需通过：`.github/workflows/quality-gates.yml`
 
 ---
 
@@ -115,6 +122,10 @@
 
 能力包文档（CP）仅在“契约变化”时更新，不要求每圈都改。
 
+补充要求：
+
+- 若本圈涉及命名契约、治理口径、Gate 规则，A4 前必须附上 `local_quality_check --contracts --governance` 结果。
+
 ---
 
 ## 8. 什么时候必须改 CP 文档
@@ -126,6 +137,7 @@
 3. 错误处理策略变化
 4. DoD 门禁变化
 5. 上下游依赖变化
+6. `contract_version`/`risk_reward_ratio` 等执行边界变化
 
 ---
 
@@ -140,6 +152,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v6.4.0 | 2026-02-14 | 补齐执行边界：统一 `contract_version=nc-v1` 与 `risk_reward_ratio >= 1.0`；新增 S2-S6 本地/CI 质量门禁口径（`--contracts --governance`） |
 | v6.3.0 | 2026-02-13 | 纳入实战扩展微圈：新增 S3a（ENH-10）与 S7a（ENH-11）口径，明确启用后必须按五件套收口 |
 | v6.2.0 | 2026-02-12 | 对齐 SpiralRoadmap：S6 口径改为 CP-10/CP-07/CP-09；补充 S2“父圈视图 + 子圈拆分”说明，消除与 1-3 Slice 约束歧义 |
 | v6.1.0 | 2026-02-07 | 增加 CP-10 Validation；S2/S3 显式引入验证闭环 |

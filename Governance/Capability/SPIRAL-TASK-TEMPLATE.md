@@ -1,7 +1,7 @@
 # Task 模板（Spiral 闭环卡片）
 
-**版本**: v4.0.1  
-**最后更新**: 2026-02-11  
+**版本**: v4.1.0  
+**最后更新**: 2026-02-14  
 **适用范围**: 默认工作流 `Scope -> Build -> Verify -> Sync`
 
 ---
@@ -52,6 +52,9 @@
 # run
 
 # test
+
+# S2+ 或涉及契约/治理变更时（必须）
+# python -m scripts.quality.local_quality_check --contracts --governance
 ```
 
 #### 6. 验收门禁（Verify）
@@ -60,6 +63,7 @@
 - [ ] `test` 命令成功
 - [ ] 产物存在且可检查
 - [ ] 关键日志无 P0/P1 未处理错误
+- [ ] S2+ 或涉及契约/治理变更时，`python -m scripts.quality.local_quality_check --contracts --governance` 通过
 - [ ] `Governance/specs/spiral-s{N}/review.md` 已更新（A5 Archive）
 
 #### 7. 同步清单（Sync）
@@ -69,6 +73,7 @@
 - [ ] `Governance/record/debts.md` 已更新（如有）
 - [ ] `Governance/record/reusable-assets.md` 已更新（如有）
 - [ ] `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 已更新
+- [ ] 契约/治理检查结果路径已记录到 `final.md`（如适用）
 
 #### 8. 风险与回滚
 
@@ -82,6 +87,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
+| v4.1.0 | 2026-02-14 | 增加 S2+/契约变更门禁：`local_quality_check --contracts --governance`；同步清单补充检查结果归档 |
 | v4.0.1 | 2026-02-11 | 修复同步清单口径：A6 增加 `SPIRAL-CP-OVERVIEW.md`，将 `review.md` 调整为 A5 产物检查项 |
 | v4.0.0 | 2026-02-07 | 改为 Spiral 闭环卡片模板，显式绑定 Scope/Build/Verify/Sync |
 | v3.0.0 | 2026-02-07 | 初版 Spiral Task 模板 |
