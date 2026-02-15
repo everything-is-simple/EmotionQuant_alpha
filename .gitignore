@@ -146,6 +146,10 @@ desktop.ini
 
 # Agent / tooling traces
 .specstory/
+.claude/settings.json
+
+# Runtime artifacts
+artifacts/
 
 # 临时文件
 *.bak
