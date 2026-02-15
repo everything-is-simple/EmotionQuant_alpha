@@ -59,6 +59,9 @@ dev = [
     "types-PyYAML>=6.0.12",
 ]
 
+[project.scripts]
+eq = "src.pipeline.main:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

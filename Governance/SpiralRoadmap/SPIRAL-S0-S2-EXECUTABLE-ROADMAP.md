@@ -130,6 +130,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### S0a
 
 - 主目标：统一入口与配置注入可运行。
+- 执行卡：`Governance/SpiralRoadmap/S0A-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_config_defaults.py tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：
   - `python -m src.pipeline.main --help`（临时入口）
@@ -298,6 +299,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |
 | v0.6 | 2026-02-15 | SoT 优先级补充阶段模板文档引用（`SPIRAL-STAGE-TEMPLATES.md`），明确阶段门禁与微圈合同联动 |
 | v0.5 | 2026-02-15 | 新增“防跑偏硬门禁”小节：将行为回归与治理一致性测试设为每圈收口强制条件，失败时只允许进入修复子圈 |
 | v0.4 | 2026-02-14 | 基线快照升级到“契约门禁已落地”口径：补充 contracts/governance 本地检查与 CI 门禁；S2a/S2b 门禁补充 `contract_version=nc-v1` 与 RR 执行边界；推进规则新增 contracts 阻断条件 |
