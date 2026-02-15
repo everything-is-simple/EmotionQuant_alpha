@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-15  
-**版本**: v2.4  
+**版本**: v2.5  
 **范围**: S0-S6
 
 ---
@@ -29,6 +29,7 @@
 | S-GOV-007 | 跨文档联动模板 | `Governance/steering/CROSS-DOC-CHANGE-LINKAGE-TEMPLATE.md` | S | 变更影响面同步 |
 | A-GOV-008 | 质量门禁 CI 工作流 | `.github/workflows/quality-gates.yml` | A | contracts/governance 自动化检查 |
 | S-GOV-009 | S0a/S0b/S0c 6A 证据档案模板 | `Governance/specs/spiral-s0a/*` + `Governance/specs/spiral-s0b/*` + `Governance/specs/spiral-s0c/*` | S | requirements/review/final 与样例证据可复用 |
+| S-GOV-010 | S1a 6A 证据档案模板 | `Governance/specs/spiral-s1a/*` | S | MSS 圈 requirements/review/final 与样例证据复用 |
 
 ---
 
@@ -57,6 +58,8 @@
 | A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
 | A-CODE-007 | L2 快照与 canary 最小闭环骨架 | `src/data/l2_pipeline.py` + `src/data/models/snapshots.py` | A | S0c 快照生成、质量字段门禁、错误分级 |
 | A-TEST-008 | S0 合同测试集 | `tests/unit/pipeline/test_cli_entrypoint.py` + `tests/unit/data/test_fetcher_contract.py` + `tests/unit/data/test_l1_repository_contract.py` + `tests/unit/data/test_snapshot_contract.py` + `tests/unit/data/test_s0_canary.py` | A | 入口/L1/L2 合同回归保障 |
+| A-CODE-009 | MSS 最小评分骨架 | `src/algorithms/mss/engine.py` + `src/algorithms/mss/pipeline.py` + `src/pipeline/main.py` | A | S1a 的 `eq mss` 计算、落库、产物输出 |
+| A-TEST-010 | MSS 合同测试集 | `tests/unit/algorithms/mss/test_mss_contract.py` + `tests/unit/algorithms/mss/test_mss_engine.py` | A | MSS 输出字段与评分边界回归保障 |
 
 ---
 
@@ -66,6 +69,7 @@
 2. 可复用验证报告生成器（目标 S1/S2）
 3. 可复用回测基线 Runner（目标 S3）
 4. `local_quality_check` 结果自动归档器（目标 S2/S3）
+5. MSS 自适应分位阈值基线生成器（目标 S1b/S2）
 
 ---
 
@@ -73,6 +77,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-15 | v2.5 | 增加 S1a 证据模板与 MSS 代码/测试资产登记 |
 | 2026-02-15 | v2.4 | 增加 S0c L2/canary 资产与 S0 全链路合同测试资产登记 |
 | 2026-02-15 | v2.3 | 增加 S0a/S0b 6A 证据档案资产与 CLI/L1 合同资产登记 |
 | 2026-02-14 | v2.2 | 新增命名契约与质量门禁资产（schema/glossary/templates/local-check/CI workflow）；补齐当前空缺 |

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from src import __version__
+from src.algorithms.mss.pipeline import run_mss_scoring
 from src.config.config import Config
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
@@ -64,6 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not execute downstream tasks; only validate entry and config injection.",
     )
+    mss_parser = subparsers.add_parser("mss", help="Run MSS minimal scoring for a trade date.")
+    mss_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
 
     subparsers.add_parser("version", help="Print CLI version.")
 
@@ -157,6 +160,42 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_mss(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    print(
+        json.dumps(
+            {
+                "event": "mss_start",
+                "command": ctx.command,
+                "trade_date": args.date,
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+
+    result = run_mss_scoring(
+        trade_date=args.date,
+        config=ctx.config,
+    )
+    print(
+        json.dumps(
+            {
+                "event": "s1a_mss",
+                "trade_date": args.date,
+                "mss_panorama_count": result.mss_panorama_count,
+                "artifacts_dir": str(result.artifacts_dir),
+                "sample_path": str(result.sample_path),
+                "factor_trace_path": str(result.factor_trace_path),
+                "error_manifest_path": str(result.error_manifest_path),
+                "status": "failed" if result.has_error else "ok",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -179,6 +218,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if command == "run":
         return _run_stub(ctx, args)
+    if command == "mss":
+        return _run_mss(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2
