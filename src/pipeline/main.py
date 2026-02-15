@@ -8,6 +8,7 @@ from typing import Sequence
 from src import __version__
 from src.config.config import Config
 from src.data.l1_pipeline import run_l1_collection
+from src.data.l2_pipeline import run_l2_snapshot
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--to-l2",
         action="store_true",
-        help="Reserved for S0c chain (not implemented in S0b).",
+        help="Run S0c L2 snapshot generation from existing L1 tables.",
     )
     run_parser.add_argument(
         "--dry-run",
@@ -101,6 +102,10 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
         print("dry-run completed: entrypoint and config injection are valid")
         return 0
 
+    if args.l1_only and args.to_l2:
+        print("invalid args: --l1-only and --to-l2 cannot be used together")
+        return 2
+
     if args.l1_only:
         result = run_l1_collection(
             trade_date=args.date,
@@ -115,6 +120,30 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
                     "raw_counts": result.raw_counts,
                     "trade_cal_contains_trade_date": result.trade_cal_contains_trade_date,
                     "artifacts_dir": str(result.artifacts_dir),
+                    "error_manifest_path": str(result.error_manifest_path),
+                    "status": "failed" if result.has_error else "ok",
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            )
+        )
+        return 1 if result.has_error else 0
+
+    if args.to_l2:
+        result = run_l2_snapshot(
+            trade_date=args.date,
+            source=args.source,
+            config=ctx.config,
+        )
+        print(
+            json.dumps(
+                {
+                    "event": "s0c_to_l2",
+                    "trade_date": args.date,
+                    "market_snapshot_count": result.market_snapshot_count,
+                    "industry_snapshot_count": result.industry_snapshot_count,
+                    "artifacts_dir": str(result.artifacts_dir),
+                    "canary_report_path": str(result.canary_report_path),
                     "error_manifest_path": str(result.error_manifest_path),
                     "status": "failed" if result.has_error else "ok",
                 },

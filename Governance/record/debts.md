@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
 **最后更新**: 2026-02-15  
-**版本**: v1.2  
+**版本**: v1.3  
 **范围**: S0-S6
 
 ---
@@ -25,6 +25,7 @@
 | TD-S0-003 | 权重验证模块仅设计未实现 | P1 | 无法验证组合稳定性 | S2 | ⏳ 待处理 |
 | TD-S0-004 | 回测基线实现未落地（仅选型文档） | P1 | S3 无法闭环 | S3 | ⏳ 待处理 |
 | TD-S0-005 | 仓库内仍有部分 `Phase` 历史措辞（设计参考文档） | P2 | 容易带回线性心智 | S0-S2 | ⏳ 待处理 |
+| TD-S0-006 | S0c 行业快照暂为全市场聚合，未接入 SW 行业映射聚合 | P1 | IRS 输入粒度不足，影响 S1b/S2 前置质量 | S1b | ⏳ 待处理 |
 
 ---
 
@@ -32,7 +33,7 @@
 
 | ID | 问题 | 完成时间 | 说明 |
 |---|---|---|---|
-| TD-S0-001 | 尚未形成 S0 可运行最小闭环（命令+测试+产物） | 2026-02-15 | S0a/S0b 已完成 run/test/artifact/review/sync，6A 证据归档至 `Governance/specs/spiral-s0a` 与 `Governance/specs/spiral-s0b` |
+| TD-S0-001 | 尚未形成 S0 可运行最小闭环（命令+测试+产物） | 2026-02-15 | S0a/S0b/S0c 已完成 run/test/artifact/review/sync，6A 证据归档至 `Governance/specs/spiral-s0a`、`Governance/specs/spiral-s0b`、`Governance/specs/spiral-s0c` |
 | TD-GOV-008 | contracts/governance 检查未进入任务模板门禁 | 2026-02-14 | 已在 `SPIRAL-TASK-TEMPLATE.md` 增加 S2+/契约变更场景检查项 |
 | TD-GOV-007 | 执行链路 `contract_version` 兼容口径缺失 | 2026-02-14 | 已统一为 `nc-v1` 并同步到 CP-05/06/07/10 与主控路线 |
 | TD-GOV-006 | PAS 与执行层 `risk_reward_ratio` 门槛漂移 | 2026-02-14 | 已统一为执行门槛 `risk_reward_ratio >= 1.0`，`<1.0` 过滤 |
@@ -55,6 +56,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-15 | v1.3 | 新增 TD-S0-006（S0c 行业快照粒度债务）；TD-S0-001 清偿范围扩展至 S0c |
 | 2026-02-15 | v1.2 | 清偿 TD-S0-001：S0a/S0b 闭环与 6A 证据链补齐 |
 | 2026-02-14 | v1.1 | 新增并清偿 TD-GOV-006/007/008（RR 门槛漂移、contract_version 兼容口径、contracts/governance 模板门禁） |
 | 2026-02-07 | v1.0 | 切换到 Spiral 技术债模型，重建债务清单 |

@@ -1,0 +1,13 @@
+{
+  "error_count": 1,
+  "errors": [
+    {
+      "error_level": "P0",
+      "message": "duckdb_not_found",
+      "step": "load_l1",
+      "trade_date": "20260215"
+    }
+  ],
+  "source": "tushare",
+  "trade_date": "20260215"
+}

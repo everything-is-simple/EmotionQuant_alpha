@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v6.5.0  
+**版本**: v6.6.0  
 **最后更新**: 2026-02-15  
 **适用对象**: 个人开发、个人使用
 
@@ -68,7 +68,8 @@
 |---|---|---|---|
 | S0a | 统一入口与配置注入可用 | ✅ completed | `Governance/specs/spiral-s0a/final.md` |
 | S0b | L1 采集入库闭环 | ✅ completed | `Governance/specs/spiral-s0b/final.md` |
-| S0c | L2 快照与失败链路闭环 | 🟡 planned | 待创建 `Governance/specs/spiral-s0c/*` |
+| S0c | L2 快照与失败链路闭环 | ✅ completed | `Governance/specs/spiral-s0c/final.md` |
+| S1a | MSS 最小评分可跑 | 🟡 planned | 待创建 `Governance/specs/spiral-s1a/*` |
 
 ---
 
@@ -160,6 +161,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v6.6.0 | 2026-02-15 | 同步 S0c 按 6A 完成收口证据；状态推进到 S1a planned |
 | v6.5.0 | 2026-02-15 | 同步 S0a/S0b 按 6A 完成收口证据；新增当前微圈执行状态快照（S0c 作为下一圈） |
 | v6.4.0 | 2026-02-14 | 补齐执行边界：统一 `contract_version=nc-v1` 与 `risk_reward_ratio >= 1.0`；新增 S2-S6 本地/CI 质量门禁口径（`--contracts --governance`） |
 | v6.3.0 | 2026-02-13 | 纳入实战扩展微圈：新增 S3a（ENH-10）与 S7a（ENH-11）口径，明确启用后必须按五件套收口 |
