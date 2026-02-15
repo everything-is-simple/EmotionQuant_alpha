@@ -117,3 +117,74 @@ def test_main_mss_runs_after_l1_and_l2(tmp_path: Path, capsys: pytest.CaptureFix
     assert payload["event"] == "s1a_mss"
     assert payload["status"] == "ok"
     assert payload["mss_panorama_count"] > 0
+
+
+def test_main_mss_probe_runs_with_window(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    data_root = tmp_path / "eq_data"
+    env_file = tmp_path / ".env.s1b.cli"
+    env_file.write_text(
+        f"DATA_PATH={data_root}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    trade_dates = [
+        "20260210",
+        "20260211",
+        "20260212",
+        "20260213",
+        "20260214",
+        "20260215",
+        "20260216",
+        "20260217",
+    ]
+    for trade_date in trade_dates:
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "run",
+                "--date",
+                trade_date,
+                "--source",
+                "tushare",
+                "--l1-only",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "run",
+                "--date",
+                trade_date,
+                "--source",
+                "tushare",
+                "--to-l2",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "mss",
+                "--date",
+                trade_date,
+            ]
+        ) == 0
+
+    probe_exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "mss-probe",
+            "--start",
+            trade_dates[0],
+            "--end",
+            trade_dates[-1],
+        ]
+    )
+    assert probe_exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s1b_mss_probe"
+    assert payload["status"] == "ok"
+    assert "top_bottom_spread_5d" in payload

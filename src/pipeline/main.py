@@ -7,6 +7,7 @@ from typing import Sequence
 
 from src import __version__
 from src.algorithms.mss.pipeline import run_mss_scoring
+from src.algorithms.mss.probe import run_mss_probe
 from src.config.config import Config
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
@@ -67,6 +68,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mss_parser = subparsers.add_parser("mss", help="Run MSS minimal scoring for a trade date.")
     mss_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    probe_parser = subparsers.add_parser("mss-probe", help="Run MSS-only probe on date range.")
+    probe_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
+    probe_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
 
     subparsers.add_parser("version", help="Print CLI version.")
 
@@ -196,6 +200,49 @@ def _run_mss(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_error else 0
 
 
+def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    print(
+        json.dumps(
+            {
+                "event": "mss_probe_start",
+                "command": ctx.command,
+                "start_date": args.start,
+                "end_date": args.end,
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    try:
+        result = run_mss_probe(
+            start_date=args.start,
+            end_date=args.end,
+            config=ctx.config,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    print(
+        json.dumps(
+            {
+                "event": "s1b_mss_probe",
+                "start_date": args.start,
+                "end_date": args.end,
+                "artifacts_dir": str(result.artifacts_dir),
+                "probe_report_path": str(result.probe_report_path),
+                "consumption_case_path": str(result.consumption_case_path),
+                "error_manifest_path": str(result.error_manifest_path),
+                "top_bottom_spread_5d": result.top_bottom_spread_5d,
+                "conclusion": result.conclusion,
+                "status": "failed" if result.has_error else "ok",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -220,6 +267,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_stub(ctx, args)
     if command == "mss":
         return _run_mss(ctx, args)
+    if command == "mss-probe":
+        return _run_mss_probe(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2
