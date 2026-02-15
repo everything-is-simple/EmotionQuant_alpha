@@ -70,3 +70,50 @@ def test_main_accepts_env_file_none(monkeypatch: pytest.MonkeyPatch, capsys: pyt
     exit_code = main(["--env-file", "none", "run", "--date", "20260215", "--dry-run"])
     assert exit_code == 0
     assert "dry-run completed" in capsys.readouterr().out
+
+
+def test_main_mss_runs_after_l1_and_l2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    data_root = tmp_path / "eq_data"
+    env_file = tmp_path / ".env.s1a.cli"
+    env_file.write_text(
+        f"DATA_PATH={data_root}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    run_exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            "20260215",
+            "--source",
+            "tushare",
+            "--l1-only",
+        ]
+    )
+    assert run_exit_code == 0
+
+    to_l2_exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            "20260215",
+            "--source",
+            "tushare",
+            "--to-l2",
+        ]
+    )
+    assert to_l2_exit_code == 0
+
+    mss_exit_code = main(["--env-file", str(env_file), "mss", "--date", "20260215"])
+    assert mss_exit_code == 0
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    payload = json.loads(lines[-1])
+    assert payload["event"] == "s1a_mss"
+    assert payload["status"] == "ok"
+    assert payload["mss_panorama_count"] > 0
