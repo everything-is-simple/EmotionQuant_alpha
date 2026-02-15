@@ -7,6 +7,7 @@ from typing import Sequence
 
 from src import __version__
 from src.config.config import Config
+from src.data.l1_pipeline import run_l1_collection
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,16 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
     run_parser.add_argument("--source", default="tushare", help="Data source.")
     run_parser.add_argument(
+        "--l1-only",
+        action="store_true",
+        help="Run S0b L1 collection and persistence only.",
+    )
+    run_parser.add_argument(
+        "--to-l2",
+        action="store_true",
+        help="Reserved for S0c chain (not implemented in S0b).",
+    )
+    run_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Do not execute downstream tasks; only validate entry and config injection.",
@@ -79,6 +90,8 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "trade_date": args.date,
                 "source": args.source,
                 "dry_run": bool(args.dry_run),
+                "l1_only": bool(args.l1_only),
+                "to_l2": bool(args.to_l2),
             },
             ensure_ascii=True,
             sort_keys=True,
@@ -87,6 +100,29 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
     if args.dry_run:
         print("dry-run completed: entrypoint and config injection are valid")
         return 0
+
+    if args.l1_only:
+        result = run_l1_collection(
+            trade_date=args.date,
+            source=args.source,
+            config=ctx.config,
+        )
+        print(
+            json.dumps(
+                {
+                    "event": "s0b_l1_only",
+                    "trade_date": args.date,
+                    "raw_counts": result.raw_counts,
+                    "trade_cal_contains_trade_date": result.trade_cal_contains_trade_date,
+                    "artifacts_dir": str(result.artifacts_dir),
+                    "error_manifest_path": str(result.error_manifest_path),
+                    "status": "failed" if result.has_error else "ok",
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            )
+        )
+        return 1 if result.has_error else 0
 
     print("pipeline stub completed: downstream modules not implemented yet")
     return 0

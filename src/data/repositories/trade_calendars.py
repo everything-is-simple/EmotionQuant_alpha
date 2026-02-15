@@ -2,11 +2,24 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.data.fetcher import TuShareFetcher
+
 from .base import BaseRepository
 
 
 class TradeCalendarsRepository(BaseRepository):
-    """交易日历数据仓库（占位实现）。"""
+    """Repository for raw_trade_cal."""
 
-    def fetch(self, *args: Any, **kwargs: Any) -> Any:
-        raise NotImplementedError("TradeCalendarsRepository.fetch is not implemented")
+    table_name = "raw_trade_cal"
+
+    def fetch(
+        self,
+        *,
+        trade_date: str,
+        fetcher: TuShareFetcher,
+        **_: Any,
+    ) -> list[dict[str, Any]]:
+        return fetcher.fetch_with_retry(
+            "trade_cal",
+            {"start_date": trade_date, "end_date": trade_date},
+        )
