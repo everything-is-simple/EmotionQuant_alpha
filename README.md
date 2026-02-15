@@ -106,6 +106,7 @@ python -m scripts.quality.local_quality_check --contracts --governance
 ## 仓库地址
 
 - `origin`: `${REPO_REMOTE_URL}`（定义见 `.env.example`）
+- `backup`: `${REPO_BACKUP_REMOTE_URL}`（定义见 `.env.example`）
 
 ## 许可证
 

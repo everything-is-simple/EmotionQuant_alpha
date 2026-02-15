@@ -100,6 +100,7 @@ python -m scripts.quality.local_quality_check --contracts --governance
 ## Repository
 
 - `origin`: `${REPO_REMOTE_URL}` (defined in `.env.example`)
+- `backup`: `${REPO_BACKUP_REMOTE_URL}` (defined in `.env.example`)
 
 ## License
 
