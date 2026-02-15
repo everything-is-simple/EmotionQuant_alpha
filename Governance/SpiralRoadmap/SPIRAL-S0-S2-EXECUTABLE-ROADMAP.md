@@ -145,6 +145,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### S0b
 
 - 主目标：L1 原始数据采集与入库闭环。
+- 执行卡：`Governance/SpiralRoadmap/S0B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_model_contract_alignment.py -q`
 - `target command`：`eq run --date {trade_date} --source tushare --l1-only`
 - `target test`（本圈必须补齐并执行）：`tests/unit/data/test_fetcher_contract.py tests/unit/data/test_l1_repository_contract.py`
@@ -158,6 +159,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### S0c
 
 - 主目标：L2 快照与错误分级闭环。
+- 执行卡：`Governance/SpiralRoadmap/S0C-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_snapshots.py -q`
 - `target command`：`eq run --date {trade_date} --source tushare --to-l2`
 - `target test`（本圈必须补齐并执行）：`tests/unit/data/test_snapshot_contract.py tests/unit/data/test_s0_canary.py`
@@ -171,6 +173,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### S1a
 
 - 主目标：MSS 最小评分可跑。
+- 执行卡：`Governance/SpiralRoadmap/S1A-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_snapshots.py -q`
 - `target command`：`eq mss --date {trade_date}`
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/mss/test_mss_contract.py tests/unit/algorithms/mss/test_mss_engine.py`
@@ -183,6 +186,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### S1b
 
 - 主目标：MSS 消费验证闭环（非只算分）。
+- 执行卡：`Governance/SpiralRoadmap/S1B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_config_defaults.py -q`
 - `target command`：`eq mss-probe --start {start} --end {end}`
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/mss/test_mss_probe_contract.py tests/unit/integration/test_mss_integration_contract.py`
@@ -195,6 +199,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### S2a
 
 - 主目标：IRS + PAS + Validation 最小闭环。
+- 执行卡：`Governance/SpiralRoadmap/S2A-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_dependency_manifest.py -q`
 - `target command`：`eq recommend --date {trade_date} --mode mss_irs_pas --with-validation`
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/irs/test_irs_contract.py tests/unit/algorithms/pas/test_pas_contract.py tests/unit/integration/test_validation_gate_contract.py`
@@ -210,6 +215,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### S2b
 
 - 主目标：MSS+IRS+PAS 集成推荐闭环。
+- 执行卡：`Governance/SpiralRoadmap/S2B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：`eq recommend --date {trade_date} --mode integrated`
 - `target test`（本圈必须补齐并执行）：`tests/unit/integration/test_integration_contract.py tests/unit/integration/test_quality_gate_contract.py`
@@ -227,6 +233,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 - 触发：S2b `quality_gate_report.status = FAIL`
 - 主目标：只修不扩，恢复可通过质量门。
+- 执行卡：`Governance/SpiralRoadmap/S2R-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_dependency_manifest.py -q`
 - `target command`：`eq recommend --date {trade_date} --mode integrated --repair s2r`
 - `target test`（本圈必须补齐并执行）：`tests/unit/integration/test_validation_gate_contract.py tests/unit/integration/test_quality_gate_contract.py`
@@ -299,6 +306,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.8 | 2026-02-15 | 执行卡体系补齐：新增 S0b/S0c/S1a/S1b/S2a/S2b/S2r 一页执行卡并在各圈合同挂接引用 |
 | v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |
 | v0.6 | 2026-02-15 | SoT 优先级补充阶段模板文档引用（`SPIRAL-STAGE-TEMPLATES.md`），明确阶段门禁与微圈合同联动 |
 | v0.5 | 2026-02-15 | 新增“防跑偏硬门禁”小节：将行为回归与治理一致性测试设为每圈收口强制条件，失败时只允许进入修复子圈 |

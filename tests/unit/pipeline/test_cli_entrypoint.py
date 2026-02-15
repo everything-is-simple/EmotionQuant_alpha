@@ -251,3 +251,81 @@ def test_main_recommend_runs_s2a_mode(tmp_path: Path, capsys: pytest.CaptureFixt
     assert payload["event"] == "s2a_recommend"
     assert payload["mode"] == "mss_irs_pas"
     assert payload["status"] == "ok"
+
+
+def test_main_recommend_runs_s2b_integrated_mode(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    data_root = tmp_path / "eq_data"
+    env_file = tmp_path / ".env.s2b.cli"
+    env_file.write_text(
+        f"DATA_PATH={data_root}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    trade_date = "20260218"
+
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--l1-only",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--to-l2",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "mss",
+            "--date",
+            trade_date,
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            trade_date,
+            "--mode",
+            "mss_irs_pas",
+            "--with-validation",
+        ]
+    ) == 0
+
+    recommend_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            trade_date,
+            "--mode",
+            "integrated",
+        ]
+    )
+    assert recommend_exit == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s2b_recommend"
+    assert payload["mode"] == "integrated"
+    assert payload["status"] == "ok"
+    assert payload["quality_gate_status"] in {"PASS", "WARN"}
+    assert payload["integrated_count"] > 0

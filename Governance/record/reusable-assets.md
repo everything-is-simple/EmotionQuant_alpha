@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-15  
-**版本**: v2.7  
+**版本**: v2.8  
 **范围**: S0-S6
 
 ---
@@ -32,6 +32,7 @@
 | S-GOV-010 | S1a 6A 证据档案模板 | `Governance/specs/spiral-s1a/*` | S | MSS 圈 requirements/review/final 与样例证据复用 |
 | S-GOV-011 | S1b 6A 证据档案模板 | `Governance/specs/spiral-s1b/*` | S | MSS 消费验证圈 requirements/review/final 与样例证据复用 |
 | S-GOV-012 | S2a 6A 证据档案模板 | `Governance/specs/spiral-s2a/*` | S | IRS/PAS/Validation 圈 requirements/review/final 与样例证据复用 |
+| S-GOV-013 | S2b 6A 证据档案模板 | `Governance/specs/spiral-s2b/*` | S | Integration 圈 requirements/review/final 与样例证据复用 |
 
 ---
 
@@ -66,18 +67,20 @@
 | A-TEST-012 | MSS 探针/集成消费合同测试集 | `tests/unit/algorithms/mss/test_mss_probe_contract.py` + `tests/unit/integration/test_mss_integration_contract.py` | A | MSS 输出可消费性与探针指标回归保障 |
 | A-CODE-013 | S2a 推荐编排与三表最小闭环骨架 | `src/algorithms/irs/pipeline.py` + `src/algorithms/pas/pipeline.py` + `src/algorithms/validation/pipeline.py` + `src/pipeline/recommend.py` | A | S2a 的 `eq recommend --mode mss_irs_pas --with-validation` |
 | A-TEST-014 | S2a 合同测试集 | `tests/unit/algorithms/irs/test_irs_contract.py` + `tests/unit/algorithms/pas/test_pas_contract.py` + `tests/unit/integration/test_validation_gate_contract.py` | A | IRS/PAS/Validation 输出契约回归保障 |
+| A-CODE-015 | S2b 集成推荐与质量门骨架 | `src/integration/pipeline.py` + `src/pipeline/recommend.py` + `src/pipeline/main.py` | A | S2b 的 `eq recommend --mode integrated` 与质量门输出 |
+| A-TEST-016 | S2b 合同测试集 | `tests/unit/integration/test_integration_contract.py` + `tests/unit/integration/test_quality_gate_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py` | A | Integration/Quality Gate/CLI 路径回归保障 |
 
 ---
 
 ## 当前空缺（需后续沉淀）
 
-1. 可复用 SW 行业映射聚合器（目标 S2b）
+1. 可复用 SW 行业映射聚合器（目标 S3）
 2. 可复用验证报告生成器（目标 S1/S2）
 3. 可复用回测基线 Runner（目标 S3）
 4. `local_quality_check` 结果自动归档器（目标 S2/S3）
-5. MSS 自适应分位阈值基线生成器（目标 S2b）
-6. Probe 真实收益口径桥接器（目标 S2a/S2b）
-7. IRS/PAS 评分校准器（目标 S2b）
+5. MSS 自适应分位阈值基线生成器（目标 S3）
+6. Probe 真实收益口径桥接器（目标 S3）
+7. IRS/PAS 评分校准器（目标 S3）
 
 ---
 
@@ -85,6 +88,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-15 | v2.8 | 增加 S2b 证据模板与 Integration/Quality Gate 代码测试资产登记 |
 | 2026-02-15 | v2.7 | 增加 S2a 证据模板与推荐编排/三表合同资产登记 |
 | 2026-02-15 | v2.6 | 增加 S1b 证据模板与 MSS 探针/集成消费资产登记 |
 | 2026-02-15 | v2.5 | 增加 S1a 证据模板与 MSS 代码/测试资产登记 |

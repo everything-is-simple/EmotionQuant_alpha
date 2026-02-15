@@ -12,8 +12,17 @@
 
 - `SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
   - S0-S2 微圈执行合同（实操层）
-- `S0A-EXECUTION-CARD.md`
-  - S0a 一页执行卡（run/test/artifact/review/sync）
+- `S0A-EXECUTION-CARD.md` ~ `S2R-EXECUTION-CARD.md`
+  - S0-S2 全微圈一页执行卡（run/test/artifact/review/sync）
+  - 包含：
+    - `S0A-EXECUTION-CARD.md`
+    - `S0B-EXECUTION-CARD.md`
+    - `S0C-EXECUTION-CARD.md`
+    - `S1A-EXECUTION-CARD.md`
+    - `S1B-EXECUTION-CARD.md`
+    - `S2A-EXECUTION-CARD.md`
+    - `S2B-EXECUTION-CARD.md`
+    - `S2R-EXECUTION-CARD.md`
 - `SPIRAL-PRODUCTION-ROUTES.md`
   - S0-S7a 三套完整实战路线（推荐/稳健/激进，含 S3b 收益归因与 S4b 极端防御专项）
 - `SPIRAL-STAGE-TEMPLATES.md`
@@ -54,6 +63,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.5 | 2026-02-15 | 扩展执行卡索引：从单张 `S0A` 补齐到 `S0A~S2R` 全微圈执行卡 |
 | v1.4 | 2026-02-15 | 新增 `S0A-EXECUTION-CARD.md` 入口，作为 S0a 微圈一页执行卡 |
 | v1.3 | 2026-02-15 | 新增 `SPIRAL-STAGE-TEMPLATES.md` 入口，统一阶段级执行模板引用 |
 | v1.2 | 2026-02-15 | 目录说明同步新增 S3b/S4b 专项圈位口径（收益归因与极端防御） |

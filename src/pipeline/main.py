@@ -280,27 +280,39 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(str(exc))
         return 2
-    print(
-        json.dumps(
-            {
-                "event": "s2a_recommend",
-                "trade_date": args.date,
-                "mode": args.mode,
-                "irs_count": result.irs_count,
-                "pas_count": result.pas_count,
-                "validation_count": result.validation_count,
-                "final_gate": result.final_gate,
-                "artifacts_dir": str(result.artifacts_dir),
-                "irs_sample_path": str(result.irs_sample_path),
-                "pas_sample_path": str(result.pas_sample_path),
-                "validation_sample_path": str(result.validation_sample_path),
-                "error_manifest_path": str(result.error_manifest_path),
-                "status": "failed" if result.has_error else "ok",
-            },
-            ensure_ascii=True,
-            sort_keys=True,
-        )
-    )
+    if args.mode == "integrated":
+        payload = {
+            "event": "s2b_recommend",
+            "trade_date": args.date,
+            "mode": args.mode,
+            "final_gate": result.final_gate,
+            "integrated_count": result.integrated_count,
+            "quality_gate_status": result.quality_gate_status,
+            "go_nogo": result.go_nogo,
+            "artifacts_dir": str(result.artifacts_dir),
+            "integrated_sample_path": str(result.integrated_sample_path),
+            "quality_gate_report_path": str(result.quality_gate_report_path),
+            "go_nogo_decision_path": str(result.go_nogo_decision_path),
+            "error_manifest_path": str(result.error_manifest_path),
+            "status": "failed" if result.has_error else "ok",
+        }
+    else:
+        payload = {
+            "event": "s2a_recommend",
+            "trade_date": args.date,
+            "mode": args.mode,
+            "irs_count": result.irs_count,
+            "pas_count": result.pas_count,
+            "validation_count": result.validation_count,
+            "final_gate": result.final_gate,
+            "artifacts_dir": str(result.artifacts_dir),
+            "irs_sample_path": str(result.irs_sample_path),
+            "pas_sample_path": str(result.pas_sample_path),
+            "validation_sample_path": str(result.validation_sample_path),
+            "error_manifest_path": str(result.error_manifest_path),
+            "status": "failed" if result.has_error else "ok",
+        }
+    print(json.dumps(payload, ensure_ascii=True, sort_keys=True))
     return 1 if result.has_error else 0
 
 
