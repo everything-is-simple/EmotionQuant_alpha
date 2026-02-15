@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-14  
-**版本**: v2.2  
+**最后更新**: 2026-02-15  
+**版本**: v2.3  
 **范围**: S0-S6
 
 ---
@@ -28,6 +28,7 @@
 | S-GOV-006 | 命名契约变更模板 | `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md` | S | 契约变更单点归档与审计 |
 | S-GOV-007 | 跨文档联动模板 | `Governance/steering/CROSS-DOC-CHANGE-LINKAGE-TEMPLATE.md` | S | 变更影响面同步 |
 | A-GOV-008 | 质量门禁 CI 工作流 | `.github/workflows/quality-gates.yml` | A | contracts/governance 自动化检查 |
+| S-GOV-009 | S0a/S0b 6A 证据档案模板 | `Governance/specs/spiral-s0a/*` + `Governance/specs/spiral-s0b/*` | S | requirements/review/final 与样例证据可复用 |
 
 ---
 
@@ -52,13 +53,15 @@
 | A-CFG-002 | 运行依赖清单 | `requirements.txt` | A | 快速环境安装 |
 | S-QA-003 | 本地一致性检查脚本 | `scripts/quality/local_quality_check.py` | S | contracts/governance 本地门禁 |
 | S-QA-004 | 契约行为回归脚本 | `scripts/quality/contract_behavior_regression.py` | S | 边界行为固定回归 |
-| B-CODE-005 | Skeleton 目录结构 | `src/` | B | 模块落地骨架 |
+| A-CODE-005 | 统一 CLI 入口骨架 | `src/pipeline/main.py` + `main.py` | A | 统一入口、参数路由、配置注入 |
+| A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
+| A-TEST-007 | S0 入口与 L1 合同测试集 | `tests/unit/pipeline/test_cli_entrypoint.py` + `tests/unit/data/test_fetcher_contract.py` + `tests/unit/data/test_l1_repository_contract.py` | A | 入口与采集层回归保障 |
 
 ---
 
 ## 当前空缺（需后续沉淀）
 
-1. 可复用数据下载 CLI（目标 S0/S1）
+1. 可复用 L2 快照构建器（目标 S0c）
 2. 可复用验证报告生成器（目标 S1/S2）
 3. 可复用回测基线 Runner（目标 S3）
 4. `local_quality_check` 结果自动归档器（目标 S2/S3）
@@ -69,9 +72,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-15 | v2.3 | 增加 S0a/S0b 6A 证据档案资产与 CLI/L1 合同资产登记 |
 | 2026-02-14 | v2.2 | 新增命名契约与质量门禁资产（schema/glossary/templates/local-check/CI workflow）；补齐当前空缺 |
 | 2026-02-12 | v2.1 | 路径整理：S-GOV-005 从失效归档目录切换为 `6A-WORKFLOW.md` 历史兼容说明入口 |
 | 2026-02-07 | v2.0 | 重建为 Spiral 资产清单，移除旧线性 Task 占位口径 |
 | 2026-02-05 | v1.4 | 线性阶段资产登记版本 |
-
-

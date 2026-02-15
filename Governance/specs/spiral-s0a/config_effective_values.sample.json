@@ -1,0 +1,9 @@
+{
+  "cache_path": "G:\\EmotionQuant_data\\cache",
+  "data_path": "G:\\EmotionQuant_data",
+  "duckdb_dir": "G:\\EmotionQuant_data\\duckdb",
+  "environment": "development",
+  "log_path": "G:\\EmotionQuant_data\\logs",
+  "parquet_path": "G:\\EmotionQuant_data\\parquet",
+  "tushare_rate_limit_per_min": 120
+}

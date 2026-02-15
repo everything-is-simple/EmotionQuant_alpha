@@ -1,0 +1,13 @@
+{
+  "gate_checks": {
+    "raw_daily_gt_zero": true,
+    "trade_cal_contains_trade_date": true
+  },
+  "raw_counts": {
+    "raw_daily": 1,
+    "raw_limit_list": 1,
+    "raw_trade_cal": 1
+  },
+  "source": "tushare",
+  "trade_date": "20260215"
+}
