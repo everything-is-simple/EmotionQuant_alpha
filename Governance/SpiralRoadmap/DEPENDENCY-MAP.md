@@ -24,6 +24,15 @@ S0 -> S1 -> S2 -> S3a -> S3 -> S4 -> S3b -> S4b -> S5 -> S6 -> S7a
 
 ---
 
+## 1.1 阶段映射依赖
+
+1. 阶段A 对应 `S0-S2`，阶段合同见 `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
+2. 阶段B 对应 `S3a-S4b`，阶段合同见 `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
+3. 阶段C 对应 `S5-S7a`，阶段合同见 `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
+4. 阶段推进必须满足：上一阶段 `退出门禁` 通过，下一阶段 `入口门禁` 才允许启动。
+
+---
+
 ## 2. 扩展圈依赖（ENH）
 
 ```text
@@ -85,6 +94,7 @@ S3 -> S4 -> S3b(归因验证) -> S4b(极端防御)
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.3 | 2026-02-15 | 新增“阶段映射依赖”小节，明确阶段A/B/C与圈序关系并链接阶段模板文档 |
 | v1.2 | 2026-02-15 | 主链更新为 `S0->...->S7a` 全执行序；新增 S3b/S4b 专项圈依赖；关键契约新增归因/极端防御证据与防跑偏行为回归门禁 |
 | v1.1 | 2026-02-14 | 增加 S2->S3 质量门禁依赖；补充 Schema/contract_version/本地检查/CI workflow 契约依赖 |
 | v1.0 | 2026-02-13 | 重建依赖图；纳入 ENH-10/ENH-11 圈位与依赖约束 |

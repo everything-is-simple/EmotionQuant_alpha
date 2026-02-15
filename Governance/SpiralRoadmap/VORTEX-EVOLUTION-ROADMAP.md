@@ -12,6 +12,7 @@
 2. 详细执行合同请看：
    - `Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
    - `Governance/SpiralRoadmap/SPIRAL-PRODUCTION-ROUTES.md`
+   - `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 3. 上位 SoT 仍为：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`。
 
 ---
@@ -76,6 +77,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.3 | 2026-02-15 | 口径说明新增阶段模板入口（`SPIRAL-STAGE-TEMPLATES.md`），用于阶段A/B/C统一门禁与产物规范 |
 | v1.2 | 2026-02-15 | 纳入两类高优先专项圈位：S3b（A/B/C + 实盘-回测偏差归因）与 S4b（极端行情防御）；新增防跑偏硬门禁与“实现改写核心语义”P0 风险 |
 | v1.1 | 2026-02-14 | 新增 R0 前置里程碑（设计闭环+质量门禁）；关键顺序约束补充 S2->S3 契约门禁；风险矩阵补充一致性检查措施 |
 | v1.0 | 2026-02-13 | 重建执行主视图；纳入 S3a/ENH-10 与 S7a/ENH-11 |

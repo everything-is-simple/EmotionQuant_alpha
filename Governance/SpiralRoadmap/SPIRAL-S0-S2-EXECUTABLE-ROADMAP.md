@@ -14,7 +14,8 @@
 1. `docs/design/enhancements/eq-improvement-plan-core-frozen.md`（唯一执行基线）
 2. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`（路线主控）
 3. `Governance/steering/6A-WORKFLOW.md` + `Governance/steering/系统铁律.md`
-4. 本文件（S0-S2 微圈执行合同）
+4. `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`（阶段A/B/C 门禁模板）
+5. 本文件（S0-S2 微圈执行合同）
 
 本文件只负责两件事：
 
@@ -297,6 +298,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.6 | 2026-02-15 | SoT 优先级补充阶段模板文档引用（`SPIRAL-STAGE-TEMPLATES.md`），明确阶段门禁与微圈合同联动 |
 | v0.5 | 2026-02-15 | 新增“防跑偏硬门禁”小节：将行为回归与治理一致性测试设为每圈收口强制条件，失败时只允许进入修复子圈 |
 | v0.4 | 2026-02-14 | 基线快照升级到“契约门禁已落地”口径：补充 contracts/governance 本地检查与 CI 门禁；S2a/S2b 门禁补充 `contract_version=nc-v1` 与 RR 执行边界；推进规则新增 contracts 阻断条件 |
 | v0.3 | 2026-02-13 | 升级为实战口径：纳入 PAS（CP-04）、补 A 股规则门禁、修复基线可执行描述、补充与 S3a 衔接 |

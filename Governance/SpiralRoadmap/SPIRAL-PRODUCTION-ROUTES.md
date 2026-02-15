@@ -12,6 +12,7 @@
 2. 每圈必须有 `run/test/artifact/review/sync` 五件套。
 3. 一旦启用 ENH-10/ENH-11，必须作为独立圈收口，不允许“顺手做了不留证据”。
 4. S2 及后续圈默认启用契约门禁：`python -m scripts.quality.local_quality_check --contracts --governance`。
+5. 阶段级门禁与产物定义统一引用：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
 
 ---
 
@@ -172,6 +173,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.3 | 2026-02-15 | 适用原则新增阶段模板联动规则，要求路线执行同步遵守阶段A/B/C门禁与产物定义 |
 | v1.2 | 2026-02-15 | 三套路线全部纳入 S3b（收益归因）与 S4b（极端防御）；统一门禁新增 anti-drift 强制检查；执行合同扩展到 ENH+专项圈 |
 | v1.1 | 2026-02-14 | 每圈原则与统一门禁补充契约检查（`--contracts --governance`）；新增执行口径约束（`contract_version=nc-v1`、`risk_reward_ratio >= 1.0`） |
 | v1.0 | 2026-02-13 | 首次发布：给出三套完整实战路线，固化 ENH-10/11，加入防遗忘机制 |
