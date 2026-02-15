@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v6.8.0  
+**版本**: v6.9.0  
 **最后更新**: 2026-02-15  
 **适用对象**: 个人开发、个人使用
 
@@ -71,7 +71,8 @@
 | S0c | L2 快照与失败链路闭环 | ✅ completed | `Governance/specs/spiral-s0c/final.md` |
 | S1a | MSS 最小评分可跑 | ✅ completed | `Governance/specs/spiral-s1a/final.md` |
 | S1b | MSS 消费验证闭环 | ✅ completed | `Governance/specs/spiral-s1b/final.md` |
-| S2a | IRS + PAS + Validation 最小闭环 | 🟡 planned | 待创建 `Governance/specs/spiral-s2a/*` |
+| S2a | IRS + PAS + Validation 最小闭环 | ✅ completed | `Governance/specs/spiral-s2a/final.md` |
+| S2b | MSS+IRS+PAS 集成推荐闭环 | 🟡 planned | 待创建 `Governance/specs/spiral-s2b/*` |
 
 ---
 
@@ -163,6 +164,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v6.9.0 | 2026-02-15 | 同步 S2a 按 6A 完成收口证据；状态推进到 S2b planned |
 | v6.8.0 | 2026-02-15 | 同步 S1b 按 6A 完成收口证据；状态推进到 S2a planned |
 | v6.7.0 | 2026-02-15 | 同步 S1a 按 6A 完成收口证据；状态推进到 S1b planned |
 | v6.6.0 | 2026-02-15 | 同步 S0c 按 6A 完成收口证据；状态推进到 S1a planned |

@@ -188,3 +188,66 @@ def test_main_mss_probe_runs_with_window(tmp_path: Path, capsys: pytest.CaptureF
     assert payload["event"] == "s1b_mss_probe"
     assert payload["status"] == "ok"
     assert "top_bottom_spread_5d" in payload
+
+
+def test_main_recommend_runs_s2a_mode(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    data_root = tmp_path / "eq_data"
+    env_file = tmp_path / ".env.s2a.cli"
+    env_file.write_text(
+        f"DATA_PATH={data_root}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    trade_date = "20260218"
+
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--l1-only",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--to-l2",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "mss",
+            "--date",
+            trade_date,
+        ]
+    ) == 0
+
+    recommend_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            trade_date,
+            "--mode",
+            "mss_irs_pas",
+            "--with-validation",
+        ]
+    )
+    assert recommend_exit == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s2a_recommend"
+    assert payload["mode"] == "mss_irs_pas"
+    assert payload["status"] == "ok"

@@ -11,6 +11,7 @@ from src.algorithms.mss.probe import run_mss_probe
 from src.config.config import Config
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
+from src.pipeline.recommend import run_recommendation
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,18 @@ def build_parser() -> argparse.ArgumentParser:
     probe_parser = subparsers.add_parser("mss-probe", help="Run MSS-only probe on date range.")
     probe_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
     probe_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
+    recommend_parser = subparsers.add_parser("recommend", help="Run recommendation pipeline.")
+    recommend_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    recommend_parser.add_argument(
+        "--mode",
+        required=True,
+        help="Pipeline mode, e.g. mss_irs_pas or integrated.",
+    )
+    recommend_parser.add_argument(
+        "--with-validation",
+        action="store_true",
+        help="Enable validation gate generation.",
+    )
 
     subparsers.add_parser("version", help="Print CLI version.")
 
@@ -243,6 +256,54 @@ def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_error else 0
 
 
+def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    print(
+        json.dumps(
+            {
+                "event": "recommend_start",
+                "command": ctx.command,
+                "trade_date": args.date,
+                "mode": args.mode,
+                "with_validation": bool(args.with_validation),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    try:
+        result = run_recommendation(
+            trade_date=args.date,
+            mode=args.mode,
+            with_validation=bool(args.with_validation),
+            config=ctx.config,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    print(
+        json.dumps(
+            {
+                "event": "s2a_recommend",
+                "trade_date": args.date,
+                "mode": args.mode,
+                "irs_count": result.irs_count,
+                "pas_count": result.pas_count,
+                "validation_count": result.validation_count,
+                "final_gate": result.final_gate,
+                "artifacts_dir": str(result.artifacts_dir),
+                "irs_sample_path": str(result.irs_sample_path),
+                "pas_sample_path": str(result.pas_sample_path),
+                "validation_sample_path": str(result.validation_sample_path),
+                "error_manifest_path": str(result.error_manifest_path),
+                "status": "failed" if result.has_error else "ok",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -269,6 +330,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_mss(ctx, args)
     if command == "mss-probe":
         return _run_mss_probe(ctx, args)
+    if command == "recommend":
+        return _run_recommend(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2
