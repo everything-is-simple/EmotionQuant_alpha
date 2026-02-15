@@ -1,7 +1,7 @@
 # EmotionQuant S0-S2 真螺旋执行路线图（执行版 v0.4）
 
 **状态**: Active  
-**更新时间**: 2026-02-14  
+**更新时间**: 2026-02-15  
 **适用范围**: S0-S2（数据层到 MSS+IRS+PAS 最小推荐闭环）  
 **文档角色**: S0-S2 执行合同（不是上位 SoT 替代）
 
@@ -53,6 +53,14 @@
 - `consumption`: 记录“谁消费/怎么消费/消费结论”。
 - `gate`: 门禁结论（PASS/WARN/FAIL）与阻断理由。
 - `contracts`: 契约/治理一致性检查通过（`python -m scripts.quality.local_quality_check --contracts --governance`）。
+
+### 2.1 防跑偏硬门禁（新增）
+
+为避免“实现看起来能跑但语义被改写”，S0-S2 每圈收口前必须额外满足：
+
+1. 行为回归通过：`.\.venv\Scripts\pytest.exe tests/unit/scripts/test_contract_behavior_regression.py -q`
+2. 治理一致性通过：`.\.venv\Scripts\pytest.exe tests/unit/scripts/test_governance_consistency_check.py -q`
+3. 若任一失败：圈状态必须标记 `blocked`，只允许进入修复子圈，不允许推进到下一主圈。
 
 统一证据目录：
 
@@ -289,6 +297,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.5 | 2026-02-15 | 新增“防跑偏硬门禁”小节：将行为回归与治理一致性测试设为每圈收口强制条件，失败时只允许进入修复子圈 |
 | v0.4 | 2026-02-14 | 基线快照升级到“契约门禁已落地”口径：补充 contracts/governance 本地检查与 CI 门禁；S2a/S2b 门禁补充 `contract_version=nc-v1` 与 RR 执行边界；推进规则新增 contracts 阻断条件 |
 | v0.3 | 2026-02-13 | 升级为实战口径：纳入 PAS（CP-04）、补 A 股规则门禁、修复基线可执行描述、补充与 S3a 衔接 |
 | v0.2 | 2026-02-13 | 修复可执行性断点：补 SoT 定位、引入 baseline/target 双命令口径、补 CP Slice、统一参数占位符、重写微圈合同 |
