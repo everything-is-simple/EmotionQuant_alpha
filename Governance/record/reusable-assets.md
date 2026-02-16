@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-15  
-**版本**: v2.8  
+**最后更新**: 2026-02-16  
+**版本**: v2.9  
 **范围**: S0-S6
 
 ---
@@ -33,6 +33,7 @@
 | S-GOV-011 | S1b 6A 证据档案模板 | `Governance/specs/spiral-s1b/*` | S | MSS 消费验证圈 requirements/review/final 与样例证据复用 |
 | S-GOV-012 | S2a 6A 证据档案模板 | `Governance/specs/spiral-s2a/*` | S | IRS/PAS/Validation 圈 requirements/review/final 与样例证据复用 |
 | S-GOV-013 | S2b 6A 证据档案模板 | `Governance/specs/spiral-s2b/*` | S | Integration 圈 requirements/review/final 与样例证据复用 |
+| S-GOV-014 | S3a 6A 证据档案模板 | `Governance/specs/spiral-s3a/*` | S | ENH-10 圈 requirements/review/final 与门禁证据骨架复用 |
 
 ---
 
@@ -88,6 +89,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-16 | v2.9 | 增加 S3a 证据模板资产登记（S-GOV-014） |
 | 2026-02-15 | v2.8 | 增加 S2b 证据模板与 Integration/Quality Gate 代码测试资产登记 |
 | 2026-02-15 | v2.7 | 增加 S2a 证据模板与推荐编排/三表合同资产登记 |
 | 2026-02-15 | v2.6 | 增加 S1b 证据模板与 MSS 探针/集成消费资产登记 |

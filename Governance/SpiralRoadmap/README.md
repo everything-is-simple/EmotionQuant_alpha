@@ -1,7 +1,7 @@
 # SpiralRoadmap 目录说明
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-16  
 **定位**: Spiral 执行路线与依赖图目录（执行伴随文档，不替代上位 SoT）
 
 ---
@@ -23,6 +23,8 @@
     - `S2A-EXECUTION-CARD.md`
     - `S2B-EXECUTION-CARD.md`
     - `S2R-EXECUTION-CARD.md`
+- `S3A-EXECUTION-CARD.md`
+  - S3a（ENH-10）一页执行卡（分批下载/断点续传/多线程）
 - `SPIRAL-PRODUCTION-ROUTES.md`
   - S0-S7a 三套完整实战路线（推荐/稳健/激进，含 S3b 收益归因与 S4b 极端防御专项）
 - `SPIRAL-STAGE-TEMPLATES.md`
@@ -63,6 +65,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.6 | 2026-02-16 | 新增 `S3A-EXECUTION-CARD.md` 入口，并将下一阶段执行卡扩展到 S3a（ENH-10） |
 | v1.5 | 2026-02-15 | 扩展执行卡索引：从单张 `S0A` 补齐到 `S0A~S2R` 全微圈执行卡 |
 | v1.4 | 2026-02-15 | 新增 `S0A-EXECUTION-CARD.md` 入口，作为 S0a 微圈一页执行卡 |
 | v1.3 | 2026-02-15 | 新增 `SPIRAL-STAGE-TEMPLATES.md` 入口，统一阶段级执行模板引用 |
