@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.1.0  
+**版本**: v7.2.0  
 **最后更新**: 2026-02-16  
 **适用对象**: 个人开发、个人使用
 
@@ -75,6 +75,12 @@
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ completed | `Governance/specs/spiral-s2b/final.md` |
 | S3a | ENH-10 数据采集增强闭环 | 🟡 planned | `Governance/specs/spiral-s3a/final.md` |
 | S3 | 回测闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s3/*` |
+| S4 | 纸上交易闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s4/*` |
+| S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
+| S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
+| S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
+
+补充：阶段C（S5-S7a）执行合同已就位：`Governance/SpiralRoadmap/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`。
 
 ---
 
@@ -166,6 +172,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.2.0 | 2026-02-16 | 补齐阶段C（S5-S7a）执行合同入口；扩展当前执行状态快照到 S7a planned |
 | v7.1.0 | 2026-02-16 | 下一圈切换为 S3a（ENH-10）并创建 `spiral-s3a` 证据入口；S3 顺延为 S3a 后继圈 |
 | v7.0.0 | 2026-02-15 | 同步 S2b 按 6A 完成收口证据；状态推进到 S3 planned |
 | v6.9.0 | 2026-02-15 | 同步 S2a 按 6A 完成收口证据；状态推进到 S2b planned |
