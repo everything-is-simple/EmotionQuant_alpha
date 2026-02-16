@@ -1,7 +1,7 @@
 # EmotionQuant 6A 工作流（Spiral 闭环版）
 
-**版本**: v6.1.4  
-**最后更新**: 2026-02-14  
+**版本**: v6.2.1  
+**最后更新**: 2026-02-15  
 **状态**: 当前唯一权威工作流
 
 ---
@@ -20,6 +20,7 @@
 3. 单个 Task 超过 1 天必须继续拆分。
 4. 每个 Spiral 必须具备 `run/test/artifact/review/sync` 五件套。
 5. 默认流程是 `Scope -> Build -> Verify -> Sync`，高风险时升级 Strict 6A。
+6. 每个微圈必须有 1 张执行卡（Execution Card），并在各阶段模板中持续更新。
 
 ---
 
@@ -27,24 +28,28 @@
 
 ### A1 Align（对齐目标）
 
+- 执行卡要求（必须）: 建立或确认本微圈执行卡链接，未挂接执行卡不得进入 A2。
 - 确定本圈主目标与 In/Out Scope。
 - 明确依赖、输入、输出、失败策略。
 - 产出: `Governance/specs/spiral-s{N}/requirements.md`
 
 ### A2 Architect（切片设计）
 
+- 执行卡要求（必须）: 在执行卡中写明本圈 1-3 个 Slice、跨模块契约与验收口径。
 - 从 CP 中选择 1-3 个 Slice。
 - 写清跨模块输入输出契约与验收口径。
 - 明确本圈 `run/test/artifact` 最小证据。
 
 ### A3 Act（最小实现）
 
+- 执行卡要求（必须）: 在执行卡中更新实现进度、`run/test` 当前状态与阻塞项。
 - 只实现当前 Slice 的最小可运行能力。
 - 同步补至少 1 条自动化测试。
 - 不改核心冻结区（情绪主逻辑、MSS/IRS/PAS/Validation/Integration 核心语义、Spiral+CP 主路线）。
 
 ### A4 Assert（验证收敛）
 
+- 执行卡要求（必须）: 在执行卡登记测试结论、产物路径与 `review.md` 链接。
 - `run` 可复制执行成功。
 - `test` 自动化测试通过。
 - `artifact` 可检查且可追溯。
@@ -52,12 +57,14 @@
 
 ### A5 Archive（复盘固化）
 
+- 执行卡要求（必须）: 在执行卡标注复盘结论、遗留债务与对应去向。
 - 产出 `review.md` 与 `final.md`。
 - 整理本圈证据链（命令、测试结果、产物路径、风险处理）。
 - 未解决问题同步进入 `Governance/record/debts.md`。
 
 ### A6 Advance（同步推进）
 
+- 执行卡要求（必须）: 在执行卡标记 sync 完成，并挂接最小同步 5 项链接。
 - 最小同步 5 项：
   1. `Governance/specs/spiral-s{N}/final.md`
   2. `Governance/record/development-status.md`
@@ -97,6 +104,7 @@
 - 无产物文件
 - 无复盘记录
 - 无同步记录
+- 无执行卡（或执行卡未在阶段模板中挂接）
 
 ---
 
@@ -131,11 +139,14 @@
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
-| v6.1.4 | 2026-02-14 | 跨文档联动清单补充 Schema-first 契约源（`docs/naming-contracts.schema.json`）；一致性检查命令升级为 `--contracts --governance`；模板入口补充命名契约模板 |
+| v6.2.1 | 2026-02-15 | 将“每个微圈必须有执行卡”落入 A1-A6 每个阶段模板，并在核心约束与退出条件中显式阻断执行卡缺失 |
+| v6.2.0 | 2026-02-15 | 新增执行卡强制约束：每个微圈必须具备执行卡，且阶段模板与微圈执行合同均需挂接链接；退出条件增加执行卡缺失阻断 |
+| v6.1.4 | 2026-02-14 | 跨文档联动清单补充 Schema-first 契约源（docs/naming-contracts.schema.json）；一致性检查命令升级为 --contracts --governance；模板入口补充命名契约模板 |
 | v6.1.3 | 2026-02-14 | 修复 R33（review-011）：新增“跨文档变更联动模板”执行清单（契约/风控/数据边界），并明确 review/final 记录要求 |
 | v6.1.2 | 2026-02-12 | 链接整理：历史文件说明改为“已并入本文件”，移除失效归档目录引用 |
 | v6.1.1 | 2026-02-11 | 修正 A3 冻结区表述：补充 Integration 模块 |
 | v6.1.0 | 2026-02-10 | 旧 `phase-to-task/task-to-step` 文件归档；明确本文件为唯一执行入口 |
 | v6.0.0 | 2026-02-10 | 合并 `phase-to-task` 与 `task-to-step` 为单一 6A 权威流程；默认合并目标切换为 `main`，保留 `develop` 可选策略 |
+
 
 
