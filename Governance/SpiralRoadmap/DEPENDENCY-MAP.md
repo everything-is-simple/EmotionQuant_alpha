@@ -1,7 +1,7 @@
 # EmotionQuant Spiral 依赖图（执行版）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-16  
 **定位**: Spiral/ENH 依赖关系与插入点说明。
 
 ---
@@ -9,15 +9,15 @@
 ## 1. 主链依赖
 
 ```text
-S0 -> S1 -> S2 -> S3a -> S3 -> S4 -> S3b -> S4b -> S5 -> S6 -> S7a
+S0 -> S1 -> S2a -> S2b -> S2c -> S3a -> S3 -> S4 -> S3b -> S4b -> S5 -> S6 -> S7a
 ```
 
 约束：
 
 1. 仅允许前向依赖，不允许跨圈反向依赖。
-2. S2 需要同时覆盖 CP-03/CP-04/CP-10/CP-05。
-3. S3/S4/S5 均消费 S2 的 `integrated_recommendation`。
-4. S2->S3 迁移前，必须通过命名/治理一致性门禁（`--contracts --governance`）。
+2. 阶段A算法链路需覆盖 S2a/S2b/S2c，完成 CP-03/CP-04/CP-10/CP-05 的实现与算法语义收口。
+3. S3/S4/S5 均消费 S2c 收口后的 `integrated_recommendation`。
+4. S2c->S3 迁移前，必须同时通过命名/治理一致性门禁（`--contracts --governance`）与 `validation_weight_plan` 桥接硬门禁。
 5. S3b 依赖 S4：偏差归因必须消费纸上交易结果，不允许只基于回测推断。
 6. S4b 依赖 S3b：极端防御阈值必须来自归因结论与压力回放，不允许拍脑袋设值。
 7. 各圈收口前必须执行契约行为回归：`tests/unit/scripts/test_contract_behavior_regression.py`。
@@ -26,7 +26,7 @@ S0 -> S1 -> S2 -> S3a -> S3 -> S4 -> S3b -> S4b -> S5 -> S6 -> S7a
 
 ## 1.1 阶段映射依赖
 
-1. 阶段A 对应 `S0-S2`，阶段合同见 `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
+1. 阶段A 对应 `S0-S2c`，阶段合同见 `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
 2. 阶段B 对应 `S3a-S4b`，阶段合同见 `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
 3. 阶段C 对应 `S5-S7a`，阶段合同见 `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
 4. 阶段推进必须满足：上一阶段 `退出门禁` 通过，下一阶段 `入口门禁` 才允许启动。
@@ -36,13 +36,13 @@ S0 -> S1 -> S2 -> S3a -> S3 -> S4 -> S3b -> S4b -> S5 -> S6 -> S7a
 ## 2. 扩展圈依赖（ENH）
 
 ```text
-S2 -> S3a(ENH-10) -> S3
+S2c -> S3a(ENH-10) -> S3
 S6 -> S7a(ENH-11)
 ```
 
 | ENH | 名称 | 挂载圈位 | 依赖 | 价值 |
 |---|---|---|---|---|
-| ENH-10 | 数据采集增强 | S3a（S2 后、S3 前） | S2 PASS | 高：提升历史数据准备效率 |
+| ENH-10 | 数据采集增强 | S3a（S2c 后、S3 前） | S2c PASS/WARN + 桥接门禁通过 | 高：提升历史数据准备效率 |
 | ENH-11 | 定时调度器 | S7a（S6 后） | S6 PASS | 中：提升日常运营自动化 |
 
 ---
@@ -76,7 +76,8 @@ S3 -> S4 -> S3b(归因验证) -> S4b(极端防御)
 | `raw_*` / `raw_trade_cal` | L2 快照（S0c） | 数据缺失或交易日不匹配 |
 | `mss_panorama` | S1b/S2a | 评分字段不完整 |
 | `irs_industry_daily` + `stock_pas_daily` | S2b | 任一主信号缺失 |
-| `validation_gate_decision` | S2b/S3/S4 | gate 不可追溯或 FAIL 未修复 |
+| `validation_gate_decision` | S2b/S2c/S3/S4 | gate 不可追溯或 FAIL 未修复 |
+| `validation_weight_plan` | S2c/S3/S4 | `selected_weight_plan -> plan_id -> integrated_recommendation.weight_plan_id` 桥接链路断裂 |
 | `docs/naming-contracts.schema.json`（`nc-v1`） | S2/S3/S4/S5 运行契约 | Schema 缺失或阈值/枚举与文档漂移 |
 | `validation_gate_decision.contract_version` | S3/S4/S5 执行前检查 | `contract_version != "nc-v1"` |
 | `integrated_recommendation` | S3/S4/S5 | 缺 A 股规则门禁字段或 RR 执行门槛口径不一致 |
@@ -94,6 +95,7 @@ S3 -> S4 -> S3b(归因验证) -> S4b(极端防御)
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.4 | 2026-02-16 | 主链插入 S2c（S2b->S3a）；ENH-10 插入位改为 S2c 后；新增 `validation_weight_plan` 桥接硬门禁依赖；阶段A映射改为 S0-S2c |
 | v1.3 | 2026-02-15 | 新增“阶段映射依赖”小节，明确阶段A/B/C与圈序关系并链接阶段模板文档 |
 | v1.2 | 2026-02-15 | 主链更新为 `S0->...->S7a` 全执行序；新增 S3b/S4b 专项圈依赖；关键契约新增归因/极端防御证据与防跑偏行为回归门禁 |
 | v1.1 | 2026-02-14 | 增加 S2->S3 质量门禁依赖；补充 Schema/contract_version/本地检查/CI workflow 契约依赖 |

@@ -11,13 +11,13 @@
 ## 当前执行入口
 
 - `SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
-  - S0-S2 微圈执行合同（实操层）
+  - S0-S2c 微圈执行合同（实操层）
 - `SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
   - 阶段B（S3a-S4b）微圈执行合同（实操层）
 - `SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`
   - 阶段C（S5-S7a）微圈执行合同（实操层）
-- `S0A-EXECUTION-CARD.md` ~ `S2R-EXECUTION-CARD.md`
-  - S0-S2 全微圈一页执行卡（run/test/artifact/review/sync）
+- `S0A-EXECUTION-CARD.md` ~ `S2C-EXECUTION-CARD.md` + `S2R-EXECUTION-CARD.md`
+  - S0-S2c 全微圈一页执行卡（run/test/artifact/review/sync）
   - 包含：
     - `S0A-EXECUTION-CARD.md`
     - `S0B-EXECUTION-CARD.md`
@@ -26,6 +26,7 @@
     - `S1B-EXECUTION-CARD.md`
     - `S2A-EXECUTION-CARD.md`
     - `S2B-EXECUTION-CARD.md`
+    - `S2C-EXECUTION-CARD.md`
     - `S2R-EXECUTION-CARD.md`
 - `S3A-EXECUTION-CARD.md`
   - S3a（ENH-10）一页执行卡（分批下载/断点续传/多线程）
@@ -69,6 +70,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.9 | 2026-02-16 | 同步 S2c 算法深化圈：S0-S2 口径升级为 S0-S2c，并纳入 `S2C-EXECUTION-CARD.md` 索引 |
 | v1.8 | 2026-02-16 | 新增 `SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md` 入口，补齐阶段C（S5-S7a）可执行合同索引 |
 | v1.7 | 2026-02-16 | 新增 `SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 入口，补齐阶段B（S3a-S4b）可执行合同索引 |
 | v1.6 | 2026-02-16 | 新增 `S3A-EXECUTION-CARD.md` 入口，并将下一阶段执行卡扩展到 S3a（ENH-10） |

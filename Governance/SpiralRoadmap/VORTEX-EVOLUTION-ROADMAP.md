@@ -1,7 +1,7 @@
 # EmotionQuant VORTEX 演进路线图（执行主视图）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-16  
 **定位**: SpiralRoadmap 总览入口（实战执行版）。
 
 ---
@@ -37,6 +37,7 @@
 | S1b | MSS 消费 | 探针消费与结论 | 2d | planned |
 | S2a | IRS+PAS+Validation | 多算法与门禁闭环 | 4d | planned |
 | S2b | 集成推荐 | TopN 推荐可追溯 | 3d | planned |
+| S2c | 算法深化 | 权重桥接 + 核心语义收口 | 3-4d | planned |
 | S2r | 修复子圈 | FAIL 修复重验 | 1-2d | conditional |
 | S3a | 数据采集增强 | ENH-10 分批+断点续传+多线程 | 2.5d | planned |
 | S3 | 回测闭环 | Qlib + 本地口径对照 | 4d | planned |
@@ -51,10 +52,10 @@
 
 ## 4. 关键顺序约束
 
-1. S2b FAIL 时只能进入 S2r，禁止跳过。
-2. S3a 必须在 S3 前执行（默认路线），否则 S3 数据准备效率不可控。
+1. S2b/S2c FAIL 时只能进入 S2r，禁止跳过。
+2. S3a 必须在 S2c 后、S3 前执行（默认路线），否则阶段A算法收口与数据准备效率均不可控。
 3. S7a 必须在 S6 后执行，避免运维能力先于稳定化落地。
-4. S2->S3 迁移前必须通过 `python -m scripts.quality.local_quality_check --contracts --governance`。
+4. S2c->S3 迁移前必须通过 `python -m scripts.quality.local_quality_check --contracts --governance` 与 `validation_weight_plan` 桥接硬门禁。
 5. S3b 依赖 S4：必须在纸上交易最小闭环后执行，避免“仅回测口径归因”。
 6. S4b 依赖 S3b：极端防御参数必须基于归因结果校准，不允许凭直觉硬编码。
 7. 每圈收口前必须通过防跑偏门禁：`python -m scripts.quality.local_quality_check --contracts --governance` + `tests/unit/scripts/test_contract_behavior_regression.py`。
@@ -66,6 +67,7 @@
 | 风险 | 级别 | 触发条件 | 应对 |
 |---|---|---|---|
 | 推荐链路缺 A 股规则门禁 | P0 | T+1/涨跌停/交易时段字段缺失 | 阻断收口，进入修复圈 |
+| `validation_weight_plan` 桥接断裂 | P0 | `selected_weight_plan -> plan_id -> weight_plan_id` 任一节点缺失/不一致 | 阻断 S2c->S3 推进，回退 S2c/S2r 修复 |
 | 数据拉取耗时过长 | P1 | 历史数据下载持续失败或过慢 | 启动 S3a，启用 ENH-10 |
 | 自动调度误触发重复下载 | P1 | 非交易日或重复任务未去重 | 启用交易日判断+幂等校验 |
 | 文档与执行漂移 | P1 | 路线文档与实际圈序不一致 | 强制同步 5 文件并记录 debt；执行 `--contracts --governance` 一致性检查 |
@@ -77,6 +79,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.4 | 2026-02-16 | 进度看板新增 S2c；关键顺序约束升级为 S2c->S3 桥接硬门禁；风险矩阵新增 `validation_weight_plan` 桥接断裂 P0 风险 |
 | v1.3 | 2026-02-15 | 口径说明新增阶段模板入口（`SPIRAL-STAGE-TEMPLATES.md`），用于阶段A/B/C统一门禁与产物规范 |
 | v1.2 | 2026-02-15 | 纳入两类高优先专项圈位：S3b（A/B/C + 实盘-回测偏差归因）与 S4b（极端行情防御）；新增防跑偏硬门禁与“实现改写核心语义”P0 风险 |
 | v1.1 | 2026-02-14 | 新增 R0 前置里程碑（设计闭环+质量门禁）；关键顺序约束补充 S2->S3 契约门禁；风险矩阵补充一致性检查措施 |

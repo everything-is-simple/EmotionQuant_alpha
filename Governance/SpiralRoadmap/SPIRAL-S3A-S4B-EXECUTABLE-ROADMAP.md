@@ -1,4 +1,4 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.1）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.2）
 
 **状态**: Active  
 **更新时间**: 2026-02-16  
@@ -26,7 +26,7 @@
 
 ## 1. 现实基线快照（As-Is, 2026-02-16）
 
-1. S2b 已按 6A 收口完成，当前阶段为 S3a 准备中（见 `Governance/record/development-status.md`）。
+1. S2b 已按 6A 收口完成；新增 S2c（核心算法深化）作为 S2->S3 迁移前置，当前阶段以 S2c 准备为主（见 `Governance/record/development-status.md`）。
 2. `eq` 统一入口当前已支持 `run/mss/mss-probe/recommend`，阶段B目标命令（`fetch-batch/backtest/trade/analysis/stress`）尚未完成接入。
 3. `src/backtest`、`src/trading`、`src/analysis` 目前为最小骨架，阶段B需要补齐可执行链路。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
@@ -114,7 +114,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | Spiral | 主目标 | CP Slice（1-3） | 预算 | 前置 | 退出去向 |
 |---|---|---|---:|---|---|
-| S3a | ENH-10 采集增强闭环 | CP-01 | 2.5d | S2b PASS/WARN | S3 |
+| S3a | ENH-10 采集增强闭环 | CP-01 | 2.5d | S2c PASS/WARN | S3 |
 | S3 | 回测闭环（Qlib+本地口径） | CP-10, CP-06, CP-09 | 4d | S3a | S4 或 S3r |
 | S3r | 回测修复子圈 | CP-10, CP-06, CP-09 | 1-2d | S3 FAIL | 回 S3 |
 | S4 | 纸上交易闭环 | CP-07, CP-09 | 4d | S3 PASS/WARN | S3b 或 S4r |
@@ -156,6 +156,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 - 门禁：
   - `backtest_results` 与 `backtest_trade_records` 均可产出且记录数 `> 0`。
   - 输入消费链可追溯到 `integrated_recommendation`，且 `contract_version = "nc-v1"`。
+  - `validation_weight_plan` 桥接可追溯：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id`。
   - 产出 A/B/C 对照指标摘要并形成基线结论。
   - 质量门结论 `status in (PASS, WARN)`。
 - 产物：`backtest_results.parquet`, `backtest_trade_records.parquet`, `ab_metric_summary.md`
@@ -263,7 +264,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 3. `blocked` 超过 1 天，必须在 `review.md` 提交降级策略。
 4. S3/S4/S4b FAIL 必须先进入对应修复子圈（S3r/S4r/S4br），不得跳过推进。
 5. `contracts` 检查未通过时，状态必须标记 `blocked`，不得推进到 S5。
-6. 若定位到阶段A输入契约异常，必须回退阶段A修复并重验后再返回阶段B。
+6. 若定位到阶段A输入契约异常（含 `validation_weight_plan` 桥接缺失），必须回退阶段A（S2c）修复并重验后再返回阶段B。
 
 ---
 
@@ -272,9 +273,10 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 执行顺序：
 
 1. 跑 baseline command/test（环境健康检查）。
-2. 启动 S3a（ENH-10）。
-3. S3a 完成后进入 S3（回测）。
-4. S3/S4 完成后进入 S3b（归因）与 S4b（极端防御）。
+2. 完成 S2c（算法深化）收口并通过桥接门禁。
+3. 启动 S3a（ENH-10）。
+4. S3a 完成后进入 S3（回测）。
+5. S3/S4 完成后进入 S3b（归因）与 S4b（极端防御）。
 
 启动命令：
 
@@ -312,5 +314,5 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.2 | 2026-02-16 | 阶段B入口前置从 S2b 调整为 S2c；新增 `validation_weight_plan` 桥接硬门禁与回退规则 |
 | v0.1 | 2026-02-16 | 首版：定义阶段B（S3a-S4b）微圈执行合同、修复子圈与推进门禁，统一 run/test/artifact/review/sync 收口口径 |
-

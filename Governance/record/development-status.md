@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-16  
-**当前版本**: v4.0（S3a 规划推进中，阶段C执行合同已就位）  
+**当前版本**: v4.1（S2c 算法深化准备中，S2->S3 桥接硬门禁已就位）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3a 准备：S2 信号生成闭环已完成，先执行 ENH-10 数据采集增强；阶段C执行合同已就位**
+**S2c 准备：S2b 已完成，先完成核心算法深化与桥接硬门禁，再进入 S3a（ENH-10）**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -17,6 +17,7 @@
 - S1b（MSS 消费验证闭环）: 已完成并补齐 6A 证据链。
 - S2a（IRS + PAS + Validation 最小闭环）: 已完成并补齐 6A 证据链。
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
+- S2c（核心算法深化闭环）: 已定义执行合同，待进入实现与验收。
 
 ---
 
@@ -29,11 +30,11 @@
 
 ## 本次同步（2026-02-16）
 
-1. 新增下一阶段执行卡：`Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md`。
-2. 新建 `Governance/specs/spiral-s3a/` 证据目录，并落位 `requirements/review/final` 三件套骨架。
-3. 主控路线状态推进为 `S3a planned`，并明确 `S3` 为 S3a 后继圈。
-4. 新增阶段C执行合同：`Governance/SpiralRoadmap/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`。
-5. `Governance/SpiralRoadmap/README.md` 已补齐阶段C执行入口索引（S5-S7a）。
+1. 阶段A路线合同升级为 `S0-S2c`，新增 `S2c` 算法深化圈（位置：`S2b -> S3a`）。
+2. 新增 `Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md`，固化 S2c 执行卡与证据要求。
+3. `validation_weight_plan` 桥接升级为硬门禁（S2 出口 + S3 入口）。
+4. 在 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 新增“核心算法完成 DoD”，并明确与阶段 DoD 分离。
+5. 关联文档（依赖图/阶段模板/生产路线/看板/README）已完成同口径同步。
 
 ---
 
@@ -48,7 +49,8 @@
 | S1b | MSS 消费验证闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ 已完成 | 6A 证据已归档 |
-| S3a | ENH-10 数据采集增强闭环 | 🟡 准备中 | 下一圈主目标 |
+| S2c | 核心算法深化闭环（权重桥接 + 语义收口） | 🟡 准备中 | 下一圈主目标 |
+| S3a | ENH-10 数据采集增强闭环 | 📋 未开始 | 依赖 S2c 完成 |
 | S3 | 回测闭环 | 📋 未开始 | 依赖 S3a 完成 |
 | S4 | 纸上交易闭环 | 📋 未开始 | 依赖 S3 完成 |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4 完成 |
@@ -57,11 +59,11 @@
 
 ---
 
-## 下一步（S3a 准备）
+## 下一步（S2c 准备）
 
-1. 启动 `eq fetch-batch/fetch-status/fetch-retry` 三命令实现与契约测试补齐。
-2. 固化 S3a 核心证据：`fetch_progress.json`、`throughput_benchmark.md`、`fetch_retry_report.md`。
-3. 完成 S3a 门禁验收后，推进 S3 回测闭环实施。
+1. 启动 `eq recommend --date {trade_date} --mode integrated --with-validation-bridge` 路径补齐。
+2. 补齐并执行 S2c 目标测试：`test_weight_plan_bridge_contract.py`、`test_validation_weight_plan_bridge.py`、`test_algorithm_semantics_regression.py`。
+3. 产出 S2c 证据并完成桥接硬门禁验收后，再推进 S3a 与 S3。
 
 ---
 
@@ -69,6 +71,7 @@
 
 1. S0c 行业快照为“全市场聚合”最小实现，尚未接入 SW 行业粒度聚合。
 2. 真实远端采集链路仍需端到端回归，不应在交易路径直接使用当前离线样例口径。
+3. 若 `validation_weight_plan` 桥接链路缺失或不可审计，必须阻断 S2c->S3a 迁移。
 
 ---
 
@@ -76,6 +79,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-16 | v4.1 | 新增 S2c 算法深化圈并切换当前状态为 S2c 准备；落地 `validation_weight_plan` 桥接硬门禁与核心算法独立 DoD 口径 |
 | 2026-02-16 | v4.0 | 同步阶段C执行合同（S5-S7a）入口与状态口径，补齐路线索引 |
 | 2026-02-16 | v3.9 | 新建 S3a 执行卡与 `spiral-s3a` 证据骨架，状态从 S3 准备切换为 S3a 准备 |
 | 2026-02-15 | v3.8 | 完成 S2b 开发与 6A 收口，状态推进到 S3 准备 |

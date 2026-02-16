@@ -1,9 +1,9 @@
-# EmotionQuant S0-S2 真螺旋执行路线图（执行版 v0.4）
+# EmotionQuant S0-S2c 真螺旋执行路线图（执行版 v0.9）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
-**适用范围**: S0-S2（数据层到 MSS+IRS+PAS 最小推荐闭环）  
-**文档角色**: S0-S2 执行合同（不是上位 SoT 替代）
+**更新时间**: 2026-02-16  
+**适用范围**: S0-S2c（数据层到核心算法深化闭环）  
+**文档角色**: S0-S2c 执行合同（不是上位 SoT 替代）
 
 ---
 
@@ -15,11 +15,11 @@
 2. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`（路线主控）
 3. `Governance/steering/6A-WORKFLOW.md` + `Governance/steering/系统铁律.md`
 4. `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`（阶段A/B/C 门禁模板）
-5. 本文件（S0-S2 微圈执行合同）
+5. 本文件（S0-S2c 微圈执行合同）
 
 本文件只负责两件事：
 
-- 把 S0-S2 拆成可收口微圈
+- 把 S0-S2c 拆成可收口微圈
 - 给每圈定义可审计的 `run/test/artifact/review/sync` 合同
 
 ---
@@ -108,7 +108,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 ---
 
-## 4. S0-S2 微圈总览（实战口径）
+## 4. S0-S2c 微圈总览（实战口径）
 
 | Spiral | 主目标 | CP Slice（1-3） | 预算 | 前置 | 退出去向 |
 |---|---|---|---:|---|---|
@@ -118,8 +118,9 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 | S1a | MSS 最小评分可跑 | CP-02 | 3d | S0c | S1b |
 | S1b | MSS 消费验证闭环 | CP-02, CP-05 | 2d | S1a | S2a |
 | S2a | IRS + PAS + Validation 最小闭环 | CP-03, CP-04, CP-10 | 4d | S1b | S2b |
-| S2b | MSS+IRS+PAS 集成推荐闭环 | CP-05 | 3d | S2a | S3a 或 S2r |
-| S2r | 质量门失败修复子圈 | CP-03, CP-04, CP-05, CP-10 | 1-2d | S2b FAIL | 回 S2b |
+| S2b | MSS+IRS+PAS 集成推荐闭环 | CP-05 | 3d | S2a | S2c 或 S2r |
+| S2c | 核心算法深化闭环（权重桥接 + 语义收口） | CP-02, CP-03, CP-04, CP-10, CP-05 | 3-4d | S2b PASS/WARN | S3a 或 S2r |
+| S2r | 质量门失败修复子圈 | CP-02, CP-03, CP-04, CP-05, CP-10 | 1-2d | S2b/S2c FAIL | 回 S2b 或 S2c |
 
 说明：默认 7 天 cadence 不变；上述微圈是 7 天内可组合执行单元。
 
@@ -225,13 +226,29 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
   - 契约版本兼容：`contract_version = "nc-v1"`。
   - RR 执行边界一致：`risk_reward_ratio >= 1.0`（`<1.0` 必须被执行层过滤）。
   - A 股规则字段可追溯：`t1_restriction_hit`、`limit_guard_result`、`session_guard_result`。
-  - FAIL 不得进入 S3a/S3，必须进入 S2r。
+  - FAIL 不得进入 S2c/S3a/S3，必须进入 S2r。
 - 产物：`integrated_recommendation_sample.parquet`, `quality_gate_report.md`, `s2_go_nogo_decision.md`
-- 消费：S3a 或 S3 记录“回测消费推荐结果”。
+- 消费：S2c 记录“核心算法语义深化与权重桥接消费 S2b 输出”。
+
+### S2c
+
+- 主目标：核心算法深化闭环，完成 `validation_weight_plan` 桥接并收口算法语义。
+- 执行卡：`Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md`
+- `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_validation_gate_contract.py tests/unit/integration/test_integration_contract.py -q`
+- `target command`：`eq recommend --date {trade_date} --mode integrated --with-validation-bridge`
+- `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py tests/unit/integration/test_validation_weight_plan_bridge.py tests/unit/integration/test_algorithm_semantics_regression.py`
+- 门禁：
+  - Validation 产物齐备并可追溯：`validation_factor_report`、`validation_weight_report`、`validation_gate_decision`、`validation_weight_plan`、`validation_run_manifest`。
+  - `validation_gate_decision.selected_weight_plan` 可解析到 `validation_weight_plan.plan_id`。
+  - `integrated_recommendation.weight_plan_id` 与选中计划一致，且 `w_mss/w_irs/w_pas` 可复核。
+  - 桥接缺失或不一致必须阻断，状态标记 `blocked`，不得推进 S3a/S3。
+  - `contract_version = "nc-v1"` 且 `risk_reward_ratio >= 1.0` 执行边界一致。
+- 产物：`validation_factor_report_sample.parquet`, `validation_weight_report_sample.parquet`, `validation_weight_plan_sample.parquet`, `s2c_algorithm_closeout.md`
+- 消费：S3a 或 S3 记录“回测仅消费已完成桥接与语义收口的推荐结果”。
 
 ### S2r（条件触发）
 
-- 触发：S2b `quality_gate_report.status = FAIL`
+- 触发：S2b 或 S2c `gate = FAIL`
 - 主目标：只修不扩，恢复可通过质量门。
 - 执行卡：`Governance/SpiralRoadmap/S2R-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_dependency_manifest.py -q`
@@ -259,8 +276,9 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 1. 5 件套未齐，不得 `completed`。
 2. `consumption.md` 缺失，不得 `completed`。
 3. `blocked` 超过 1 天，必须在 `review.md` 提交降级策略。
-4. S2b FAIL 仅允许进入 S2r，不允许跳过进入后续圈。
-5. `contracts` 检查未通过时，状态必须标记 `blocked`，不得推进到 S3a/S3。
+4. S2b/S2c FAIL 仅允许进入 S2r，不允许跳过进入后续圈。
+5. `contracts` 检查未通过时，状态必须标记 `blocked`，不得推进到 S2c/S3a/S3。
+6. S2c 未完成时，不得推进到 S3a/S3。
 
 ---
 
@@ -297,7 +315,8 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 ## 9. 与后续实战圈衔接
 
-- S2b PASS 后默认进入 `S3a`（ENH-10 数据采集增强）。
+- S2b PASS 后默认进入 `S2c`（核心算法深化闭环）。
+- S2c PASS 后默认进入 `S3a`（ENH-10 数据采集增强）。
 - 完整多路线执行方案见：`Governance/SpiralRoadmap/SPIRAL-PRODUCTION-ROUTES.md`。
 
 ---
@@ -306,6 +325,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.9 | 2026-02-16 | 新增 S2c（S2b->S3a）核心算法深化圈；把 `validation_weight_plan` 桥接升级为 S2 出口硬门禁；同步阶段A推进规则 |
 | v0.8 | 2026-02-15 | 执行卡体系补齐：新增 S0b/S0c/S1a/S1b/S2a/S2b/S2r 一页执行卡并在各圈合同挂接引用 |
 | v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |
 | v0.6 | 2026-02-15 | SoT 优先级补充阶段模板文档引用（`SPIRAL-STAGE-TEMPLATES.md`），明确阶段门禁与微圈合同联动 |

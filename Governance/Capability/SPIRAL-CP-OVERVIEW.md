@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.2.0  
+**版本**: v7.3.0  
 **最后更新**: 2026-02-16  
 **适用对象**: 个人开发、个人使用
 
@@ -51,16 +51,17 @@
 | S6 | 稳定化闭环 | CP-10, CP-07, CP-09 | 重跑一致性 + 债务清偿记录 |
 
 > 说明：上表 CP 组合是父圈视图中的能力包覆盖范围，不等同于单圈 Slice 数。  
-> S2 涉及 CP-03/CP-04/CP-10/CP-05，执行时需拆分为 S2a/S2b 子圈，确保每子圈仍满足“1-3 个 Slice”约束。
+> S2 涉及 CP-03/CP-04/CP-10/CP-05，执行时需拆分为 S2a/S2b/S2c 子圈，确保每子圈仍满足“1-3 个 Slice”约束。
 
-### 4.1 实战扩展微圈（可选但一旦启用必须收口）
+### 4.1 实战扩展与深化微圈（S2c 为算法收口必选圈）
 
 | Spiral | 主目标 | 对应增强 | 插入位置 | 最小闭环证据 |
 |---|---|---|---|---|
-| S3a | 数据采集增强闭环 | ENH-10（分批+断点续传+多线程） | S2 后、S3 前 | `fetch_progress` + 吞吐对比 + 恢复演练记录 |
+| S2c | 核心算法深化闭环 | MSS/IRS/PAS/Validation/Integration 全语义桥接 | S2b 后、S3a 前 | `validation_weight_plan` 可解析 + Gate/权重桥接验证 + 算法语义回归 |
+| S3a | 数据采集增强闭环 | ENH-10（分批+断点续传+多线程） | S2c 后、S3 前 | `fetch_progress` + 吞吐对比 + 恢复演练记录 |
 | S7a | 自动调度闭环 | ENH-11（每日自动下载+开机自启） | S6 后 | 调度安装记录 + 最近执行历史 + 交易日去重验证 |
 
-> 约束：S3a/S7a 不改变 CP 主路线语义，只交付执行层与运维层增强能力。
+> 约束：S2c 是 S2->S3 迁移的必选算法收口圈；S3a/S7a 不改变 CP 主路线语义，只交付执行层与运维层增强能力。
 
 ### 4.2 当前执行状态快照（2026-02-16）
 
@@ -73,6 +74,7 @@
 | S1b | MSS 消费验证闭环 | ✅ completed | `Governance/specs/spiral-s1b/final.md` |
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ completed | `Governance/specs/spiral-s2a/final.md` |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ completed | `Governance/specs/spiral-s2b/final.md` |
+| S2c | 核心算法深化闭环（权重桥接与语义收口） | 🟡 planned | 待创建 `Governance/specs/spiral-s2c/*` |
 | S3a | ENH-10 数据采集增强闭环 | 🟡 planned | `Governance/specs/spiral-s3a/final.md` |
 | S3 | 回测闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s3/*` |
 | S4 | 纸上交易闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s4/*` |
@@ -161,7 +163,27 @@
 
 ---
 
-## 9. 归档说明
+## 9. 核心算法完成 DoD（独立于阶段 DoD）
+
+适用范围：MSS/IRS/PAS/Validation/Integration 五模块。
+
+判定规则（全部满足才可标记“核心算法完成”）：
+
+1. MSS/IRS/PAS 输出字段与设计语义一致，并具备可追溯样本与回归证据。
+2. Validation 当日必须完整产出：`validation_factor_report`、`validation_weight_report`、`validation_gate_decision`、`validation_weight_plan`、`validation_run_manifest`。
+3. Integration 必须消费 Gate + 权重桥接：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 链路可审计；桥接缺失必须阻断（不得降级放行）。
+4. `final_gate=FAIL` 必须阻断执行链；`PASS/WARN` 才允许进入后续圈，并保留降级证据。
+5. `contract_version="nc-v1"` 与 `risk_reward_ratio >= 1.0` 执行边界在算法链路中一致生效。
+6. 契约行为回归、治理一致性、算法语义回归测试通过，并有可复核产物。
+
+边界声明：
+
+- 阶段完成（A/B/C）不等于核心算法完成。
+- 只有在本 DoD 满足后，才允许声明“核心算法 full 语义完成”。
+
+---
+
+## 10. 归档说明
 
 - 线性旧版：`Governance/Capability/archive-legacy-linear-v4-20260207/`
 - 该目录只读，不再继续演进。
@@ -172,6 +194,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.3.0 | 2026-02-16 | 新增 S2c（S2b->S3a）算法深化圈；将 `validation_weight_plan` 桥接升级为 S2->S3 硬门禁；新增“核心算法完成 DoD（独立于阶段 DoD）” |
 | v7.2.0 | 2026-02-16 | 补齐阶段C（S5-S7a）执行合同入口；扩展当前执行状态快照到 S7a planned |
 | v7.1.0 | 2026-02-16 | 下一圈切换为 S3a（ENH-10）并创建 `spiral-s3a` 证据入口；S3 顺延为 S3a 后继圈 |
 | v7.0.0 | 2026-02-15 | 同步 S2b 按 6A 完成收口证据；状态推进到 S3 planned |

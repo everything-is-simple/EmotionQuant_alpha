@@ -1,4 +1,4 @@
-# EmotionQuant S5-S7a 真螺旋执行路线图（执行版 v0.1）
+# EmotionQuant S5-S7a 真螺旋执行路线图（执行版 v0.2）
 
 **状态**: Active  
 **更新时间**: 2026-02-16  
@@ -26,7 +26,7 @@
 
 ## 1. 现实基线快照（As-Is, 2026-02-16）
 
-1. 阶段A（S0-S2）已收口，阶段B（S3a-S4b）已完成执行合同落位，阶段C目标已可规划推进（见 `Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 与 `Governance/record/development-status.md`）。
+1. 阶段A（S0-S2c）需先完成算法收口与桥接硬门禁，阶段B（S3a-S4b）执行合同已落位，阶段C目标可在前置门禁满足后推进（见 `Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 与 `Governance/record/development-status.md`）。
 2. `eq` 统一入口当前已支持 `run/mss/mss-probe/recommend`，阶段C目标命令（`gui/run-all/scheduler`）尚未完成接入。
 3. `src/gui`、全链路重跑一致性守卫、调度安装与运行态可观测能力仍需在阶段C补齐。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
@@ -280,5 +280,5 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.2 | 2026-02-16 | 阶段A前置口径从 S0-S2 升级为 S0-S2c，补充“算法收口 + 桥接硬门禁”前置约束 |
 | v0.1 | 2026-02-16 | 首版：定义阶段C（S5-S7a）微圈执行合同、修复子圈与推进门禁，统一 run/test/artifact/review/sync 收口口径 |
-

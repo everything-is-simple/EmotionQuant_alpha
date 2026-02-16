@@ -1,7 +1,7 @@
-# EmotionQuant 大阶段模板（v0.1）
+# EmotionQuant 大阶段模板（v0.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-16  
 **用途**: 定义 `阶段A/B/C` 的统一执行模板，约束每个大阶段的目标、门禁、产物与失败回退。  
 **角色**: 阶段级执行合同（配合微圈执行，不替代 `SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`）。
 
@@ -13,10 +13,11 @@
 2. 每个阶段必须先满足 `入口门禁` 才能开始，满足 `退出门禁` 才能进入下一阶段。
 3. 任一阶段未达 `退出门禁`，只允许在本阶段内开修复子圈，不允许跳阶段推进。
 4. 全阶段统一门禁：`python -m scripts.quality.local_quality_check --contracts --governance`。
+5. 阶段 DoD 与核心算法完成 DoD 分离：阶段推进遵循本模板；核心算法完成仅以 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 第 9 节为准。
 
 ---
 
-## 2. 阶段A模板（S0-S2）
+## 2. 阶段A模板（S0-S2c）
 
 ### 2.1 目标
 
@@ -33,8 +34,9 @@
 
 - `validation_gate_decision` 可追溯，且 `contract_version = "nc-v1"`。
 - `integrated_recommendation` 稳定产出，口径与契约一致。
+- `validation_weight_plan` 桥接硬门禁通过：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id`。
 - 圈级五件套完整：`run/test/artifact/review/sync`。
-- 若 S2b 门禁 FAIL，必须先完成 S2r 修复并重验通过。
+- 若 S2b 或 S2c 门禁 FAIL，必须先完成 S2r 修复并重验通过。
 
 ### 2.4 必交付产物
 
@@ -60,7 +62,8 @@
 
 ### 3.2 入口门禁
 
-- 阶段A收口通过（S2b PASS/WARN，且修复债务已登记）。
+- 阶段A收口通过（S2c PASS/WARN，且修复债务已登记）。
+- 阶段A输入桥接链路完整（`validation_weight_plan` 硬门禁通过）。
 - `integrated_recommendation` 可被 S3/S4 稳定消费。
 - A 股关键约束字段齐备（T+1/涨跌停/交易时段口径可追溯）。
 
@@ -146,7 +149,7 @@
 - 全局看板：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md`
 - 依赖图：`Governance/SpiralRoadmap/DEPENDENCY-MAP.md`
 - 执行路线：`Governance/SpiralRoadmap/SPIRAL-PRODUCTION-ROUTES.md`
-- S0-S2 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
+- S0-S2c 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 
 ---
@@ -155,4 +158,5 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v0.2 | 2026-02-16 | 阶段A口径从 S0-S2 升级为 S0-S2c；新增 `validation_weight_plan` 桥接硬门禁（阶段A出口 + 阶段B入口）；明确阶段 DoD 与核心算法 DoD 分离 |
 | v0.1 | 2026-02-15 | 首版：定义阶段A/B/C统一模板（目标、入口门禁、退出门禁、必交付产物、失败回退）并对齐现有 Spiral 圈序 |
