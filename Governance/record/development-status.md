@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-16  
-**当前版本**: v4.1（S2c 算法深化准备中，S2->S3 桥接硬门禁已就位）  
+**当前版本**: v4.2（S2c 算法深化准备中，S2->S3 桥接硬门禁已就位）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -61,9 +61,9 @@
 
 ## 下一步（S2c 准备）
 
-1. 启动 `eq recommend --date {trade_date} --mode integrated --with-validation-bridge` 路径补齐。
-2. 补齐并执行 S2c 目标测试：`test_weight_plan_bridge_contract.py`、`test_validation_weight_plan_bridge.py`、`test_algorithm_semantics_regression.py`。
-3. 产出 S2c 证据并完成桥接硬门禁验收后，再推进 S3a 与 S3。
+1. 先锁测试与门禁（P0）：完成并跑通 `validation_weight_plan` 桥接链路与 `final_gate=FAIL` 阻断测试（Integration + Validation 合同测试），并覆盖 `selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 一致性断言。
+2. 再补齐 MSS/IRS/PAS/Validation/Integration 的 full 语义（P0）：把简化映射替换为设计语义实现，并产出 S2c 证据产物；设计入口为 `docs/design/core-algorithms/` 下五模块算法文档（含 `docs/design/core-algorithms/integration/integration-algorithm.md`）。
+3. 最后做 S2c 收口（P0）：通过 `python -m scripts.quality.local_quality_check --contracts --governance`，更新 `Governance/specs/spiral-s2c/*` 与状态文档，再进入 S3a。
 
 ---
 
@@ -79,6 +79,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-16 | v4.2 | 明确 S2c 下一步为三段 P0 顺序；补齐 Integration 为核心算法 full 语义必选模块，并将门禁测试表述升级为 Integration + Validation 联合合同测试 |
 | 2026-02-16 | v4.1 | 新增 S2c 算法深化圈并切换当前状态为 S2c 准备；落地 `validation_weight_plan` 桥接硬门禁与核心算法独立 DoD 口径 |
 | 2026-02-16 | v4.0 | 同步阶段C执行合同（S5-S7a）入口与状态口径，补齐路线索引 |
 | 2026-02-16 | v3.9 | 新建 S3a 执行卡与 `spiral-s3a` 证据骨架，状态从 S3 准备切换为 S3a 准备 |

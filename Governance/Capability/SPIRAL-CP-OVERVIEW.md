@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.3.0  
+**版本**: v7.3.1  
 **最后更新**: 2026-02-16  
 **适用对象**: 个人开发、个人使用
 
@@ -83,6 +83,12 @@
 | S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
 
 补充：阶段C（S5-S7a）执行合同已就位：`Governance/SpiralRoadmap/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`。
+
+### 4.3 S2c 下一关键动作（P0）
+
+1. 先锁测试与门禁：完成并跑通 `validation_weight_plan` 桥接链路与 `final_gate=FAIL` 阻断测试（Integration + Validation 合同测试）。
+2. 再补齐 MSS/IRS/PAS/Validation/Integration 的 full 语义：按 `docs/design/core-algorithms/` 五模块算法文档实现并产出 S2c 证据。
+3. 最后做 S2c 收口：通过 `python -m scripts.quality.local_quality_check --contracts --governance`，完成 `Governance/specs/spiral-s2c/*` 与状态文档同步后，才进入 S3a。
 
 ---
 
@@ -194,6 +200,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.3.1 | 2026-02-16 | 在主控入口新增 `S2c 下一关键动作（P0）` 三步，显式补齐 Integration（集成层）为核心算法 full 语义必选模块 |
 | v7.3.0 | 2026-02-16 | 新增 S2c（S2b->S3a）算法深化圈；将 `validation_weight_plan` 桥接升级为 S2->S3 硬门禁；新增“核心算法完成 DoD（独立于阶段 DoD）” |
 | v7.2.0 | 2026-02-16 | 补齐阶段C（S5-S7a）执行合同入口；扩展当前执行状态快照到 S7a planned |
 | v7.1.0 | 2026-02-16 | 下一圈切换为 S3a（ENH-10）并创建 `spiral-s3a` 证据入口；S3 顺延为 S3a 后继圈 |
