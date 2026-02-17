@@ -282,3 +282,8 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 - `.claude/` is retained as historical tooling assets; do not treat `.claude` commands as canonical workflow requirements.
 - Reusable governance rules have been migrated to `Governance/steering/` and `Governance/Capability/`.
 
+## 14. Git auth baseline
+
+- TLS backend baseline: prefer `openssl` (`git config --global http.sslbackend openssl`; repo-local override allowed).
+- In sandbox-restricted sessions, authenticated `git push` should run outside sandbox/escalated mode to ensure credential prompt/storage paths are accessible.
+
