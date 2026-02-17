@@ -1,7 +1,7 @@
 # S3a 执行卡（v0.1）
 
 **状态**: Active  
-**更新时间**: 2026-02-16  
+**更新时间**: 2026-02-17  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3a（ENH-10 数据采集增强）
 
@@ -77,3 +77,15 @@ pytest tests/unit/data/test_fetch_retry_contract.py -q
 - 依赖图：`Governance/SpiralRoadmap/DEPENDENCY-MAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+
+---
+
+## 9. 本轮进度（2026-02-17）
+
+- A3 已启动：`eq fetch-batch` / `eq fetch-status` / `eq fetch-retry` 已接入统一入口。
+- 合同测试首轮通过：
+  - `tests/unit/data/test_fetch_batch_contract.py`
+  - `tests/unit/data/test_fetch_resume_contract.py`
+  - `tests/unit/data/test_fetch_retry_contract.py`
+- 门禁检查通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
+- 下一步：补齐真实链路吞吐与失败恢复证据，推进 S3a 收口。

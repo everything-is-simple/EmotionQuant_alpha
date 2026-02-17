@@ -1,4 +1,4 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.3）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.4）
 
 **状态**: Active  
 **更新时间**: 2026-02-17  
@@ -24,11 +24,11 @@
 
 ---
 
-## 1. 现实基线快照（As-Is, 2026-02-16）
+## 1. 现实基线快照（As-Is, 2026-02-17）
 
-1. S2b 已按 6A 收口完成；新增 S2c（核心算法深化）作为 S2->S3 迁移前置，当前阶段以 S2c 准备为主（见 `Governance/record/development-status.md`）。
-2. `eq` 统一入口当前已支持 `run/mss/mss-probe/recommend`，阶段B目标命令（`fetch-batch/backtest/trade/analysis/stress`）尚未完成接入。
-3. `src/backtest`、`src/trading`、`src/analysis` 目前为最小骨架，阶段B需要补齐可执行链路。
+1. S2c 已按 6A 收口完成，S3a/S3 已进入 `in_progress`，并已打通 S3a->S3 消费门禁链路（见 `Governance/record/development-status.md`）。
+2. `eq` 统一入口已完成阶段B首批命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade`；`analysis/stress` 仍待后续圈补齐。
+3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路；`src/analysis` 仍待补齐。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
 5. S3a 一页执行卡已存在：`Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md`。
 
@@ -295,10 +295,10 @@ flowchart LR
 执行顺序：
 
 1. 跑 baseline command/test（环境健康检查）。
-2. 完成 S2c（算法深化）收口并通过桥接门禁。
-3. 启动 S3a（ENH-10）。
-4. S3a 完成后进入 S3（回测）。
-5. S3/S4 完成后进入 S3b（归因）与 S4b（极端防御）。
+2. 完成 S3a（ENH-10）真实链路演练并补齐吞吐/恢复证据。
+3. 继续推进 S3（回测）板块化涨跌停阈值与执行细节完善。
+4. 继续推进 S4（纸上交易）跨日持仓生命周期回放。
+5. S3/S4 满足 `PASS/WARN` 后进入 S3b（归因）与 S4b（极端防御）。
 
 启动命令：
 
@@ -336,6 +336,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.4 | 2026-02-17 | 刷新 As-Is 到当前执行进展：`eq` 已接入阶段B首批命令；S3 已扩展多交易日回放；S4 已启动 paper trade；同步首轮启动顺序 |
 | v0.3 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确阶段B中 ENH-10/04/06/09/03 的落位与审计路径 |
 | v0.2 | 2026-02-16 | 阶段B入口前置从 S2b 调整为 S2c；新增 `validation_weight_plan` 桥接硬门禁与回退规则 |
 | v0.1 | 2026-02-16 | 首版：定义阶段B（S3a-S4b）微圈执行合同、修复子圈与推进门禁，统一 run/test/artifact/review/sync 收口口径 |

@@ -329,3 +329,278 @@ def test_main_recommend_runs_s2b_integrated_mode(
     assert payload["status"] == "ok"
     assert payload["quality_gate_status"] in {"PASS", "WARN"}
     assert payload["integrated_count"] > 0
+
+
+def test_main_fetch_batch_status_and_retry(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    env_file = tmp_path / ".env.s3a.cli"
+    env_file.write_text(
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    fetch_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "fetch-batch",
+            "--start",
+            "20260101",
+            "--end",
+            "20260105",
+            "--batch-size",
+            "2",
+            "--workers",
+            "3",
+        ]
+    )
+    assert fetch_exit == 0
+    fetch_payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert fetch_payload["event"] == "s3a_fetch_batch"
+    assert fetch_payload["status"] == "completed"
+    assert fetch_payload["failed_batches"] == 0
+
+    status_exit = main(["--env-file", str(env_file), "fetch-status"])
+    assert status_exit == 0
+    status_payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert status_payload["event"] == "s3a_fetch_status"
+    assert status_payload["status"] == "completed"
+    assert status_payload["completed_batches"] == status_payload["total_batches"]
+
+    retry_exit = main(["--env-file", str(env_file), "fetch-retry"])
+    assert retry_exit == 0
+    retry_payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert retry_payload["event"] == "s3a_fetch_retry"
+    assert retry_payload["retried_batches"] == 0
+    assert retry_payload["status"] == "completed"
+
+
+def test_main_backtest_runs_with_s3a_consumption(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    env_file = tmp_path / ".env.s3.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    trade_dates = ["20260218", "20260219"]
+
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "fetch-batch",
+            "--start",
+            trade_dates[0],
+            "--end",
+            trade_dates[-1],
+            "--batch-size",
+            "365",
+            "--workers",
+            "3",
+        ]
+    ) == 0
+    for trade_date in trade_dates:
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "run",
+                "--date",
+                trade_date,
+                "--source",
+                "tushare",
+                "--l1-only",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "run",
+                "--date",
+                trade_date,
+                "--source",
+                "tushare",
+                "--to-l2",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "mss",
+                "--date",
+                trade_date,
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "recommend",
+                "--date",
+                trade_date,
+                "--mode",
+                "mss_irs_pas",
+                "--with-validation",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "recommend",
+                "--date",
+                trade_date,
+                "--mode",
+                "integrated",
+                "--with-validation-bridge",
+            ]
+        ) == 0
+
+    backtest_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "backtest",
+            "--engine",
+            "qlib",
+            "--start",
+            trade_dates[0],
+            "--end",
+            trade_dates[-1],
+        ]
+    )
+    assert backtest_exit == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3_backtest"
+    assert payload["quality_status"] in {"PASS", "WARN"}
+    assert payload["go_nogo"] == "GO"
+    assert payload["bridge_check_status"] == "PASS"
+    assert payload["total_trades"] > 0
+
+
+def test_main_trade_runs_paper_mode(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    env_file = tmp_path / ".env.s4.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    trade_dates = ["20260218", "20260219"]
+
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "fetch-batch",
+            "--start",
+            trade_dates[0],
+            "--end",
+            trade_dates[-1],
+            "--batch-size",
+            "365",
+            "--workers",
+            "3",
+        ]
+    ) == 0
+
+    for trade_date in trade_dates:
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "run",
+                "--date",
+                trade_date,
+                "--source",
+                "tushare",
+                "--l1-only",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "run",
+                "--date",
+                trade_date,
+                "--source",
+                "tushare",
+                "--to-l2",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "mss",
+                "--date",
+                trade_date,
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "recommend",
+                "--date",
+                trade_date,
+                "--mode",
+                "mss_irs_pas",
+                "--with-validation",
+            ]
+        ) == 0
+        assert main(
+            [
+                "--env-file",
+                str(env_file),
+                "recommend",
+                "--date",
+                trade_date,
+                "--mode",
+                "integrated",
+                "--with-validation-bridge",
+            ]
+        ) == 0
+
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "backtest",
+            "--engine",
+            "qlib",
+            "--start",
+            trade_dates[0],
+            "--end",
+            trade_dates[-1],
+        ]
+    ) == 0
+
+    trade_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "trade",
+            "--mode",
+            "paper",
+            "--date",
+            trade_dates[-1],
+        ]
+    )
+    assert trade_exit == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s4_trade"
+    assert payload["mode"] == "paper"
+    assert payload["quality_status"] in {"PASS", "WARN"}
+    assert payload["go_nogo"] == "GO"
+    assert payload["filled_orders"] > 0

@@ -5,18 +5,29 @@ import json
 from dataclasses import dataclass
 from typing import Sequence
 
+from src.backtest.pipeline import run_backtest
 from src import __version__
 from src.algorithms.mss.pipeline import run_mss_scoring
 from src.algorithms.mss.probe import run_mss_probe
 from src.config.config import Config
+from src.data.fetch_batch_pipeline import read_fetch_status, run_fetch_batch, run_fetch_retry
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
+from src.trading.pipeline import run_paper_trade
 
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§3 入口兼容规则, §5 各圈执行合同)
+# - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3a)
+# - Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+# - docs/design/core-infrastructure/backtest/backtest-algorithm.md (§1-§4)
+# - docs/design/core-infrastructure/trading/trading-algorithm.md (§2-§5)
 DESIGN_TRACE = {
     "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
+    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
+    "s3a_execution_card": "Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md",
+    "backtest_algorithm_design": "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
+    "trading_algorithm_design": "docs/design/core-infrastructure/trading/trading-algorithm.md",
 }
 
 
@@ -101,6 +112,41 @@ def build_parser() -> argparse.ArgumentParser:
         default="debug",
         help="Artifact lane for S2c evidence (release/debug).",
     )
+    fetch_batch_parser = subparsers.add_parser(
+        "fetch-batch",
+        help="Run S3a fetch batches with resumable progress.",
+    )
+    fetch_batch_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
+    fetch_batch_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
+    fetch_batch_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=365,
+        help="Batch size by calendar days, default 365.",
+    )
+    fetch_batch_parser.add_argument(
+        "--workers",
+        type=int,
+        default=3,
+        help="Parallel workers for fetch, default 3.",
+    )
+    backtest_parser = subparsers.add_parser("backtest", help="Run S3 backtest baseline pipeline.")
+    backtest_parser.add_argument(
+        "--engine",
+        default="qlib",
+        help="Backtest engine: qlib/local_vectorized/backtrader_compat.",
+    )
+    backtest_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
+    backtest_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
+    trade_parser = subparsers.add_parser("trade", help="Run S4 paper trading pipeline.")
+    trade_parser.add_argument(
+        "--mode",
+        required=True,
+        help="Trading mode. Current supported: paper.",
+    )
+    trade_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    subparsers.add_parser("fetch-status", help="Show latest S3a fetch status.")
+    subparsers.add_parser("fetch-retry", help="Retry failed S3a fetch batches.")
 
     subparsers.add_parser("version", help="Print CLI version.")
 
@@ -340,6 +386,170 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_error else 0
 
 
+def _run_fetch_batch(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    try:
+        result = run_fetch_batch(
+            start_date=args.start,
+            end_date=args.end,
+            batch_size=int(args.batch_size),
+            workers=int(args.workers),
+            config=ctx.config,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    print(
+        json.dumps(
+            {
+                "event": "s3a_fetch_batch",
+                "start_date": result.start_date,
+                "end_date": result.end_date,
+                "batch_size": result.batch_size,
+                "workers": result.workers,
+                "total_batches": result.total_batches,
+                "completed_batches": result.completed_batches,
+                "failed_batches": result.failed_batches,
+                "last_success_batch_id": result.last_success_batch_id,
+                "status": result.status,
+                "artifacts_dir": str(result.artifacts_dir),
+                "progress_path": str(result.progress_path),
+                "throughput_benchmark_path": str(result.throughput_benchmark_path),
+                "retry_report_path": str(result.retry_report_path),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
+def _run_fetch_status(ctx: PipelineContext) -> int:
+    result = read_fetch_status(config=ctx.config)
+    print(
+        json.dumps(
+            {
+                "event": "s3a_fetch_status",
+                "start_date": result.start_date,
+                "end_date": result.end_date,
+                "batch_size": result.batch_size,
+                "workers": result.workers,
+                "total_batches": result.total_batches,
+                "completed_batches": result.completed_batches,
+                "failed_batches": result.failed_batches,
+                "last_success_batch_id": result.last_success_batch_id,
+                "status": result.status,
+                "artifacts_dir": str(result.artifacts_dir),
+                "progress_path": str(result.progress_path),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _run_fetch_retry(ctx: PipelineContext) -> int:
+    try:
+        result = run_fetch_retry(config=ctx.config)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    print(
+        json.dumps(
+            {
+                "event": "s3a_fetch_retry",
+                "retried_batches": result.retried_batches,
+                "total_batches": result.total_batches,
+                "completed_batches": result.completed_batches,
+                "failed_batches": result.failed_batches,
+                "status": result.status,
+                "artifacts_dir": str(result.artifacts_dir),
+                "progress_path": str(result.progress_path),
+                "retry_report_path": str(result.retry_report_path),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
+def _run_backtest(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    try:
+        result = run_backtest(
+            start_date=args.start,
+            end_date=args.end,
+            engine=args.engine,
+            config=ctx.config,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    print(
+        json.dumps(
+            {
+                "event": "s3_backtest",
+                "backtest_id": result.backtest_id,
+                "engine": result.engine,
+                "start_date": result.start_date,
+                "end_date": result.end_date,
+                "consumed_signal_rows": result.consumed_signal_rows,
+                "total_trades": result.total_trades,
+                "quality_status": result.quality_status,
+                "go_nogo": result.go_nogo,
+                "bridge_check_status": result.bridge_check_status,
+                "artifacts_dir": str(result.artifacts_dir),
+                "backtest_results_path": str(result.backtest_results_path),
+                "backtest_trade_records_path": str(result.backtest_trade_records_path),
+                "ab_metric_summary_path": str(result.ab_metric_summary_path),
+                "gate_report_path": str(result.gate_report_path),
+                "consumption_path": str(result.consumption_path),
+                "error_manifest_path": str(result.error_manifest_path),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
+def _run_trade(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    try:
+        result = run_paper_trade(
+            trade_date=args.date,
+            mode=args.mode,
+            config=ctx.config,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    print(
+        json.dumps(
+            {
+                "event": "s4_trade",
+                "trade_date": result.trade_date,
+                "mode": result.mode,
+                "total_orders": result.total_orders,
+                "filled_orders": result.filled_orders,
+                "risk_event_count": result.risk_event_count,
+                "quality_status": result.quality_status,
+                "go_nogo": result.go_nogo,
+                "artifacts_dir": str(result.artifacts_dir),
+                "trade_records_path": str(result.trade_records_path),
+                "positions_path": str(result.positions_path),
+                "risk_events_path": str(result.risk_events_path),
+                "paper_trade_replay_path": str(result.paper_trade_replay_path),
+                "consumption_path": str(result.consumption_path),
+                "gate_report_path": str(result.gate_report_path),
+                "error_manifest_path": str(result.error_manifest_path),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -368,6 +578,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_mss_probe(ctx, args)
     if command == "recommend":
         return _run_recommend(ctx, args)
+    if command == "fetch-batch":
+        return _run_fetch_batch(ctx, args)
+    if command == "fetch-status":
+        return _run_fetch_status(ctx)
+    if command == "fetch-retry":
+        return _run_fetch_retry(ctx)
+    if command == "backtest":
+        return _run_backtest(ctx, args)
+    if command == "trade":
+        return _run_trade(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2

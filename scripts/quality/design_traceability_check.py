@@ -46,6 +46,14 @@ REQUIRED_TRACE_MARKERS: dict[str, list[str]] = {
         "DESIGN_TRACE",
         "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
     ],
+    "src/backtest/pipeline.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
+    ],
+    "src/trading/pipeline.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/trading/trading-algorithm.md",
+    ],
 }
 
 

@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-17  
-**当前版本**: v4.6（S2c 已收口：release 证据统一，进入 S3a 准备）  
+**当前版本**: v4.9（S3 多交易日回放已扩展，S4 paper trade 已启动并复用 consumption/gate 证据链）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S2c 已完成收口：桥接硬门禁 + full 语义 + release 证据同步已闭环，下一圈进入 S3a（ENH-10）**
+**S3/S4 执行中：S3 已扩展到多交易日回放口径，S4 已启动纸上交易最小闭环**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -28,7 +28,25 @@
 3. 归档 S2b 样例证据到 `Governance/specs/spiral-s2b`。
 4. 重跑关键门禁并通过：env baseline、S2b 目标测试、contracts/governance、防跑偏回归测试。
 
-## 本次同步（2026-02-17）
+## 本次同步（2026-02-17，S3 扩展 + S4 启动）
+
+1. S3 回测从单日最小口径扩展到多交易日完整回放：`src/backtest/pipeline.py` 按交易日历执行 `signal_date -> execute_date(T+1)`。
+2. S3 新增执行细节：补齐涨停买入拒绝、跌停卖出阻断、持仓 T+1 可卖日约束、成交费用与权益曲线跟踪。
+3. 新增并通过 S3 扩展测试：`tests/unit/backtest/test_backtest_t1_limit_rules.py`，验证多日窗口与 T+1/涨跌停行为。
+4. 启动 S4 paper trade：新增 `eq trade --mode paper --date {trade_date}`（`src/pipeline/main.py` + `src/trading/pipeline.py`）。
+5. S4 复用 S3 consumption/gate 证据链：强制消费 `backtest_results` + `quality_gate_report`，输出 `consumption.md` 与 `gate_report.md`。
+6. 新增并通过 S4 目标测试：`tests/unit/trading/test_order_pipeline_contract.py`、`tests/unit/trading/test_position_lifecycle_contract.py`、`tests/unit/trading/test_risk_guard_contract.py`，并通过 CLI 回归 `test_main_trade_runs_paper_mode`。
+7. `contracts/governance` 门禁通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
+
+## 上次同步（2026-02-17，S3a 启动）
+
+1. 启动 S3a（ENH-10）A3：新增 `eq fetch-batch`、`eq fetch-status`、`eq fetch-retry` 三个命令入口（`src/pipeline/main.py`）。
+2. 新增 S3a 采集增强最小实现：`src/data/fetch_batch_pipeline.py`，支持分批、断点续传、失败重试及产物固化。
+3. 新增并通过 S3a 合同测试：`test_fetch_batch_contract.py`、`test_fetch_resume_contract.py`、`test_fetch_retry_contract.py`；并通过 CLI 回归 `test_main_fetch_batch_status_and_retry`。
+4. `contracts/governance` 本地门禁通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
+5. 更新 `Governance/specs/spiral-s3a/*` 状态为 `in_progress`，启动持续复盘。
+
+## 上次同步（2026-02-17，S2c 收口）
 
 1. 完成 IRS full 语义实现：`src/algorithms/irs/pipeline.py` 已补齐六因子、`rotation_status/rotation_slope/rotation_detail`、`allocation_advice`、`quality_flag/sample_days/neutrality`，并输出 `irs_factor_intermediate_sample.parquet`。
 2. 完成 PAS full 语义实现：`src/algorithms/pas/pipeline.py` 已补齐三因子、`effective_risk_reward_ratio`、`direction/opportunity_grade`、`quality_flag/sample_days/adaptive_window`，并输出 `pas_factor_intermediate_sample.parquet`。
@@ -54,20 +72,20 @@
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2c | 核心算法深化闭环（权重桥接 + 语义收口） | ✅ 已完成 | release 证据统一、closeout 文档补齐、A6 同步完成 |
-| S3a | ENH-10 数据采集增强闭环 | 📋 未开始 | 依赖 S2c 完成 |
-| S3 | 回测闭环 | 📋 未开始 | 依赖 S3a 完成 |
-| S4 | 纸上交易闭环 | 📋 未开始 | 依赖 S3 完成 |
+| S3a | ENH-10 数据采集增强闭环 | 🔄 进行中 | 命令/合同测试首轮完成，待真实链路演练 |
+| S3 | 回测闭环 | 🔄 进行中 | 已扩展多交易日回放与 T+1/涨跌停执行细节 |
+| S4 | 纸上交易闭环 | 🔄 进行中 | 已启动 `eq trade`，复用 S3 consumption/gate 证据链 |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4 完成 |
 | S6 | 稳定化闭环 | 📋 未开始 | 重跑一致性与债务清偿 |
 | S7a | ENH-11 自动调度闭环 | 📋 未开始 | 依赖 S6 完成 |
 
 ---
 
-## 下一步（S3a 准备）
+## 下一步（S3/S4 执行中）
 
-1. 启动 S3a A1/A2：锁定 ENH-10 的 1-3 个 Slice 与验收口径。
-2. 复核 S3a 前置：保持 `local_quality_check --contracts --governance` 与桥接硬门禁结果可追溯。
-3. 准备 S3a 首轮 run/test/artifact 骨架（`fetch_progress`、吞吐对比、恢复演练记录）。
+1. 按板块规则细化涨跌停阈值（主板 10% / 创业板与科创板 20% / ST 5%），替换当前最小近似判定。
+2. 扩展 S4 到跨日持仓与卖出生命周期回放（含跌停不可卖次日重试）。
+3. 在真实采集链路下完成 S3a->S3->S4 端到端消费演练后推进 S3a/S3/S4 收口。
 
 ---
 
@@ -75,7 +93,7 @@
 
 1. S0c 行业快照为“全市场聚合”最小实现，尚未接入 SW 行业粒度聚合。
 2. 真实远端采集链路仍需端到端回归，不应在交易路径直接使用当前离线样例口径。
-3. 若 `validation_weight_plan` 桥接链路缺失或不可审计，必须阻断 S2c->S3a 迁移。
+3. 若 `validation_weight_plan` 桥接链路缺失或不可审计，必须阻断 S2c->S3a/S3/S4 迁移。
 
 ---
 
@@ -83,6 +101,9 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v4.9 | S3 扩展到多交易日回放并补齐 T+1/涨跌停执行细节；启动 S4 `eq trade --mode paper`，接入 S3 consumption/gate 证据链与交易合同测试 |
+| 2026-02-17 | v4.8 | S3 消费侧对接落地：新增 `eq backtest` 与 `src/backtest/pipeline.py`，接入 S3a `fetch_progress` 门禁与桥接校验，新增 3 条 backtest 测试与 1 条 CLI 回归 |
+| 2026-02-17 | v4.7 | S3a 启动执行：落地 `fetch-batch/fetch-status/fetch-retry` 命令与采集增强最小实现，新增 3 条 S3a 合同测试与 1 条 CLI 回归并通过 |
 | 2026-02-17 | v4.6 | S2c 收口完成：清理 PASS/FAIL 证据冲突，新增 `evidence_lane` 双车道与 release 同步脚本，补齐 closeout 文档并完成 A6 同步 |
 | 2026-02-17 | v4.5 | S2c 继续推进：完成 IRS/PAS/Validation full 语义实现与合同测试（10 passed），并通过 contracts/governance 门禁 |
 | 2026-02-17 | v4.4 | S2c 继续推进：新增 MSS full 语义起步测试与中间产物；接入 `DESIGN_TRACE` + traceability 自动检查，降低“实现-设计”漂移风险 |
