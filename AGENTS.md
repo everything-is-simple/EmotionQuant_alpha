@@ -310,5 +310,8 @@ Usage triggers (default policy):
 - Use `mcp-playwright` for UI flows, JS-rendered pages, screenshots, and interaction replay.
 
 Bootstrap:
-- Run `powershell -ExecutionPolicy Bypass -File scripts/setup/configure_mcp.ps1 -ContextApiKey <your_key>` to (re)apply MCP config and local cache paths.
-
+- One-shot bootstrap: `powershell -ExecutionPolicy Bypass -File scripts/setup/bootstrap_dev_tooling.ps1`
+- MCP only: `powershell -ExecutionPolicy Bypass -File scripts/setup/configure_mcp.ps1 -ContextApiKey <your_key>`
+- Optional MCP target path: `-CodexHome <path>` (default: project-local `.tmp/codex-home`)
+- Hooks only: `powershell -ExecutionPolicy Bypass -File scripts/setup/configure_git_hooks.ps1`
+- Skills check only: `powershell -ExecutionPolicy Bypass -File scripts/setup/check_skills.ps1`

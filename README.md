@@ -82,6 +82,20 @@ python -m scripts.quality.local_quality_check --contracts --governance
 
 说明：当前仓库仍在实现早期，需按 S0-S6 逐圈收口。
 
+### 4) 开发工具链初始化（MCP + Skills + Hooks）
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup/bootstrap_dev_tooling.ps1
+```
+
+如只需单项配置：
+- MCP：`powershell -ExecutionPolicy Bypass -File scripts/setup/configure_mcp.ps1`
+- Hooks：`powershell -ExecutionPolicy Bypass -File scripts/setup/configure_git_hooks.ps1`
+- Skills 检查：`powershell -ExecutionPolicy Bypass -File scripts/setup/check_skills.ps1`
+- MCP 默认写入项目级 `.tmp/codex-home`；如需自定义位置可加 `-CodexHome <path>`
+
+详情见：`docs/reference/dev-tooling-setup.md`
+
 ## 目录导航
 
 - `docs/`：系统设计与规范
