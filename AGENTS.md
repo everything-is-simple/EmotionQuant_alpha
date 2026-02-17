@@ -287,3 +287,28 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 - TLS backend baseline: prefer `openssl` (`git config --global http.sslbackend openssl`; repo-local override allowed).
 - In sandbox-restricted sessions, authenticated `git push` should run outside sandbox/escalated mode to ensure credential prompt/storage paths are accessible.
 
+## 15. MCP baseline
+
+Recommended MCP servers for this repo:
+- `context` (Context7 docs/context retrieval)
+- `fetch` (HTTP content retrieval)
+- `filesystem` (cross-workspace file operations)
+- `sequential-thinking` (explicit multi-step reasoning)
+- `mcp-playwright` (browser automation)
+
+Skill vs MCP boundary:
+- Skills are workflow instructions/templates.
+- MCP servers are runtime tools.
+- Skills do **not** replace MCP tools.
+- Existing skill overlap: `playwright` skill complements `mcp-playwright`; other listed MCPs have no direct skill replacement.
+
+Usage triggers (default policy):
+- Use `context` when API/framework docs or version-sensitive references are needed.
+- Use `fetch` for direct URL content extraction where browser rendering is unnecessary.
+- Use `filesystem` for non-trivial file discovery/read-write across allowed roots.
+- Use `sequential-thinking` for complex decomposition, debugging trees, and decision branching.
+- Use `mcp-playwright` for UI flows, JS-rendered pages, screenshots, and interaction replay.
+
+Bootstrap:
+- Run `powershell -ExecutionPolicy Bypass -File scripts/setup/configure_mcp.ps1 -ContextApiKey <your_key>` to (re)apply MCP config and local cache paths.
+
