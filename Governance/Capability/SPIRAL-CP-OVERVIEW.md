@@ -75,7 +75,7 @@
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ completed | `Governance/specs/spiral-s2a/final.md` |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ completed | `Governance/specs/spiral-s2b/final.md` |
 | S2c | 核心算法深化闭环（权重桥接与语义收口） | ✅ completed | `Governance/specs/spiral-s2c/final.md` |
-| S3a | ENH-10 数据采集增强闭环 | 🔄 in_progress | `Governance/specs/spiral-s3a/final.md` |
+| S3a | ENH-10 数据采集增强闭环 | ✅ completed | `Governance/specs/spiral-s3a/final.md` |
 | S3 | 回测闭环 | 🔄 in_progress | `Governance/specs/spiral-s3/final.md` |
 | S4 | 纸上交易闭环 | 🔄 in_progress | `Governance/specs/spiral-s4/final.md` |
 | S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
@@ -201,6 +201,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.3.7 | 2026-02-17 | S3a 状态切换为 `completed`：完成真实 TuShare 客户端接入、实测吞吐基准与失败恢复实测证据 |
 | v7.3.6 | 2026-02-17 | S4 状态切换为 `in_progress` 并挂载 `spiral-s4` 证据入口；补充 S3 多交易日回放与 T+1/涨跌停执行细节进展 |
 | v7.3.5 | 2026-02-17 | S3 状态切换为 `in_progress`：新增 `eq backtest` 最小消费链路，接入 S3a `fetch_progress` 门禁与桥接校验 |
 | v7.3.4 | 2026-02-17 | S3a 状态由 `planned` 切换为 `in_progress`，登记首轮交付（`fetch-batch/fetch-status/fetch-retry` + S3a 合同测试） |

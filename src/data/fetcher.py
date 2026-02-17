@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+import time
+from typing import Any, Callable, Protocol
+
+from src.config.config import Config
 
 
 class FetchClient(Protocol):
@@ -76,18 +79,106 @@ class SimulatedTuShareClient:
         raise ValueError(f"unsupported api_name: {api_name}")
 
 
+class RealTuShareClient:
+    """Real TuShare client adapter for production fetch flow."""
+
+    _API_METHOD_MAP = {
+        "daily": "daily",
+        "trade_cal": "trade_cal",
+        "limit_list": "limit_list_d",
+    }
+
+    def __init__(self, *, token: str) -> None:
+        sanitized = token.strip()
+        if not sanitized:
+            raise ValueError("tushare_token is required for real client")
+        try:
+            import tushare as ts
+        except ImportError as exc:  # pragma: no cover - depends on runtime env
+            raise RuntimeError("tushare package is not installed") from exc
+        self._pro = ts.pro_api(sanitized)
+
+    def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        method_name = self._API_METHOD_MAP.get(api_name)
+        if method_name is None:
+            raise ValueError(f"unsupported api_name: {api_name}")
+        method = getattr(self._pro, method_name, None)
+        if method is None and api_name == "limit_list":
+            method = getattr(self._pro, "limit_list", None)
+        if method is None:
+            raise RuntimeError(f"tushare api not available: {method_name}")
+        payload = method(**params)
+        rows = self._normalize_records(payload)
+        return self._normalize_fields(api_name=api_name, rows=rows)
+
+    def _normalize_records(self, payload: Any) -> list[dict[str, Any]]:
+        if payload is None:
+            return []
+        if isinstance(payload, list):
+            return [row for row in payload if isinstance(row, dict)]
+        if hasattr(payload, "to_dict"):
+            records = payload.to_dict(orient="records")
+            return [row for row in records if isinstance(row, dict)]
+        raise TypeError(f"unsupported payload type from tushare: {type(payload)!r}")
+
+    def _normalize_fields(
+        self, *, api_name: str, rows: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            ts_code = str(item.get("ts_code", ""))
+            if api_name in {"daily", "limit_list"} and not item.get("stock_code") and len(ts_code) >= 6:
+                item["stock_code"] = ts_code[:6]
+            normalized.append(item)
+        return normalized
+
+
 class TuShareFetcher:
     """TuShare data fetcher with retry tracing."""
 
-    def __init__(self, client: FetchClient | None = None, max_retries: int = 3) -> None:
-        self.client = client or SimulatedTuShareClient()
+    def __init__(
+        self,
+        client: FetchClient | None = None,
+        max_retries: int = 3,
+        *,
+        config: Config | None = None,
+        now_fn: Callable[[], float] | None = None,
+        sleep_fn: Callable[[float], None] | None = None,
+    ) -> None:
+        if client is not None:
+            self.client = client
+        elif config is not None and config.tushare_token.strip():
+            self.client = RealTuShareClient(token=config.tushare_token)
+        else:
+            self.client = SimulatedTuShareClient()
         self.max_retries = max(1, max_retries)
         self.retry_report: list[FetchAttempt] = []
+        self._now_fn = now_fn or time.monotonic
+        self._sleep_fn = sleep_fn or time.sleep
+        self._last_call_at: float | None = None
+        self._min_interval_seconds = 0.0
+        if isinstance(self.client, RealTuShareClient) and config is not None:
+            rate_limit = max(0, int(config.tushare_rate_limit_per_min))
+            self._min_interval_seconds = 60.0 / rate_limit if rate_limit > 0 else 0.0
+
+    def _respect_rate_limit(self) -> None:
+        if self._min_interval_seconds <= 0:
+            return
+        now = self._now_fn()
+        if self._last_call_at is not None:
+            elapsed = now - self._last_call_at
+            remaining = self._min_interval_seconds - elapsed
+            if remaining > 0:
+                self._sleep_fn(remaining)
+                now = self._now_fn()
+        self._last_call_at = now
 
     def fetch_with_retry(self, api_name: str, params: dict[str, Any]) -> Any:
         attempts: list[FetchAttempt] = []
         for attempt in range(1, self.max_retries + 1):
             try:
+                self._respect_rate_limit()
                 payload = self.client.call(api_name, params)
                 item = FetchAttempt(
                     api_name=api_name,

@@ -38,3 +38,7 @@ def test_fetch_batch_generates_progress_and_artifacts(
     assert result.progress_path == Path("artifacts/spiral-s3a/20260110/fetch_progress.json")
     assert result.throughput_benchmark_path.exists()
     assert result.retry_report_path.exists()
+    throughput_text = result.throughput_benchmark_path.read_text(encoding="utf-8")
+    assert "measured_wall_seconds:" in throughput_text
+    assert "single_thread_batches_per_sec:" in throughput_text
+    assert "effective_batches_per_sec:" in throughput_text

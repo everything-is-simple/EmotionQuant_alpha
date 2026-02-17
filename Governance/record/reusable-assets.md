@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-17  
-**版本**: v2.16  
+**版本**: v2.17  
 **范围**: S0-S6
 
 ---
@@ -83,8 +83,8 @@
 | A-TEST-024 | S2c full 语义合同测试集 | `tests/unit/algorithms/irs/test_irs_full_semantics_contract.py` + `tests/unit/algorithms/pas/test_pas_full_semantics_contract.py` + `tests/unit/algorithms/validation/test_factor_validation_metrics_contract.py` + `tests/unit/algorithms/validation/test_weight_validation_walk_forward_contract.py` | A | IRS/PAS/Validation full 语义回归保障 |
 | A-CODE-025 | S2c 证据车道隔离能力 | `src/pipeline/main.py` + `src/pipeline/recommend.py` + `src/algorithms/irs/pipeline.py` + `src/algorithms/pas/pipeline.py` + `src/algorithms/validation/pipeline.py` | A | `release/debug` 双车道，避免测试/演练覆盖正式证据 |
 | A-TEST-026 | S2c 证据隔离与同步校验测试 | `tests/unit/pipeline/test_recommend_evidence_lane.py` + `tests/unit/scripts/test_sync_s2c_release_artifacts.py` | A | 保证 lane 分流与 release 同步前置校验行为稳定 |
-| A-CODE-027 | S3a 采集增强最小实现 | `src/data/fetch_batch_pipeline.py` + `src/pipeline/main.py` | A | 分批采集、断点续传、失败重试与吞吐/重试报告产物 |
-| A-TEST-028 | S3a 合同与 CLI 回归测试集 | `tests/unit/data/test_fetch_batch_contract.py` + `tests/unit/data/test_fetch_resume_contract.py` + `tests/unit/data/test_fetch_retry_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_fetch_batch_status_and_retry` | A | 保证 S3a 命令路径与续传/重试契约稳定 |
+| A-CODE-027 | S3a 采集增强实现（收口版） | `src/data/fetcher.py` + `src/data/fetch_batch_pipeline.py` + `src/data/l1_pipeline.py` + `src/pipeline/main.py` | A | 真实 TuShare 适配、实测吞吐基准、失败批次真实重跑恢复与非交易日门禁兼容 |
+| A-TEST-028 | S3a 合同与 CLI 回归测试集（收口版） | `tests/unit/data/test_fetcher_contract.py` + `tests/unit/data/test_fetch_batch_contract.py` + `tests/unit/data/test_fetch_resume_contract.py` + `tests/unit/data/test_fetch_retry_contract.py` + `tests/unit/data/test_l1_repository_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_fetch_batch_status_and_retry` | A | 保证 S3a 真实/离线双模式、吞吐证据与恢复链路契约稳定 |
 | A-CODE-029 | S3 回测输入准备与消费门禁实现 | `src/backtest/pipeline.py` + `src/pipeline/main.py` | A | 消费 S3a `fetch_progress` + Integration/Validation 桥接校验 + 回测最小产物输出 |
 | A-TEST-030 | S3 Backtest 合同与可复现测试集 | `tests/unit/backtest/test_backtest_contract.py` + `tests/unit/backtest/test_validation_integration_bridge.py` + `tests/unit/backtest/test_backtest_reproducibility.py` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_backtest_runs_with_s3a_consumption` | A | 保证 S3 消费链路、桥接阻断与可复现性 |
 | A-CODE-031 | S3 多交易日回放与 A 股执行细节实现 | `src/backtest/pipeline.py` | A | 按交易日历执行 T+1、涨停买入拒绝、跌停卖出阻断、费用与权益曲线计算 |
@@ -110,6 +110,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v2.17 | 升级 S3a 资产登记为收口版：纳入真实 TuShare 适配、实测吞吐与失败恢复实测相关代码/测试资产 |
 | 2026-02-17 | v2.16 | 增加 S3 多交易日回放与 T+1/涨跌停资产（A-CODE-031、A-TEST-032）及 S4 paper trade 资产（A-CODE-033、A-TEST-034） |
 | 2026-02-17 | v2.15 | 增加 S3 回测输入准备与消费门禁资产（A-CODE-029）及 Backtest 合同/可复现测试资产（A-TEST-030） |
 | 2026-02-17 | v2.14 | 增加 S3a 采集增强实现与测试资产（A-CODE-027、A-TEST-028） |

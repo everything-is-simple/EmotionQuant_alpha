@@ -60,7 +60,7 @@ def run_l1_collection(
     if source.lower() != "tushare":
         raise ValueError(f"unsupported source for S0b: {source}")
 
-    effective_fetcher = fetcher or TuShareFetcher()
+    effective_fetcher = fetcher or TuShareFetcher(config=config)
     artifacts_dir = Path("artifacts") / "spiral-s0b" / trade_date
 
     repositories = {
@@ -71,6 +71,7 @@ def run_l1_collection(
     raw_counts: dict[str, int] = {}
     errors: list[dict[str, str]] = []
     trade_cal_contains_trade_date = False
+    trade_cal_is_open: bool | None = None
 
     for dataset, repository in repositories.items():
         try:
@@ -82,6 +83,13 @@ def run_l1_collection(
                 trade_cal_contains_trade_date = any(
                     str(row.get("trade_date", "")) == trade_date for row in rows
                 )
+                for row in rows:
+                    if str(row.get("trade_date", "")) != trade_date:
+                        continue
+                    marker = row.get("is_open", row.get("is_trading"))
+                    marker_text = str(marker).strip().lower()
+                    trade_cal_is_open = marker_text in {"1", "true", "y", "yes"}
+                    break
         except Exception as exc:  # pragma: no cover - covered via contract test
             raw_counts[dataset] = 0
             errors.append(
@@ -93,7 +101,7 @@ def run_l1_collection(
             )
 
     gate_issues: list[str] = []
-    if raw_counts.get("raw_daily", 0) <= 0:
+    if trade_cal_is_open is not False and raw_counts.get("raw_daily", 0) <= 0:
         gate_issues.append("raw_daily_empty")
     if not trade_cal_contains_trade_date:
         gate_issues.append("trade_cal_missing_trade_date")
@@ -114,6 +122,7 @@ def run_l1_collection(
         "gate_checks": {
             "raw_daily_gt_zero": raw_counts.get("raw_daily", 0) > 0,
             "trade_cal_contains_trade_date": trade_cal_contains_trade_date,
+            "trade_cal_is_open": trade_cal_is_open,
         },
     }
     _write_json(artifacts_dir / "raw_counts.json", raw_counts_payload)

@@ -23,6 +23,18 @@ class MissingTradeCalClient:
         raise ValueError(f"unsupported api: {api_name}")
 
 
+class ClosedDayClient:
+    def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        trade_date = str(params.get("trade_date") or params.get("start_date") or "")
+        if api_name == "daily":
+            return []
+        if api_name == "trade_cal":
+            return [{"exchange": "SSE", "trade_date": trade_date, "is_open": 0}]
+        if api_name == "limit_list":
+            return []
+        raise ValueError(f"unsupported api: {api_name}")
+
+
 def _build_config(tmp_path: Path) -> Config:
     env_file = tmp_path / ".env.s0b"
     data_path = tmp_path / "eq_data"
@@ -82,3 +94,19 @@ def test_l1_collection_writes_error_manifest_when_gate_fails(tmp_path: Path) -> 
     payload: dict[str, Any] = json.loads(result.error_manifest_path.read_text(encoding="utf-8"))
     messages = [item["message"] for item in payload["errors"]]
     assert "trade_cal_missing_trade_date" in messages
+
+
+def test_l1_collection_allows_closed_trade_date_without_daily_rows(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    fetcher = TuShareFetcher(client=ClosedDayClient(), max_retries=1)
+
+    result = run_l1_collection(
+        trade_date="20260215",
+        source="tushare",
+        config=config,
+        fetcher=fetcher,
+    )
+
+    assert result.has_error is False
+    payload = json.loads((result.artifacts_dir / "raw_counts.json").read_text(encoding="utf-8"))
+    assert payload["gate_checks"]["trade_cal_is_open"] is False

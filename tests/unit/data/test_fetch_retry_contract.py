@@ -36,4 +36,6 @@ def test_fetch_retry_recovers_failed_batches(tmp_path: Path, monkeypatch) -> Non
     assert after_retry["failed_batch_ids"] == []
     assert after_retry["completed_batches"] == after_retry["total_batches"]
     assert retry_run.retry_report_path == Path("artifacts/spiral-s3a/20260110/fetch_retry_report.md")
-    assert "retried_batches: 1" in retry_run.retry_report_path.read_text(encoding="utf-8")
+    retry_report_text = retry_run.retry_report_path.read_text(encoding="utf-8")
+    assert "retried_batches: 1" in retry_report_text
+    assert "retried_success_batches: 1" in retry_report_text

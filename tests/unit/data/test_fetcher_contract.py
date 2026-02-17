@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import types
 from typing import Any
 
 import pytest
 
+from src.config.config import Config
 from src.data.fetcher import FetchError, SimulatedTuShareClient, TuShareFetcher
 
 
@@ -50,3 +52,40 @@ def test_simulated_client_covers_s0b_required_apis() -> None:
     assert len(daily_rows) > 0
     assert any(row["trade_date"] == "20260215" for row in trade_cal_rows)
     assert len(limit_rows) > 0
+
+
+def test_fetcher_uses_real_tushare_client_when_token_exists(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeProApi:
+        def daily(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"ts_code": "000001.SZ", "trade_date": "20260215"}]
+
+        def trade_cal(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"exchange": "SSE", "trade_date": "20260215", "is_open": 1}]
+
+        def limit_list_d(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"ts_code": "000002.SZ", "trade_date": "20260215", "limit_type": "U"}]
+
+    fake_tushare = types.SimpleNamespace(pro_api=lambda _token: FakeProApi())
+    monkeypatch.setitem(__import__("sys").modules, "tushare", fake_tushare)
+
+    env_file = tmp_path / ".env.fetcher.real"
+    env_file.write_text(
+        "ENVIRONMENT=test\n"
+        "TUSHARE_TOKEN=test_token\n"
+        "TUSHARE_RATE_LIMIT_PER_MIN=6000\n",
+        encoding="utf-8",
+    )
+    config = Config.from_env(env_file=str(env_file))
+    fetcher = TuShareFetcher(config=config, max_retries=1)
+
+    daily_rows = fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
+    trade_cal_rows = fetcher.fetch_with_retry(
+        "trade_cal", {"start_date": "20260215", "end_date": "20260215"}
+    )
+    limit_rows = fetcher.fetch_with_retry("limit_list", {"trade_date": "20260215"})
+
+    assert daily_rows[0]["stock_code"] == "000001"
+    assert trade_cal_rows[0]["is_open"] == 1
+    assert limit_rows[0]["stock_code"] == "000002"

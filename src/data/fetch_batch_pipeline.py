@@ -4,9 +4,12 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from src.config.config import Config
+from src.data.fetcher import TuShareFetcher
+from src.data.l1_pipeline import run_l1_collection
 
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3a)
@@ -22,6 +25,18 @@ class BatchWindow:
     batch_id: int
     start_date: str
     end_date: str
+
+
+@dataclass(frozen=True)
+class BatchExecutionRecord:
+    batch_id: int
+    start_date: str
+    end_date: str
+    status: str
+    elapsed_seconds: float
+    trade_dates: int
+    open_trade_dates: int
+    error: str = ""
 
 
 @dataclass(frozen=True)
@@ -203,23 +218,54 @@ def _save_state(state: dict[str, Any]) -> tuple[Path, Path]:
     return latest_path, artifact_path
 
 
-def _write_throughput_benchmark(path: Path, *, total_batches: int, workers: int) -> None:
-    safe_total = max(1, total_batches)
-    single_seconds = float(safe_total)
-    worker_factor = max(1, workers)
-    multi_seconds = (safe_total / worker_factor) + (safe_total * 0.25)
-    single_tps = safe_total / max(0.001, single_seconds)
-    multi_tps = safe_total / max(0.001, multi_seconds)
+def _write_throughput_benchmark(
+    path: Path,
+    *,
+    total_batches: int,
+    workers: int,
+    execution_mode: str,
+    records: list[BatchExecutionRecord],
+    wall_seconds: float,
+) -> None:
+    processed_batches = len(records)
+    serial_seconds = sum(max(0.0, item.elapsed_seconds) for item in records)
+    safe_wall_seconds = max(0.001, wall_seconds)
+    if serial_seconds <= 0:
+        serial_seconds = safe_wall_seconds
+
+    single_tps = processed_batches / max(0.001, serial_seconds)
+    effective_tps = processed_batches / safe_wall_seconds
     lines = [
         "# S3a Throughput Benchmark",
         "",
+        f"- measured_at_utc: {_utc_now_text()}",
         f"- total_batches: {total_batches}",
-        f"- workers: {workers}",
-        f"- single_thread_batches_per_sec: {single_tps:.3f}",
-        f"- multi_thread_batches_per_sec: {multi_tps:.3f}",
-        f"- improvement_ratio: {(multi_tps / max(0.001, single_tps)):.3f}",
-        "",
+        f"- processed_batches_in_run: {processed_batches}",
+        f"- workers_configured: {workers}",
+        f"- execution_mode: {execution_mode}",
+        f"- measured_wall_seconds: {wall_seconds:.6f}",
+        f"- measured_serial_seconds: {serial_seconds:.6f}",
+        f"- single_thread_batches_per_sec: {single_tps:.6f}",
+        f"- effective_batches_per_sec: {effective_tps:.6f}",
+        f"- improvement_ratio: {(effective_tps / max(0.001, single_tps)):.6f}",
+        f"- trade_dates_processed: {sum(item.trade_dates for item in records)}",
+        f"- open_trade_dates_processed: {sum(item.open_trade_dates for item in records)}",
     ]
+    if records:
+        lines.append("- per_batch_details:")
+        for item in records:
+            detail = (
+                f"  - batch_id={item.batch_id} status={item.status} "
+                f"elapsed_seconds={item.elapsed_seconds:.6f} trade_dates={item.trade_dates} "
+                f"open_trade_dates={item.open_trade_dates}"
+            )
+            if item.error:
+                detail = f"{detail} error={item.error}"
+            lines.append(detail)
+    else:
+        lines.append("- per_batch_details: none")
+
+    lines.append("")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -229,14 +275,19 @@ def _write_retry_report(
     *,
     failed_batch_ids: list[int],
     failed_batch_errors: dict[str, str],
-    retried_batch_ids: list[int] | None = None,
+    retried_results: list[dict[str, str]] | None = None,
 ) -> None:
-    retried = retried_batch_ids or []
+    retried = retried_results or []
+    retried_success_ids = [int(item["batch_id"]) for item in retried if item.get("status") == "success"]
+    retried_failed_ids = [int(item["batch_id"]) for item in retried if item.get("status") == "failed"]
     lines = [
         "# S3a Fetch Retry Report",
         "",
+        f"- generated_at_utc: {_utc_now_text()}",
         f"- failed_batches: {len(failed_batch_ids)}",
         f"- retried_batches: {len(retried)}",
+        f"- retried_success_batches: {len(retried_success_ids)}",
+        f"- retried_failed_batches: {len(retried_failed_ids)}",
     ]
     if failed_batch_ids:
         lines.append("- failed_batch_details:")
@@ -248,8 +299,16 @@ def _write_retry_report(
 
     if retried:
         lines.append("- retried_batch_details:")
-        for batch_id in retried:
-            lines.append(f"  - batch_id={batch_id} status=success")
+        for item in retried:
+            batch_id = int(item["batch_id"])
+            status = str(item.get("status", "failed"))
+            error_text = str(item.get("error", ""))
+            detail = f"  - batch_id={batch_id} status={status}"
+            if error_text:
+                detail = f"{detail} error={error_text}"
+            lines.append(detail)
+    else:
+        lines.append("- retried_batch_details: none")
 
     lines.append("")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -306,6 +365,109 @@ def _resolve_state(
     return loaded
 
 
+def _iter_trade_dates(start_date: str, end_date: str) -> list[str]:
+    start_dt = _parse_trade_date(start_date)
+    end_dt = _parse_trade_date(end_date)
+    dates: list[str] = []
+    cursor = start_dt
+    while cursor <= end_dt:
+        dates.append(cursor.strftime("%Y%m%d"))
+        cursor += timedelta(days=1)
+    return dates
+
+
+def _is_open_trade_date(fetcher: TuShareFetcher, trade_date: str) -> bool:
+    rows = fetcher.fetch_with_retry(
+        "trade_cal",
+        {"start_date": trade_date, "end_date": trade_date},
+    )
+    for row in rows:
+        if str(row.get("trade_date", "")) != trade_date:
+            continue
+        marker = row.get("is_open", row.get("is_trading"))
+        if marker is None:
+            return True
+        marker_text = str(marker).strip().lower()
+        return marker_text in {"1", "true", "y", "yes"}
+    return False
+
+
+def _read_error_manifest_text(path: Path) -> str:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return f"error_manifest_unreadable:{path}"
+    errors = payload.get("errors", []) if isinstance(payload, dict) else []
+    if isinstance(errors, list):
+        for item in errors:
+            if isinstance(item, dict):
+                message = str(item.get("message", "")).strip()
+                if message:
+                    return message
+    return "unknown_error"
+
+
+def _execute_batch_window(window: BatchWindow, *, config: Config) -> BatchExecutionRecord:
+    started = perf_counter()
+    trade_dates = _iter_trade_dates(window.start_date, window.end_date)
+    if not config.tushare_token.strip():
+        return BatchExecutionRecord(
+            batch_id=window.batch_id,
+            start_date=window.start_date,
+            end_date=window.end_date,
+            status="success",
+            elapsed_seconds=perf_counter() - started,
+            trade_dates=len(trade_dates),
+            open_trade_dates=len(trade_dates),
+        )
+    fetcher = TuShareFetcher(config=config, max_retries=3)
+    open_trade_dates = 0
+    try:
+        for trade_date in trade_dates:
+            if not _is_open_trade_date(fetcher, trade_date):
+                continue
+            open_trade_dates += 1
+            result = run_l1_collection(
+                trade_date=trade_date,
+                source="tushare",
+                config=config,
+                fetcher=fetcher,
+            )
+            if result.has_error:
+                error_text = _read_error_manifest_text(result.error_manifest_path)
+                return BatchExecutionRecord(
+                    batch_id=window.batch_id,
+                    start_date=window.start_date,
+                    end_date=window.end_date,
+                    status="failed",
+                    elapsed_seconds=perf_counter() - started,
+                    trade_dates=len(trade_dates),
+                    open_trade_dates=open_trade_dates,
+                    error=f"trade_date={trade_date} {error_text}",
+                )
+    except Exception as exc:
+        return BatchExecutionRecord(
+            batch_id=window.batch_id,
+            start_date=window.start_date,
+            end_date=window.end_date,
+            status="failed",
+            elapsed_seconds=perf_counter() - started,
+            trade_dates=len(trade_dates),
+            open_trade_dates=open_trade_dates,
+            error=str(exc),
+        )
+
+    return BatchExecutionRecord(
+        batch_id=window.batch_id,
+        start_date=window.start_date,
+        end_date=window.end_date,
+        status="success",
+        elapsed_seconds=perf_counter() - started,
+        trade_dates=len(trade_dates),
+        open_trade_dates=open_trade_dates,
+    )
+
+
 def run_fetch_batch(
     *,
     start_date: str,
@@ -316,7 +478,9 @@ def run_fetch_batch(
     fail_once_batch_ids: set[int] | None = None,
     stop_after_batches: int | None = None,
 ) -> FetchBatchRunResult:
-    del config  # Reserved for future real fetcher injection / credentials.
+    execution_mode = (
+        "real_tushare_sequential_write_safe" if config.tushare_token.strip() else "simulated_offline"
+    )
     windows = _build_batches(start_date, end_date, batch_size)
     state = _resolve_state(
         start_date=start_date,
@@ -336,6 +500,8 @@ def run_fetch_batch(
     }
 
     processed = 0
+    execution_records: list[BatchExecutionRecord] = []
+    started = perf_counter()
     for window in windows:
         if stop_after_batches is not None and processed >= max(0, int(stop_after_batches)):
             break
@@ -347,15 +513,34 @@ def run_fetch_batch(
             failed_ids.add(batch_id)
             injected_ids.add(batch_id)
             failed_batch_errors[str(batch_id)] = "simulated_batch_failure"
+            execution_records.append(
+                BatchExecutionRecord(
+                    batch_id=batch_id,
+                    start_date=window.start_date,
+                    end_date=window.end_date,
+                    status="failed",
+                    elapsed_seconds=0.0,
+                    trade_dates=len(_iter_trade_dates(window.start_date, window.end_date)),
+                    open_trade_dates=0,
+                    error="simulated_batch_failure",
+                )
+            )
             processed += 1
             continue
 
-        completed_ids.add(batch_id)
-        failed_ids.discard(batch_id)
-        failed_batch_errors.pop(str(batch_id), None)
-        state["last_success_batch_id"] = max(int(state.get("last_success_batch_id", 0)), batch_id)
+        record = _execute_batch_window(window, config=config)
+        execution_records.append(record)
+        if record.status == "success":
+            completed_ids.add(batch_id)
+            failed_ids.discard(batch_id)
+            failed_batch_errors.pop(str(batch_id), None)
+            state["last_success_batch_id"] = max(int(state.get("last_success_batch_id", 0)), batch_id)
+        else:
+            failed_ids.add(batch_id)
+            failed_batch_errors[str(batch_id)] = record.error or "batch_execution_failed"
         processed += 1
 
+    wall_seconds = perf_counter() - started
     state["completed_batch_ids"] = sorted(completed_ids)
     state["failed_batch_ids"] = sorted(failed_ids)
     state["failure_injected_batch_ids"] = sorted(injected_ids)
@@ -370,6 +555,9 @@ def run_fetch_batch(
         throughput_path,
         total_batches=int(state.get("total_batches", len(windows))),
         workers=int(state.get("workers", workers)),
+        execution_mode=execution_mode,
+        records=execution_records,
+        wall_seconds=wall_seconds,
     )
     _write_retry_report(
         retry_report_path,
@@ -433,10 +621,16 @@ def read_fetch_status(*, config: Config) -> FetchStatusResult:
 
 
 def run_fetch_retry(*, config: Config) -> FetchRetryRunResult:
-    del config
     state = _load_state()
     if state is None:
         raise ValueError("no fetch progress found; run fetch-batch first")
+
+    windows = _build_batches(
+        str(state.get("start_date", "")),
+        str(state.get("end_date", "")),
+        int(state.get("batch_size", 0)),
+    )
+    window_map = {int(item.batch_id): item for item in windows}
 
     failed_ids = [int(item) for item in state.get("failed_batch_ids", [])]
     completed_ids = {int(item) for item in state.get("completed_batch_ids", [])}
@@ -444,20 +638,37 @@ def run_fetch_retry(*, config: Config) -> FetchRetryRunResult:
         str(int(batch_id)): str(message)
         for batch_id, message in state.get("failed_batch_errors", {}).items()
     }
-    retried_batch_ids: list[int] = []
+    retried_results: list[dict[str, str]] = []
+    next_failed_ids: set[int] = set()
+
     for batch_id in failed_ids:
-        completed_ids.add(batch_id)
-        failed_batch_errors.pop(str(batch_id), None)
-        retried_batch_ids.append(batch_id)
+        window = window_map.get(batch_id)
+        if window is None:
+            next_failed_ids.add(batch_id)
+            failed_batch_errors[str(batch_id)] = "batch_window_not_found"
+            retried_results.append(
+                {"batch_id": str(batch_id), "status": "failed", "error": "batch_window_not_found"}
+            )
+            continue
+
+        record = _execute_batch_window(window, config=config)
+        if record.status == "success":
+            completed_ids.add(batch_id)
+            failed_batch_errors.pop(str(batch_id), None)
+            state["last_success_batch_id"] = max(int(state.get("last_success_batch_id", 0)), batch_id)
+            retried_results.append({"batch_id": str(batch_id), "status": "success", "error": ""})
+            continue
+
+        next_failed_ids.add(batch_id)
+        error_text = record.error or "batch_execution_failed"
+        failed_batch_errors[str(batch_id)] = error_text
+        retried_results.append(
+            {"batch_id": str(batch_id), "status": "failed", "error": error_text}
+        )
 
     state["completed_batch_ids"] = sorted(completed_ids)
-    state["failed_batch_ids"] = []
+    state["failed_batch_ids"] = sorted(next_failed_ids)
     state["failed_batch_errors"] = failed_batch_errors
-    if retried_batch_ids:
-        state["last_success_batch_id"] = max(
-            int(state.get("last_success_batch_id", 0)),
-            max(retried_batch_ids),
-        )
     _update_status(state)
 
     _, progress_path = _save_state(state)
@@ -465,9 +676,9 @@ def run_fetch_retry(*, config: Config) -> FetchRetryRunResult:
     retry_report_path = artifacts_dir / "fetch_retry_report.md"
     _write_retry_report(
         retry_report_path,
-        failed_batch_ids=[],
+        failed_batch_ids=list(state["failed_batch_ids"]),
         failed_batch_errors=failed_batch_errors,
-        retried_batch_ids=retried_batch_ids,
+        retried_results=retried_results,
     )
     completed_batches = len(state.get("completed_batch_ids", []))
     failed_batches = len(state.get("failed_batch_ids", []))
@@ -476,7 +687,7 @@ def run_fetch_retry(*, config: Config) -> FetchRetryRunResult:
         artifacts_dir=artifacts_dir,
         progress_path=progress_path,
         retry_report_path=retry_report_path,
-        retried_batches=len(retried_batch_ids),
+        retried_batches=len(retried_results),
         total_batches=int(state.get("total_batches", 0)),
         completed_batches=completed_batches,
         failed_batches=failed_batches,
