@@ -24,6 +24,10 @@ DESIGN_TRACE = {
 
 SUPPORTED_ENGINE = {"qlib", "local_vectorized", "backtrader_compat"}
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
+LIMIT_RATIO_MAIN_BOARD = 0.10
+LIMIT_RATIO_GEM_STAR = 0.20
+LIMIT_RATIO_ST = 0.05
+LIMIT_PRICE_TOLERANCE_RATIO = 0.001
 
 BACKTEST_RESULT_COLUMNS = [
     "backtest_id",
@@ -274,6 +278,52 @@ def _read_trading_days(*, database_path: Path, start_date: str, end_date: str) -
     return [str(item) for item in frame["trade_date"].tolist()]
 
 
+def _table_has_column(
+    connection: duckdb.DuckDBPyConnection, table_name: str, column_name: str
+) -> bool:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        [table_name, column_name],
+    ).fetchone()
+    return bool(row and int(row[0]) > 0)
+
+
+def _read_stock_profiles(*, database_path: Path) -> dict[str, dict[str, str]]:
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        row = connection.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'raw_stock_basic'"
+        ).fetchone()
+        if not row or int(row[0]) <= 0:
+            return {}
+
+        has_stock_code = _table_has_column(connection, "raw_stock_basic", "stock_code")
+        has_ts_code = _table_has_column(connection, "raw_stock_basic", "ts_code")
+        has_name = _table_has_column(connection, "raw_stock_basic", "name")
+        if not has_stock_code and not has_ts_code:
+            return {}
+
+        if has_stock_code and has_ts_code:
+            stock_code_expr = "COALESCE(NULLIF(stock_code, ''), SPLIT_PART(ts_code, '.', 1))"
+        elif has_stock_code:
+            stock_code_expr = "stock_code"
+        else:
+            stock_code_expr = "SPLIT_PART(ts_code, '.', 1)"
+
+        name_expr = "name" if has_name else "''"
+        frame = connection.execute(
+            f"SELECT {stock_code_expr} AS stock_code, {name_expr} AS stock_name "
+            "FROM raw_stock_basic"
+        ).df()
+
+    profiles: dict[str, dict[str, str]] = {}
+    for _, row in frame.iterrows():
+        stock_code = str(row.get("stock_code", "")).strip()
+        if not stock_code:
+            continue
+        profiles[stock_code] = {"stock_name": str(row.get("stock_name", "")).strip()}
+    return profiles
+
+
 def _next_trade_day(trading_days: list[str], trade_date: str) -> str | None:
     for day in trading_days:
         if day > trade_date:
@@ -316,19 +366,63 @@ def _build_price_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, str], dict
     return lookup
 
 
-def _is_limit_up(price: dict[str, float]) -> bool:
+def _build_prev_close_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, str], float]:
+    if price_frame.empty:
+        return {}
+    working = price_frame.copy()
+    working["trade_date"] = working["trade_date"].astype(str)
+    working["stock_code"] = working["stock_code"].astype(str)
+    working["close"] = pd.to_numeric(working["close"], errors="coerce").fillna(0.0)
+    working = working.sort_values(by=["stock_code", "trade_date"])
+    working["prev_close"] = working.groupby("stock_code")["close"].shift(1)
+
+    lookup: dict[tuple[str, str], float] = {}
+    for _, row in working.iterrows():
+        stock_code = str(row.get("stock_code", "")).strip()
+        trade_date = str(row.get("trade_date", "")).strip()
+        prev_close = float(row.get("prev_close", 0.0) or 0.0)
+        if not stock_code or not trade_date or prev_close <= 0.0:
+            continue
+        lookup[(trade_date, stock_code)] = prev_close
+    return lookup
+
+
+def _resolve_limit_ratio(*, stock_code: str, stock_name: str) -> float:
+    normalized_name = str(stock_name).upper()
+    if "ST" in normalized_name:
+        return LIMIT_RATIO_ST
+
+    normalized_code = str(stock_code).strip()
+    if normalized_code.startswith(("300", "301", "688", "689")):
+        return LIMIT_RATIO_GEM_STAR
+    return LIMIT_RATIO_MAIN_BOARD
+
+
+def _price_tolerance(limit_price: float) -> float:
+    return max(0.01, abs(limit_price) * LIMIT_PRICE_TOLERANCE_RATIO)
+
+
+def _is_limit_up(*, price: dict[str, float], prev_close: float | None, limit_ratio: float) -> bool:
     open_price = float(price.get("open", 0.0))
     high_price = float(price.get("high", 0.0))
     if open_price <= 0.0 or high_price <= 0.0:
         return False
+    if prev_close is not None and prev_close > 0.0 and limit_ratio > 0.0:
+        limit_price = prev_close * (1.0 + limit_ratio)
+        tolerance = _price_tolerance(limit_price)
+        return open_price >= (limit_price - tolerance) and high_price >= (limit_price - tolerance)
     return open_price >= high_price * 0.999
 
 
-def _is_limit_down(price: dict[str, float]) -> bool:
+def _is_limit_down(*, price: dict[str, float], prev_close: float | None, limit_ratio: float) -> bool:
     open_price = float(price.get("open", 0.0))
     low_price = float(price.get("low", 0.0))
     if open_price <= 0.0 or low_price <= 0.0:
         return False
+    if prev_close is not None and prev_close > 0.0 and limit_ratio > 0.0:
+        limit_price = prev_close * (1.0 - limit_ratio)
+        tolerance = _price_tolerance(limit_price)
+        return open_price <= (limit_price + tolerance) and low_price <= (limit_price + tolerance)
     return open_price <= low_price * 1.001
 
 
@@ -472,6 +566,8 @@ def run_backtest(
             add_error("P0", "calendar", "raw_trade_cal_open_days_missing")
 
     price_lookup: dict[tuple[str, str], dict[str, float]] = {}
+    prev_close_lookup: dict[tuple[str, str], float] = {}
+    stock_profile_lookup: dict[str, dict[str, str]] = {}
     if not errors:
         price_frame = _read_price_frame(
             database_path=database_path,
@@ -479,6 +575,8 @@ def run_backtest(
             end_date=end_date,
         )
         price_lookup = _build_price_lookup(price_frame)
+        prev_close_lookup = _build_prev_close_lookup(price_frame)
+        stock_profile_lookup = _read_stock_profiles(database_path=database_path)
         if not price_lookup:
             add_error("P0", "market_data", "raw_daily_missing_for_backtest_window")
 
@@ -519,7 +617,10 @@ def run_backtest(
                 if not price:
                     missing_price_exit_count += 1
                     continue
-                if _is_limit_down(price):
+                stock_name = str(stock_profile_lookup.get(stock_code, {}).get("stock_name", "")).strip()
+                limit_ratio = _resolve_limit_ratio(stock_code=stock_code, stock_name=stock_name)
+                prev_close = prev_close_lookup.get((replay_day, stock_code))
+                if _is_limit_down(price=price, prev_close=prev_close, limit_ratio=limit_ratio):
                     limit_down_blocked_count += 1
                     continue
 
@@ -613,7 +714,10 @@ def run_backtest(
                         }
                     )
                     continue
-                if _is_limit_up(price):
+                stock_name = str(stock_profile_lookup.get(stock_code, {}).get("stock_name", "")).strip()
+                limit_ratio = _resolve_limit_ratio(stock_code=stock_code, stock_name=stock_name)
+                prev_close = prev_close_lookup.get((replay_day, stock_code))
+                if _is_limit_up(price=price, prev_close=prev_close, limit_ratio=limit_ratio):
                     limit_up_blocked_count += 1
                     trade_rows.append(
                         {

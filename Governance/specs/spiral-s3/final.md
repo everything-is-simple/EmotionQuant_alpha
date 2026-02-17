@@ -9,7 +9,7 @@
 
 - A1 Align: PASS（主目标与 In/Out Scope 已固化）
 - A2 Architect: PASS（S3 输入消费契约与门禁已固化）
-- A3 Act: IN_PROGRESS（`eq backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节）
+- A3 Act: IN_PROGRESS（`eq backtest` 已扩展多交易日回放，并落地板块化涨跌停阈值 10%/20%/5%）
 - A4 Assert: IN_PROGRESS（目标测试与治理门禁已通过，待真实链路演练）
 - A5 Archive: IN_PROGRESS（review 持续更新）
 - A6 Advance: PENDING
@@ -33,6 +33,7 @@
   - `artifacts/spiral-s3/{trade_date}/consumption.md`
   - `artifacts/spiral-s3/{trade_date}/gate_report.md`
   - `tests/unit/backtest/test_backtest_t1_limit_rules.py`（T+1/涨跌停执行细节验证）
+  - `tests/unit/backtest/test_backtest_board_limit_thresholds.py`（板块化涨跌停阈值验证）
 
 ## 4. 同步检查（A6）
 

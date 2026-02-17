@@ -13,8 +13,9 @@
    - Validation-Integration 桥接门禁
    - 多交易日回放（交易日历驱动）与 T+1 执行映射
    - 涨停买入拒绝、跌停卖出阻断、费用与权益曲线追踪
+   - 板块化涨跌停阈值：主板 10% / 创业板与科创板 20% / ST 5%
    - 回测最小产物输出（results/trade_records/A-B-C 摘要）
-3. 新增 S3 目标测试 4 条 + CLI 回归 1 条。
+3. 新增 S3 目标测试 5 条（含板块化阈值回归）+ CLI 回归 1 条。
 
 ## 2. A4 验证记录
 
@@ -25,8 +26,8 @@
 
 ### test
 
-- `python -m pytest tests/unit/backtest/test_backtest_contract.py tests/unit/backtest/test_validation_integration_bridge.py tests/unit/backtest/test_backtest_reproducibility.py tests/unit/backtest/test_backtest_t1_limit_rules.py tests/unit/pipeline/test_cli_entrypoint.py::test_main_backtest_runs_with_s3a_consumption -q`
-- 结果: PASS（5 passed）
+- `python -m pytest tests/unit/backtest/test_backtest_contract.py tests/unit/backtest/test_validation_integration_bridge.py tests/unit/backtest/test_backtest_reproducibility.py tests/unit/backtest/test_backtest_t1_limit_rules.py tests/unit/backtest/test_backtest_board_limit_thresholds.py -q`
+- 结果: PASS（7 passed）
 
 ### contracts/governance
 
@@ -45,7 +46,7 @@
 
 ## 4. 偏差与风险
 
-1. 多交易日回放与 T+1/涨跌停最小执行细节已落地，但板块化涨跌停阈值（10%/20%/5%）仍待补齐。
+1. 多交易日回放与 T+1/涨跌停板块化阈值（10%/20%/5%）已落地，更细撮合规则仍待补齐。
 2. 更完整绩效指标与交易成本/滑点建模仍待补齐。
 
 ## 5. 消费记录

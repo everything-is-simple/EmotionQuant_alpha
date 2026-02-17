@@ -79,9 +79,11 @@ def test_backtest_applies_t1_and_limit_rules(tmp_path: Path) -> None:
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path)) as connection:
-        # Make first execute day limit-up to force buy rejection.
+        # Make first execute day hit main-board +10% limit-up to force buy rejection.
         connection.execute(
-            "UPDATE raw_daily SET open=high WHERE trade_date='20260219' AND stock_code='000001'"
+            "UPDATE raw_daily "
+            "SET open=close*1.1, high=close*1.1 "
+            "WHERE trade_date='20260219' AND stock_code='000001'"
         )
 
     result = run_backtest(
