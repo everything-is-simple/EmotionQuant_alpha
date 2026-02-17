@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-17  
-**版本**: v2.11  
+**版本**: v2.12  
 **范围**: S0-S6
 
 ---
@@ -59,7 +59,7 @@
 | A-CFG-002 | 运行依赖清单 | `requirements.txt` | A | 快速环境安装 |
 | S-QA-003 | 本地一致性检查脚本 | `scripts/quality/local_quality_check.py` | S | contracts/governance 本地门禁 |
 | S-QA-004 | 契约行为回归脚本 | `scripts/quality/contract_behavior_regression.py` | S | 边界行为固定回归 |
-| S-QA-005 | 设计溯源检查脚本 | `scripts/quality/design_traceability_check.py` | A | 检查核心模块 `DESIGN_TRACE` 标记，降低设计-实现漂移 |
+| S-QA-005 | 设计溯源检查脚本 | `scripts/quality/design_traceability_check.py` | A | 检查 MSS/IRS/PAS/Validation/Integration 等核心模块 `DESIGN_TRACE` 标记，降低设计-实现漂移 |
 | A-CODE-005 | 统一 CLI 入口骨架 | `src/pipeline/main.py` + `main.py` | A | 统一入口、参数路由、配置注入 |
 | A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
 | A-CODE-007 | L2 快照与 canary 最小闭环骨架 | `src/data/l2_pipeline.py` + `src/data/models/snapshots.py` | A | S0c 快照生成、质量字段门禁、错误分级 |
@@ -76,6 +76,10 @@
 | A-TEST-018 | S2c 桥接与语义回归测试集 | `tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py` + `tests/unit/integration/test_validation_weight_plan_bridge.py` + `tests/unit/integration/test_algorithm_semantics_regression.py` | A | 桥接一致性、Gate 阻断、关键语义边界回归 |
 | A-CODE-019 | MSS zscore 语义实现与中间产物输出 | `src/algorithms/mss/engine.py` + `src/algorithms/mss/pipeline.py` | A | `ratio->zscore->[0,100]` + 缺失回退 50 + `mss_factor_intermediate` 证据 |
 | A-TEST-020 | MSS full 语义合同测试 | `tests/unit/algorithms/mss/test_mss_full_semantics_contract.py` | A | 六因子温度公式与缺失回退 50 行为回归 |
+| A-CODE-021 | IRS full 语义实现与中间产物输出 | `src/algorithms/irs/pipeline.py` | A | 六因子评分 + 轮动状态 + 配置建议 + `irs_factor_intermediate` 证据 |
+| A-CODE-022 | PAS full 语义实现与中间产物输出 | `src/algorithms/pas/pipeline.py` | A | 三因子评分 + `effective_risk_reward_ratio` + `pas_factor_intermediate` 证据 |
+| A-CODE-023 | Validation full 语义实现（五件套） | `src/algorithms/validation/pipeline.py` | A | 因子验证 + Walk-Forward 权重验证 + Gate 决策 + `validation_run_manifest` |
+| A-TEST-024 | S2c full 语义合同测试集 | `tests/unit/algorithms/irs/test_irs_full_semantics_contract.py` + `tests/unit/algorithms/pas/test_pas_full_semantics_contract.py` + `tests/unit/algorithms/validation/test_factor_validation_metrics_contract.py` + `tests/unit/algorithms/validation/test_weight_validation_walk_forward_contract.py` | A | IRS/PAS/Validation full 语义回归保障 |
 
 ---
 
@@ -95,6 +99,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v2.12 | 增加 IRS/PAS/Validation full 语义实现与测试资产（A-CODE-021/022/023、A-TEST-024），并更新 S-QA-005 覆盖范围 |
 | 2026-02-17 | v2.11 | 增加设计溯源检查资产（S-QA-005）与 MSS 语义实现/测试资产（A-CODE-019、A-TEST-020） |
 | 2026-02-17 | v2.10 | 增加 S2c 阶段证据模板（S-GOV-015）与桥接硬门禁实现/测试资产（A-CODE-017、A-TEST-018） |
 | 2026-02-16 | v2.9 | 增加 S3a 证据模板资产登记（S-GOV-014） |

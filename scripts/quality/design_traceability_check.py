@@ -14,6 +14,14 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 REQUIRED_TRACE_MARKERS: dict[str, list[str]] = {
+    "src/algorithms/irs/pipeline.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-algorithms/irs/irs-algorithm.md",
+    ],
+    "src/algorithms/pas/pipeline.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-algorithms/pas/pas-algorithm.md",
+    ],
     "src/algorithms/mss/engine.py": [
         "DESIGN_TRACE",
         "docs/design/core-algorithms/mss/mss-algorithm.md",
@@ -65,4 +73,3 @@ def check_design_traceability() -> int:
 
     print(f"[traceability] pass ({checked} files)")
     return 0
-
