@@ -1,7 +1,7 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.2）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.3）
 
 **状态**: Active  
-**更新时间**: 2026-02-16  
+**更新时间**: 2026-02-17  
 **适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、极端防御）  
 **文档角色**: S3a-S4b 执行合同（不是上位 SoT 替代）
 
@@ -124,6 +124,28 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 | S4br | 极端防御修复子圈 | CP-07, CP-09 | 1-2d | S4b FAIL | 回 S4b |
 
 说明：默认 7 天 cadence 不变；上述微圈是 7 天内可组合执行单元。
+
+### 4.1 ENH 显式映射（新增）
+
+为提高 S3a-S4b 的 ENH 可追溯性，补充以下“ENH -> Spiral”显式映射：
+
+| ENH | 名称 | 本阶段落位 Spiral | 说明 |
+|---|---|---|---|
+| ENH-10 | 数据采集增强 | S3a | 分批下载、断点续传、多线程，不改采集语义 |
+| ENH-04 | 适配层契约测试 | S3, S4 | Backtest 与 Trading 分批落位 |
+| ENH-06 | A/B/C 对照看板 | S3 | 回测阶段形成对照指标摘要 |
+| ENH-09 | Qlib 适配层 | S3 | 将集成推荐映射到 Qlib 回测链路 |
+| ENH-03 | 失败产物协议 | S4 | 交易执行失败链路统一产物与复盘证据 |
+
+```mermaid
+flowchart LR
+  ENH10[ENH-10 采集增强] --> S3a[S3a]
+  ENH04B[ENH-04 Backtest契约] --> S3[S3]
+  ENH06[ENH-06 A/B/C对照] --> S3
+  ENH09[ENH-09 Qlib适配] --> S3
+  ENH04T[ENH-04 Trading契约] --> S4[S4]
+  ENH03[ENH-03 失败协议] --> S4
+```
 
 ---
 
@@ -314,5 +336,6 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.3 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确阶段B中 ENH-10/04/06/09/03 的落位与审计路径 |
 | v0.2 | 2026-02-16 | 阶段B入口前置从 S2b 调整为 S2c；新增 `validation_weight_plan` 桥接硬门禁与回退规则 |
 | v0.1 | 2026-02-16 | 首版：定义阶段B（S3a-S4b）微圈执行合同、修复子圈与推进门禁，统一 run/test/artifact/review/sync 收口口径 |

@@ -1,7 +1,7 @@
-# EmotionQuant S0-S2c 真螺旋执行路线图（执行版 v0.9）
+# EmotionQuant S0-S2c 真螺旋执行路线图（执行版 v1.0）
 
 **状态**: Active  
-**更新时间**: 2026-02-16  
+**更新时间**: 2026-02-17  
 **适用范围**: S0-S2c（数据层到核心算法深化闭环）  
 **文档角色**: S0-S2c 执行合同（不是上位 SoT 替代）
 
@@ -123,6 +123,32 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 | S2r | 质量门失败修复子圈 | CP-02, CP-03, CP-04, CP-05, CP-10 | 1-2d | S2b/S2c FAIL | 回 S2b 或 S2c |
 
 说明：默认 7 天 cadence 不变；上述微圈是 7 天内可组合执行单元。
+
+### 4.1 ENH 显式映射（新增）
+
+为提高 S0-S2c 的 ENH 可追溯性，补充以下“ENH -> Spiral”显式映射：
+
+| ENH | 名称 | 本阶段落位 Spiral | 说明 |
+|---|---|---|---|
+| ENH-01 | 统一运行入口 CLI | S0a | 统一 `eq` 入口与配置注入 |
+| ENH-02 | 数据预检与限流 | S0b | L1 采集前置预检与限流守卫 |
+| ENH-03 | 失败产物协议 | S0b | 统一 `error_manifest.json` 等失败证据 |
+| ENH-04 | 适配层契约测试 | S0b, S1a, S2a, S2b | Data/MSS/IRS-PAS-Validation/Integration 分批落位 |
+| ENH-05 | 金丝雀数据包 | S0c | 通过 `test_s0_canary` 验证最小回归链路 |
+| ENH-08 | 设计冻结检查（骨架） | S0c | 阶段A先建骨架，S6 再做全量执行 |
+
+```mermaid
+flowchart LR
+  ENH01[ENH-01 统一入口] --> S0a[S0a]
+  ENH02[ENH-02 预检与限流] --> S0b[S0b]
+  ENH03[ENH-03 失败协议] --> S0b
+  ENH04D[ENH-04 Data契约] --> S0b
+  ENH04M[ENH-04 MSS契约] --> S1a[S1a]
+  ENH04I[ENH-04 IRS/PAS/Validation契约] --> S2a[S2a]
+  ENH04G[ENH-04 Integration契约] --> S2b[S2b]
+  ENH05[ENH-05 金丝雀] --> S0c[S0c]
+  ENH08[ENH-08 冻结检查骨架] --> S0c
+```
 
 ---
 
@@ -325,6 +351,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.0 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确 S0-S2c 阶段 ENH-01/02/03/04/05/08 的落位与可追溯关系 |
 | v0.9 | 2026-02-16 | 新增 S2c（S2b->S3a）核心算法深化圈；把 `validation_weight_plan` 桥接升级为 S2 出口硬门禁；同步阶段A推进规则 |
 | v0.8 | 2026-02-15 | 执行卡体系补齐：新增 S0b/S0c/S1a/S1b/S2a/S2b/S2r 一页执行卡并在各圈合同挂接引用 |
 | v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |
