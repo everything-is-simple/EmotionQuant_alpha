@@ -1,7 +1,7 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.3.1  
-**最后更新**: 2026-02-16  
+**版本**: v7.3.2  
+**最后更新**: 2026-02-17  
 **适用对象**: 个人开发、个人使用
 
 ---
@@ -63,7 +63,7 @@
 
 > 约束：S2c 是 S2->S3 迁移的必选算法收口圈；S3a/S7a 不改变 CP 主路线语义，只交付执行层与运维层增强能力。
 
-### 4.2 当前执行状态快照（2026-02-16）
+### 4.2 当前执行状态快照（2026-02-17）
 
 | 微圈 | 目标 | 状态 | 证据入口 |
 |---|---|---|---|
@@ -74,7 +74,7 @@
 | S1b | MSS 消费验证闭环 | ✅ completed | `Governance/specs/spiral-s1b/final.md` |
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ completed | `Governance/specs/spiral-s2a/final.md` |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ completed | `Governance/specs/spiral-s2b/final.md` |
-| S2c | 核心算法深化闭环（权重桥接与语义收口） | 🟡 planned | 待创建 `Governance/specs/spiral-s2c/*` |
+| S2c | 核心算法深化闭环（权重桥接与语义收口） | 🟠 in_progress | `Governance/specs/spiral-s2c/final.md` |
 | S3a | ENH-10 数据采集增强闭环 | 🟡 planned | `Governance/specs/spiral-s3a/final.md` |
 | S3 | 回测闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s3/*` |
 | S4 | 纸上交易闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s4/*` |
@@ -87,6 +87,7 @@
 ### 4.3 S2c 下一关键动作（P0）
 
 1. 先锁测试与门禁：完成并跑通 `validation_weight_plan` 桥接链路与 `final_gate=FAIL` 阻断测试（Integration + Validation 合同测试）。
+   - 状态：已完成（桥接合同测试与语义回归通过，见 `Governance/specs/spiral-s2c/review.md`）。
 2. 再补齐 MSS/IRS/PAS/Validation/Integration 的 full 语义：按 `docs/design/core-algorithms/` 五模块算法文档实现并产出 S2c 证据。
 3. 最后做 S2c 收口：通过 `python -m scripts.quality.local_quality_check --contracts --governance`，完成 `Governance/specs/spiral-s2c/*` 与状态文档同步后，才进入 S3a。
 
@@ -200,6 +201,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.3.2 | 2026-02-17 | S2c 状态切换为 `in_progress`，补充桥接硬门禁子步完成状态与证据入口（`Governance/specs/spiral-s2c/*`） |
 | v7.3.1 | 2026-02-16 | 在主控入口新增 `S2c 下一关键动作（P0）` 三步，显式补齐 Integration（集成层）为核心算法 full 语义必选模块 |
 | v7.3.0 | 2026-02-16 | 新增 S2c（S2b->S3a）算法深化圈；将 `validation_weight_plan` 桥接升级为 S2->S3 硬门禁；新增“核心算法完成 DoD（独立于阶段 DoD）” |
 | v7.2.0 | 2026-02-16 | 补齐阶段C（S5-S7a）执行合同入口；扩展当前执行状态快照到 S7a planned |

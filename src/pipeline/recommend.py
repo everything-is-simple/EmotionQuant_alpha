@@ -14,6 +14,14 @@ from src.algorithms.validation.pipeline import run_validation_gate
 from src.config.config import Config
 from src.integration.pipeline import run_integrated_daily
 
+# DESIGN_TRACE:
+# - Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§5 S2a/S2b/S2c)
+# - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§4 run, §5 test, §8 硬门禁)
+DESIGN_TRACE = {
+    "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+}
+
 
 @dataclass(frozen=True)
 class RecommendRunResult:
@@ -77,7 +85,7 @@ def _write_quality_gate_report(
     message: str,
 ) -> None:
     lines = [
-        "# S2b Quality Gate Report",
+        "# S2 Quality Gate Report",
         "",
         f"- trade_date: {trade_date}",
         f"- status: {status}",
@@ -239,9 +247,11 @@ def _run_s2b(
     *,
     trade_date: str,
     with_validation: bool,
+    with_validation_bridge: bool,
     config: Config,
 ) -> RecommendRunResult:
-    artifacts_dir = Path("artifacts") / "spiral-s2b" / trade_date
+    spiral_id = "s2c" if with_validation_bridge else "s2b"
+    artifacts_dir = Path("artifacts") / f"spiral-{spiral_id}" / trade_date
     parquet_root = Path(config.parquet_path) / "l3"
     errors: list[dict[str, str]] = []
     irs_count = 0
@@ -288,6 +298,7 @@ def _run_s2b(
         integration_result = run_integrated_daily(
             trade_date=trade_date,
             config=config,
+            with_validation_bridge=with_validation_bridge,
         )
         integrated_count = integration_result.count
         final_gate = integration_result.validation_gate
@@ -391,6 +402,7 @@ def run_recommendation(
     trade_date: str,
     mode: str,
     with_validation: bool,
+    with_validation_bridge: bool = False,
     config: Config,
 ) -> RecommendRunResult:
     if mode == "mss_irs_pas":
@@ -403,6 +415,7 @@ def run_recommendation(
         return _run_s2b(
             trade_date=trade_date,
             with_validation=with_validation,
+            with_validation_bridge=with_validation_bridge,
             config=config,
         )
     raise ValueError(f"unsupported mode for current stage: {mode}")

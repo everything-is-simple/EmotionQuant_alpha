@@ -11,6 +11,14 @@ import pandas as pd
 from src.algorithms.mss.engine import MssInputSnapshot, MssScoreResult, calculate_mss_score
 from src.config.config import Config
 
+# DESIGN_TRACE:
+# - docs/design/core-algorithms/mss/mss-algorithm.md (§3, §4, §5)
+# - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§3 MSS)
+DESIGN_TRACE = {
+    "mss_algorithm": "docs/design/core-algorithms/mss/mss-algorithm.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+}
+
 
 @dataclass(frozen=True)
 class MssRunResult:
@@ -21,6 +29,7 @@ class MssRunResult:
     error_manifest_path: Path
     factor_trace_path: Path
     sample_path: Path
+    factor_intermediate_sample_path: Path
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -37,6 +46,80 @@ def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> boo
         [table_name],
     ).fetchone()
     return bool(row and int(row[0]) > 0)
+
+
+def _safe_ratio(numerator: float, denominator: float) -> float:
+    if denominator <= 0:
+        return 0.0
+    return float(numerator) / float(denominator)
+
+
+def _build_factor_intermediate_frame(
+    *,
+    trade_date: str,
+    snapshot: MssInputSnapshot,
+    score: MssScoreResult,
+) -> pd.DataFrame:
+    total_stocks = max(snapshot.total_stocks, 1)
+    market_coefficient_raw = _safe_ratio(snapshot.rise_count, total_stocks)
+    limit_up_ratio = _safe_ratio(snapshot.limit_up_count, total_stocks)
+    new_high_ratio = _safe_ratio(snapshot.new_100d_high_count, total_stocks)
+    strong_up_ratio = _safe_ratio(snapshot.strong_up_count, total_stocks)
+    profit_effect_raw = 0.4 * limit_up_ratio + 0.3 * new_high_ratio + 0.3 * strong_up_ratio
+    broken_rate = _safe_ratio(
+        max(snapshot.touched_limit_up - snapshot.limit_up_count, 0),
+        max(snapshot.touched_limit_up, 1),
+    )
+    limit_down_ratio = _safe_ratio(snapshot.limit_down_count, total_stocks)
+    strong_down_ratio = _safe_ratio(snapshot.strong_down_count, total_stocks)
+    new_low_ratio = _safe_ratio(snapshot.new_100d_low_count, total_stocks)
+    loss_effect_raw = (
+        0.3 * broken_rate
+        + 0.2 * limit_down_ratio
+        + 0.3 * strong_down_ratio
+        + 0.2 * new_low_ratio
+    )
+    continuity_limit_ratio = _safe_ratio(
+        snapshot.continuous_limit_up_2d + 2 * snapshot.continuous_limit_up_3d_plus,
+        max(snapshot.limit_up_count, 1),
+    )
+    continuity_new_high_ratio = _safe_ratio(
+        snapshot.continuous_new_high_2d_plus,
+        max(snapshot.new_100d_high_count, 1),
+    )
+    continuity_factor_raw = (
+        0.5 * continuity_limit_ratio + 0.5 * continuity_new_high_ratio
+    )
+    panic_tail_ratio = _safe_ratio(snapshot.high_open_low_close_count, total_stocks)
+    squeeze_tail_ratio = _safe_ratio(snapshot.low_open_high_close_count, total_stocks)
+    extreme_factor_raw = panic_tail_ratio + squeeze_tail_ratio
+    volatility_factor_raw = (
+        0.5 * max(snapshot.pct_chg_std, 0.0)
+        + 0.5 * max(0.0, snapshot.amount_volatility) / (max(0.0, snapshot.amount_volatility) + 1_000_000.0)
+    )
+
+    return pd.DataFrame.from_records(
+        [
+            {
+                "trade_date": trade_date,
+                "market_coefficient_raw": round(market_coefficient_raw, 6),
+                "profit_effect_raw": round(profit_effect_raw, 6),
+                "loss_effect_raw": round(loss_effect_raw, 6),
+                "continuity_factor_raw": round(continuity_factor_raw, 6),
+                "extreme_factor_raw": round(extreme_factor_raw, 6),
+                "volatility_factor_raw": round(volatility_factor_raw, 6),
+                "mss_market_coefficient": score.mss_market_coefficient,
+                "mss_profit_effect": score.mss_profit_effect,
+                "mss_loss_effect": score.mss_loss_effect,
+                "mss_continuity_factor": score.mss_continuity_factor,
+                "mss_extreme_factor": score.mss_extreme_factor,
+                "mss_volatility_factor": score.mss_volatility_factor,
+                "mss_extreme_direction_bias": score.mss_extreme_direction_bias,
+                "contract_version": score.contract_version,
+                "created_at": score.created_at or pd.Timestamp.utcnow().isoformat(),
+            }
+        ]
+    )
 
 
 def _write_factor_trace(path: Path, score: MssScoreResult) -> None:
@@ -114,6 +197,7 @@ def run_mss_scoring(
         )
 
     score: MssScoreResult | None = None
+    factor_intermediate_sample_path = artifacts_dir / "mss_factor_intermediate_sample.parquet"
     try:
         if not database_path.exists():
             add_error("P0", "load_l2", "duckdb_not_found")
@@ -160,12 +244,22 @@ def run_mss_scoring(
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         sample_path = artifacts_dir / "mss_panorama_sample.parquet"
         result_frame.to_parquet(sample_path, index=False)
+        factor_intermediate_frame = _build_factor_intermediate_frame(
+            trade_date=trade_date,
+            snapshot=snapshot,
+            score=score,
+        )
+        factor_intermediate_frame.to_parquet(factor_intermediate_sample_path, index=False)
 
         factor_trace_path = artifacts_dir / "mss_factor_trace.md"
         _write_factor_trace(factor_trace_path, score)
 
         parquet_root.mkdir(parents=True, exist_ok=True)
         result_frame.to_parquet(parquet_root / "mss_panorama.parquet", index=False)
+        factor_intermediate_frame.to_parquet(
+            parquet_root / "mss_factor_intermediate.parquet",
+            index=False,
+        )
     except Exception as exc:  # pragma: no cover - validated through contract tests
         if not errors:
             add_error("P0", "run_mss_scoring", str(exc))
@@ -173,6 +267,10 @@ def run_mss_scoring(
         sample_path = artifacts_dir / "mss_panorama_sample.parquet"
         factor_trace_path = artifacts_dir / "mss_factor_trace.md"
         pd.DataFrame.from_records([]).to_parquet(sample_path, index=False)
+        pd.DataFrame.from_records([]).to_parquet(
+            factor_intermediate_sample_path,
+            index=False,
+        )
         if score is None:
             factor_trace_path.write_text(
                 "# MSS Factor Trace\n\n- status: FAIL\n",
@@ -203,4 +301,5 @@ def run_mss_scoring(
         error_manifest_path=manifest_path,
         factor_trace_path=factor_trace_path,
         sample_path=sample_path,
+        factor_intermediate_sample_path=factor_intermediate_sample_path,
     )

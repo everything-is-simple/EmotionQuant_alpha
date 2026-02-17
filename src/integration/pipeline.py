@@ -8,6 +8,14 @@ import pandas as pd
 
 from src.config.config import Config
 
+# DESIGN_TRACE:
+# - docs/design/core-algorithms/integration/integration-algorithm.md (§3 集成公式, §4 Gate 与桥接阻断)
+# - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§3 Integration)
+DESIGN_TRACE = {
+    "integration_algorithm": "docs/design/core-algorithms/integration/integration-algorithm.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+}
+
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 BASELINE_WEIGHT = round(1.0 / 3.0, 4)
 
@@ -76,6 +84,16 @@ def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> boo
     row = connection.execute(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
         [table_name],
+    ).fetchone()
+    return bool(row and int(row[0]) > 0)
+
+
+def _column_exists(
+    connection: duckdb.DuckDBPyConnection, table_name: str, column_name: str
+) -> bool:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        [table_name, column_name],
     ).fetchone()
     return bool(row and int(row[0]) > 0)
 
@@ -199,17 +217,83 @@ def _normalize_gate(gate: str) -> str:
     return "FAIL"
 
 
+def _resolve_weight_plan(
+    *,
+    database_path: Path,
+    trade_date: str,
+    selected_weight_plan: str,
+) -> tuple[str, float, float, float, str]:
+    if not selected_weight_plan:
+        return ("", BASELINE_WEIGHT, BASELINE_WEIGHT, BASELINE_WEIGHT, "selected_weight_plan_missing")
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        if not _table_exists(connection, "validation_weight_plan"):
+            return (
+                "",
+                BASELINE_WEIGHT,
+                BASELINE_WEIGHT,
+                BASELINE_WEIGHT,
+                "validation_weight_plan_table_missing",
+            )
+        frame = connection.execute(
+            "SELECT plan_id, w_mss, w_irs, w_pas, contract_version "
+            "FROM validation_weight_plan "
+            "WHERE trade_date = ? AND plan_id = ? "
+            "ORDER BY created_at DESC LIMIT 1",
+            [trade_date, selected_weight_plan],
+        ).df()
+
+    if frame.empty:
+        return (
+            "",
+            BASELINE_WEIGHT,
+            BASELINE_WEIGHT,
+            BASELINE_WEIGHT,
+            "selected_weight_plan_not_found",
+        )
+
+    record = frame.iloc[0].to_dict()
+    if str(record.get("contract_version", "")).strip() != SUPPORTED_CONTRACT_VERSION:
+        return (
+            "",
+            BASELINE_WEIGHT,
+            BASELINE_WEIGHT,
+            BASELINE_WEIGHT,
+            "weight_plan_contract_version_mismatch",
+        )
+
+    try:
+        w_mss = float(record.get("w_mss", 0.0))
+        w_irs = float(record.get("w_irs", 0.0))
+        w_pas = float(record.get("w_pas", 0.0))
+    except (TypeError, ValueError):
+        return ("", BASELINE_WEIGHT, BASELINE_WEIGHT, BASELINE_WEIGHT, "weight_plan_value_invalid")
+
+    weight_sum = w_mss + w_irs + w_pas
+    if min(w_mss, w_irs, w_pas) <= 0.0 or abs(weight_sum - 1.0) > 0.05:
+        return ("", BASELINE_WEIGHT, BASELINE_WEIGHT, BASELINE_WEIGHT, "weight_plan_sum_invalid")
+
+    plan_id = str(record.get("plan_id", "")).strip()
+    if not plan_id:
+        return ("", BASELINE_WEIGHT, BASELINE_WEIGHT, BASELINE_WEIGHT, "weight_plan_id_missing")
+
+    return (plan_id, w_mss, w_irs, w_pas, "")
+
+
 def _quality_status(
     *,
     validation_gate: str,
     contract_version: str,
     integrated_count: int,
     rr_filtered_count: int,
+    bridge_error: str,
 ) -> tuple[str, str, str]:
     if contract_version != SUPPORTED_CONTRACT_VERSION:
         return ("FAIL", "NO_GO", "contract_version_mismatch")
     if validation_gate == "FAIL":
         return ("FAIL", "NO_GO", "validation_gate_fail")
+    if bridge_error:
+        return ("FAIL", "NO_GO", bridge_error)
     if integrated_count <= 0:
         return ("FAIL", "NO_GO", "integrated_recommendation_empty")
     if validation_gate == "WARN":
@@ -223,6 +307,7 @@ def run_integrated_daily(
     *,
     trade_date: str,
     config: Config,
+    with_validation_bridge: bool = False,
 ) -> IntegrationRunResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
@@ -275,9 +360,11 @@ def run_integrated_daily(
         else:
             raw_frame = pd.DataFrame.from_records([])
 
+        gate_select = "trade_date, final_gate, contract_version"
+        if _column_exists(connection, "validation_gate_decision", "selected_weight_plan"):
+            gate_select += ", selected_weight_plan"
         gate_frame = connection.execute(
-            "SELECT trade_date, final_gate, contract_version "
-            "FROM validation_gate_decision WHERE trade_date = ? "
+            f"SELECT {gate_select} FROM validation_gate_decision WHERE trade_date = ? "
             "ORDER BY created_at DESC LIMIT 1",
             [trade_date],
         ).df()
@@ -290,17 +377,43 @@ def run_integrated_daily(
 
     validation_gate = _normalize_gate(str(gate_record.get("final_gate", "FAIL")))
     validation_contract_version = str(gate_record.get("contract_version", "")).strip()
+    selected_weight_plan = str(gate_record.get("selected_weight_plan", "")).strip()
+    weight_plan_id = "baseline"
+    w_mss = BASELINE_WEIGHT
+    w_irs = BASELINE_WEIGHT
+    w_pas = BASELINE_WEIGHT
+    bridge_error = ""
+    if with_validation_bridge and validation_gate != "FAIL":
+        (
+            weight_plan_id,
+            w_mss,
+            w_irs,
+            w_pas,
+            bridge_error,
+        ) = _resolve_weight_plan(
+            database_path=database_path,
+            trade_date=trade_date,
+            selected_weight_plan=selected_weight_plan,
+        )
     integration_state = (
         "blocked_gate_fail"
         if validation_gate == "FAIL"
-        else ("warn_gate_fallback" if validation_gate == "WARN" else "normal")
+        else (
+            "blocked_bridge_missing"
+            if with_validation_bridge and bridge_error
+            else ("warn_gate_fallback" if validation_gate == "WARN" else "normal")
+        )
     )
 
     integrated_rows: list[dict[str, object]] = []
     rr_filtered_count = 0
     created_at = pd.Timestamp.utcnow().isoformat()
 
-    if validation_gate != "FAIL" and validation_contract_version == SUPPORTED_CONTRACT_VERSION:
+    if (
+        validation_gate != "FAIL"
+        and validation_contract_version == SUPPORTED_CONTRACT_VERSION
+        and not (with_validation_bridge and bridge_error)
+    ):
         mss_score = float(mss_record.get("mss_score", 0.0))
         mss_cycle = str(mss_record.get("mss_cycle", "unknown"))
         mss_trend = str(mss_record.get("mss_trend", "sideways"))
@@ -354,7 +467,7 @@ def run_integrated_daily(
                 pas_direction = "neutral"
 
             final_score = round(
-                mss_score * BASELINE_WEIGHT + irs_score * BASELINE_WEIGHT + pas_score * BASELINE_WEIGHT,
+                mss_score * w_mss + irs_score * w_irs + pas_score * w_pas,
                 4,
             )
             direction = _to_direction(mss_direction, irs_direction, pas_direction)
@@ -380,10 +493,10 @@ def run_integrated_daily(
                     "direction": direction,
                     "consistency": consistency,
                     "integration_mode": "top_down",
-                    "weight_plan_id": "baseline",
-                    "w_mss": BASELINE_WEIGHT,
-                    "w_irs": BASELINE_WEIGHT,
-                    "w_pas": BASELINE_WEIGHT,
+                    "weight_plan_id": weight_plan_id,
+                    "w_mss": round(w_mss, 4),
+                    "w_irs": round(w_irs, 4),
+                    "w_pas": round(w_pas, 4),
                     "validation_gate": validation_gate,
                     "integration_state": integration_state,
                     "recommendation": recommendation,
@@ -416,6 +529,7 @@ def run_integrated_daily(
         contract_version=validation_contract_version,
         integrated_count=integrated_count,
         rr_filtered_count=rr_filtered_count,
+        bridge_error=bridge_error,
     )
     quality_frame = pd.DataFrame.from_records(
         [

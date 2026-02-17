@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-16  
-**版本**: v2.9  
+**最后更新**: 2026-02-17  
+**版本**: v2.11  
 **范围**: S0-S6
 
 ---
@@ -34,6 +34,7 @@
 | S-GOV-012 | S2a 6A 证据档案模板 | `Governance/specs/spiral-s2a/*` | S | IRS/PAS/Validation 圈 requirements/review/final 与样例证据复用 |
 | S-GOV-013 | S2b 6A 证据档案模板 | `Governance/specs/spiral-s2b/*` | S | Integration 圈 requirements/review/final 与样例证据复用 |
 | S-GOV-014 | S3a 6A 证据档案模板 | `Governance/specs/spiral-s3a/*` | S | ENH-10 圈 requirements/review/final 与门禁证据骨架复用 |
+| S-GOV-015 | S2c 6A 阶段证据模板 | `Governance/specs/spiral-s2c/*` | A | 桥接硬门禁子步与 full 语义收口证据复用 |
 
 ---
 
@@ -58,6 +59,7 @@
 | A-CFG-002 | 运行依赖清单 | `requirements.txt` | A | 快速环境安装 |
 | S-QA-003 | 本地一致性检查脚本 | `scripts/quality/local_quality_check.py` | S | contracts/governance 本地门禁 |
 | S-QA-004 | 契约行为回归脚本 | `scripts/quality/contract_behavior_regression.py` | S | 边界行为固定回归 |
+| S-QA-005 | 设计溯源检查脚本 | `scripts/quality/design_traceability_check.py` | A | 检查核心模块 `DESIGN_TRACE` 标记，降低设计-实现漂移 |
 | A-CODE-005 | 统一 CLI 入口骨架 | `src/pipeline/main.py` + `main.py` | A | 统一入口、参数路由、配置注入 |
 | A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
 | A-CODE-007 | L2 快照与 canary 最小闭环骨架 | `src/data/l2_pipeline.py` + `src/data/models/snapshots.py` | A | S0c 快照生成、质量字段门禁、错误分级 |
@@ -70,6 +72,10 @@
 | A-TEST-014 | S2a 合同测试集 | `tests/unit/algorithms/irs/test_irs_contract.py` + `tests/unit/algorithms/pas/test_pas_contract.py` + `tests/unit/integration/test_validation_gate_contract.py` | A | IRS/PAS/Validation 输出契约回归保障 |
 | A-CODE-015 | S2b 集成推荐与质量门骨架 | `src/integration/pipeline.py` + `src/pipeline/recommend.py` + `src/pipeline/main.py` | A | S2b 的 `eq recommend --mode integrated` 与质量门输出 |
 | A-TEST-016 | S2b 合同测试集 | `tests/unit/integration/test_integration_contract.py` + `tests/unit/integration/test_quality_gate_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py` | A | Integration/Quality Gate/CLI 路径回归保障 |
+| A-CODE-017 | S2c Validation-Integration 桥接硬门禁实现 | `src/algorithms/validation/pipeline.py` + `src/integration/pipeline.py` + `src/pipeline/recommend.py` + `src/pipeline/main.py` | A | `selected_weight_plan -> validation_weight_plan -> integrated_recommendation` 契约落地 |
+| A-TEST-018 | S2c 桥接与语义回归测试集 | `tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py` + `tests/unit/integration/test_validation_weight_plan_bridge.py` + `tests/unit/integration/test_algorithm_semantics_regression.py` | A | 桥接一致性、Gate 阻断、关键语义边界回归 |
+| A-CODE-019 | MSS zscore 语义实现与中间产物输出 | `src/algorithms/mss/engine.py` + `src/algorithms/mss/pipeline.py` | A | `ratio->zscore->[0,100]` + 缺失回退 50 + `mss_factor_intermediate` 证据 |
+| A-TEST-020 | MSS full 语义合同测试 | `tests/unit/algorithms/mss/test_mss_full_semantics_contract.py` | A | 六因子温度公式与缺失回退 50 行为回归 |
 
 ---
 
@@ -89,6 +95,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v2.11 | 增加设计溯源检查资产（S-QA-005）与 MSS 语义实现/测试资产（A-CODE-019、A-TEST-020） |
+| 2026-02-17 | v2.10 | 增加 S2c 阶段证据模板（S-GOV-015）与桥接硬门禁实现/测试资产（A-CODE-017、A-TEST-018） |
 | 2026-02-16 | v2.9 | 增加 S3a 证据模板资产登记（S-GOV-014） |
 | 2026-02-15 | v2.8 | 增加 S2b 证据模板与 Integration/Quality Gate 代码测试资产登记 |
 | 2026-02-15 | v2.7 | 增加 S2a 证据模板与推荐编排/三表合同资产登记 |

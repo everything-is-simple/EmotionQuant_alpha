@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-16  
-**当前版本**: v4.2（S2c 算法深化准备中，S2->S3 桥接硬门禁已就位）  
+**最后更新**: 2026-02-17  
+**当前版本**: v4.4（S2c 执行中：桥接硬门禁稳定，MSS 语义起步与设计溯源门禁已接入）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S2c 准备：S2b 已完成，先完成核心算法深化与桥接硬门禁，再进入 S3a（ENH-10）**
+**S2c 执行中：已完成桥接硬门禁与回归，继续完成核心算法 full 语义后进入 S3a（ENH-10）**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -17,7 +17,7 @@
 - S1b（MSS 消费验证闭环）: 已完成并补齐 6A 证据链。
 - S2a（IRS + PAS + Validation 最小闭环）: 已完成并补齐 6A 证据链。
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
-- S2c（核心算法深化闭环）: 已定义执行合同，待进入实现与验收。
+- S2c（核心算法深化闭环）: 已进入实现，已完成桥接硬门禁子步与目标回归，待完成 full 语义收口。
 
 ---
 
@@ -28,13 +28,17 @@
 3. 归档 S2b 样例证据到 `Governance/specs/spiral-s2b`。
 4. 重跑关键门禁并通过：env baseline、S2b 目标测试、contracts/governance、防跑偏回归测试。
 
-## 本次同步（2026-02-16）
+## 本次同步（2026-02-17）
 
-1. 阶段A路线合同升级为 `S0-S2c`，新增 `S2c` 算法深化圈（位置：`S2b -> S3a`）。
-2. 新增 `Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md`，固化 S2c 执行卡与证据要求。
-3. `validation_weight_plan` 桥接升级为硬门禁（S2 出口 + S3 入口）。
-4. 在 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 新增“核心算法完成 DoD”，并明确与阶段 DoD 分离。
-5. 关联文档（依赖图/阶段模板/生产路线/看板/README）已完成同口径同步。
+1. 落地 `validation_weight_plan` 桥接硬门禁：
+   - Validation 输出新增 `selected_weight_plan` 并持久化 `validation_weight_plan`。
+   - Integration 增加 `--with-validation-bridge`，桥接缺失/不一致强制 `FAIL + NO_GO`。
+2. 新增 S2c 目标测试并通过：`test_weight_plan_bridge_contract.py`、`test_validation_weight_plan_bridge.py`、`test_algorithm_semantics_regression.py`（6 passed）。
+3. 回归 S2a/S2b 合同测试通过：`test_validation_gate_contract.py`、`test_integration_contract.py`、`test_quality_gate_contract.py`（4 passed）。
+4. `contracts/governance` 本地门禁通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
+5. 新建 `Governance/specs/spiral-s2c/*` 阶段证据（requirements/review/final + 样例产物）。
+6. MSS 语义补齐起步完成：新增 `test_mss_full_semantics_contract.py` 与 `mss_factor_intermediate_sample.parquet` 产物。
+7. 设计溯源门禁接入：核心模块新增 `DESIGN_TRACE`，`local_quality_check --contracts` 新增 `traceability` 检查。
 
 ---
 
@@ -49,7 +53,7 @@
 | S1b | MSS 消费验证闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ 已完成 | 6A 证据已归档 |
-| S2c | 核心算法深化闭环（权重桥接 + 语义收口） | 🟡 准备中 | 下一圈主目标 |
+| S2c | 核心算法深化闭环（权重桥接 + 语义收口） | 🟠 执行中 | 桥接门禁已完成，full 语义补齐中 |
 | S3a | ENH-10 数据采集增强闭环 | 📋 未开始 | 依赖 S2c 完成 |
 | S3 | 回测闭环 | 📋 未开始 | 依赖 S3a 完成 |
 | S4 | 纸上交易闭环 | 📋 未开始 | 依赖 S3 完成 |
@@ -59,11 +63,11 @@
 
 ---
 
-## 下一步（S2c 准备）
+## 下一步（S2c 执行中）
 
-1. 先锁测试与门禁（P0）：完成并跑通 `validation_weight_plan` 桥接链路与 `final_gate=FAIL` 阻断测试（Integration + Validation 合同测试），并覆盖 `selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 一致性断言。
-2. 再补齐 MSS/IRS/PAS/Validation/Integration 的 full 语义（P0）：把简化映射替换为设计语义实现，并产出 S2c 证据产物；设计入口为 `docs/design/core-algorithms/` 下五模块算法文档（含 `docs/design/core-algorithms/integration/integration-algorithm.md`）。
-3. 最后做 S2c 收口（P0）：通过 `python -m scripts.quality.local_quality_check --contracts --governance`，更新 `Governance/specs/spiral-s2c/*` 与状态文档，再进入 S3a。
+1. 继续补齐 IRS/PAS/Validation/Integration 的 full 语义（P0）：把简化映射替换为设计语义实现，并产出 S2c 证据产物；设计入口为 `docs/design/core-algorithms/` 下五模块算法文档（含 `docs/design/core-algorithms/integration/integration-algorithm.md`）。
+2. 补齐 Validation 五件套当日产物（P0）：`validation_factor_report`、`validation_weight_report`、`validation_gate_decision`、`validation_weight_plan`、`validation_run_manifest`。
+3. 最后做 S2c 收口（P0）：通过 `python -m scripts.quality.local_quality_check --contracts --governance`，完成 `s2c_semantics_traceability_matrix.md` 与 `s2c_algorithm_closeout.md` 后再进入 S3a。
 
 ---
 
@@ -79,6 +83,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v4.4 | S2c 继续推进：新增 MSS full 语义起步测试与中间产物；接入 `DESIGN_TRACE` + traceability 自动检查，降低“实现-设计”漂移风险 |
+| 2026-02-17 | v4.3 | S2c 进入执行中：完成 `validation_weight_plan` 桥接硬门禁与目标回归（6 passed）+ S2a/S2b 回归（4 passed）；新增 `Governance/specs/spiral-s2c/*` 阶段证据 |
 | 2026-02-16 | v4.2 | 明确 S2c 下一步为三段 P0 顺序；补齐 Integration 为核心算法 full 语义必选模块，并将门禁测试表述升级为 Integration + Validation 联合合同测试 |
 | 2026-02-16 | v4.1 | 新增 S2c 算法深化圈并切换当前状态为 S2c 准备；落地 `validation_weight_plan` 桥接硬门禁与核心算法独立 DoD 口径 |
 | 2026-02-16 | v4.0 | 同步阶段C执行合同（S5-S7a）入口与状态口径，补齐路线索引 |

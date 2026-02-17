@@ -13,6 +13,12 @@ from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
 
+# DESIGN_TRACE:
+# - Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§3 入口兼容规则, §5 各圈执行合同)
+DESIGN_TRACE = {
+    "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
+}
+
 
 @dataclass(frozen=True)
 class PipelineContext:
@@ -83,6 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--with-validation",
         action="store_true",
         help="Enable validation gate generation.",
+    )
+    recommend_parser.add_argument(
+        "--with-validation-bridge",
+        action="store_true",
+        help="Enable S2c bridge checks between validation gate and selected weight plan.",
     )
 
     subparsers.add_parser("version", help="Print CLI version.")
@@ -265,6 +276,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "trade_date": args.date,
                 "mode": args.mode,
                 "with_validation": bool(args.with_validation),
+                "with_validation_bridge": bool(args.with_validation_bridge),
             },
             ensure_ascii=True,
             sort_keys=True,
@@ -275,6 +287,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             trade_date=args.date,
             mode=args.mode,
             with_validation=bool(args.with_validation),
+            with_validation_bridge=bool(args.with_validation_bridge),
             config=ctx.config,
         )
     except ValueError as exc:
@@ -285,6 +298,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             "event": "s2b_recommend",
             "trade_date": args.date,
             "mode": args.mode,
+            "with_validation_bridge": bool(args.with_validation_bridge),
             "final_gate": result.final_gate,
             "integrated_count": result.integrated_count,
             "quality_gate_status": result.quality_gate_status,

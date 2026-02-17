@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Mapping, Sequence
 
+# DESIGN_TRACE:
+# - docs/design/core-algorithms/mss/mss-algorithm.md (§3 因子公式, §4 温度公式, §5 周期状态机)
+# - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§3 MSS)
+DESIGN_TRACE = {
+    "mss_algorithm": "docs/design/core-algorithms/mss/mss-algorithm.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+}
+
 VALID_TRENDS = {"up", "down", "sideways"}
 VALID_CYCLES = {
     "emergence",
@@ -15,6 +23,18 @@ VALID_CYCLES = {
     "diffusion",
     "recession",
     "unknown",
+}
+
+Z_SCORE_CENTER = 50.0
+Z_SCORE_SCALE = 15.0
+
+DEFAULT_FACTOR_BASELINES: dict[str, tuple[float, float]] = {
+    "market_coefficient": (0.50, 0.20),
+    "profit_effect": (0.08, 0.05),
+    "loss_effect": (0.08, 0.05),
+    "continuity_factor": (0.35, 0.20),
+    "extreme_factor": (0.05, 0.03),
+    "volatility_factor": (0.08, 0.05),
 }
 
 
@@ -48,6 +68,23 @@ def _to_float(value: object) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _zscore_normalize(raw_value: float, mean: float, std: float) -> float:
+    if not math.isfinite(raw_value):
+        return Z_SCORE_CENTER
+    if not math.isfinite(mean):
+        return Z_SCORE_CENTER
+    if not math.isfinite(std) or std <= 0:
+        return Z_SCORE_CENTER
+    z_value = (raw_value - mean) / std
+    score = Z_SCORE_CENTER + Z_SCORE_SCALE * z_value
+    return float(round(_clamp(score, 0.0, 100.0), 4))
+
+
+def _amount_volatility_ratio(amount_volatility: float) -> float:
+    value = max(0.0, amount_volatility)
+    return value / (value + 1_000_000.0)
 
 
 @dataclass(frozen=True)
@@ -224,67 +261,91 @@ def calculate_mss_score(
 ) -> MssScoreResult:
     total_stocks = max(snapshot.total_stocks, 1)
 
-    market_coefficient = _clamp(_safe_ratio(snapshot.rise_count, total_stocks) * 100.0, 0.0, 100.0)
-
-    limit_up_ratio = _safe_ratio(snapshot.limit_up_count, total_stocks)
-    new_high_ratio = _safe_ratio(snapshot.new_100d_high_count, total_stocks)
-    strong_up_ratio = _safe_ratio(snapshot.strong_up_count, total_stocks)
-    profit_effect_raw = 0.4 * limit_up_ratio + 0.3 * new_high_ratio + 0.3 * strong_up_ratio
-    profit_effect = _clamp(profit_effect_raw * 100.0, 0.0, 100.0)
-
-    broken_rate = _safe_ratio(
-        max(snapshot.touched_limit_up - snapshot.limit_up_count, 0),
-        max(snapshot.touched_limit_up, 1),
-    )
-    limit_down_ratio = _safe_ratio(snapshot.limit_down_count, total_stocks)
-    strong_down_ratio = _safe_ratio(snapshot.strong_down_count, total_stocks)
-    new_low_ratio = _safe_ratio(snapshot.new_100d_low_count, total_stocks)
-    loss_effect_raw = (
-        0.3 * broken_rate
-        + 0.2 * limit_down_ratio
-        + 0.3 * strong_down_ratio
-        + 0.2 * new_low_ratio
-    )
-    loss_effect = _clamp(loss_effect_raw * 100.0, 0.0, 100.0)
-
-    continuity_limit_ratio = _safe_ratio(
-        snapshot.continuous_limit_up_2d + 2 * snapshot.continuous_limit_up_3d_plus,
-        max(snapshot.limit_up_count, 1),
-    )
-    continuity_new_high_ratio = _safe_ratio(
-        snapshot.continuous_new_high_2d_plus,
-        max(snapshot.new_100d_high_count, 1),
-    )
-    continuity_factor = _clamp(
-        (0.5 * continuity_limit_ratio + 0.5 * continuity_new_high_ratio) * 100.0,
-        0.0,
-        100.0,
-    )
-
-    panic_tail_ratio = _safe_ratio(snapshot.high_open_low_close_count, total_stocks)
-    squeeze_tail_ratio = _safe_ratio(snapshot.low_open_high_close_count, total_stocks)
-    extreme_factor = _clamp((panic_tail_ratio + squeeze_tail_ratio) * 100.0, 0.0, 100.0)
-    if panic_tail_ratio + squeeze_tail_ratio <= 1e-12:
+    if snapshot.total_stocks <= 0:
+        # 输入基线缺失时回退到中性分，避免伪方向性。
+        market_coefficient = Z_SCORE_CENTER
+        profit_effect = Z_SCORE_CENTER
+        loss_effect = Z_SCORE_CENTER
+        continuity_factor = Z_SCORE_CENTER
+        extreme_factor = Z_SCORE_CENTER
+        volatility_factor = Z_SCORE_CENTER
         extreme_direction_bias = 0.0
     else:
-        extreme_direction_bias = _clamp(
-            (squeeze_tail_ratio - panic_tail_ratio)
-            / (panic_tail_ratio + squeeze_tail_ratio),
-            -1.0,
-            1.0,
+        market_coefficient_raw = _safe_ratio(snapshot.rise_count, total_stocks)
+        market_coefficient = _zscore_normalize(
+            market_coefficient_raw,
+            *DEFAULT_FACTOR_BASELINES["market_coefficient"],
         )
 
-    normalized_pct_chg_std = _clamp(snapshot.pct_chg_std / 0.1, 0.0, 1.0)
-    normalized_amount_volatility = _clamp(
-        snapshot.amount_volatility / (snapshot.amount_volatility + 1_000_000.0),
-        0.0,
-        1.0,
-    )
-    volatility_factor = _clamp(
-        (0.5 * normalized_pct_chg_std + 0.5 * normalized_amount_volatility) * 100.0,
-        0.0,
-        100.0,
-    )
+        limit_up_ratio = _safe_ratio(snapshot.limit_up_count, total_stocks)
+        new_high_ratio = _safe_ratio(snapshot.new_100d_high_count, total_stocks)
+        strong_up_ratio = _safe_ratio(snapshot.strong_up_count, total_stocks)
+        profit_effect_raw = (
+            0.4 * limit_up_ratio + 0.3 * new_high_ratio + 0.3 * strong_up_ratio
+        )
+        profit_effect = _zscore_normalize(
+            profit_effect_raw,
+            *DEFAULT_FACTOR_BASELINES["profit_effect"],
+        )
+
+        broken_rate = _safe_ratio(
+            max(snapshot.touched_limit_up - snapshot.limit_up_count, 0),
+            max(snapshot.touched_limit_up, 1),
+        )
+        limit_down_ratio = _safe_ratio(snapshot.limit_down_count, total_stocks)
+        strong_down_ratio = _safe_ratio(snapshot.strong_down_count, total_stocks)
+        new_low_ratio = _safe_ratio(snapshot.new_100d_low_count, total_stocks)
+        loss_effect_raw = (
+            0.3 * broken_rate
+            + 0.2 * limit_down_ratio
+            + 0.3 * strong_down_ratio
+            + 0.2 * new_low_ratio
+        )
+        loss_effect = _zscore_normalize(
+            loss_effect_raw,
+            *DEFAULT_FACTOR_BASELINES["loss_effect"],
+        )
+
+        continuity_limit_ratio = _safe_ratio(
+            snapshot.continuous_limit_up_2d + 2 * snapshot.continuous_limit_up_3d_plus,
+            max(snapshot.limit_up_count, 1),
+        )
+        continuity_new_high_ratio = _safe_ratio(
+            snapshot.continuous_new_high_2d_plus,
+            max(snapshot.new_100d_high_count, 1),
+        )
+        continuity_factor_raw = (
+            0.5 * continuity_limit_ratio + 0.5 * continuity_new_high_ratio
+        )
+        continuity_factor = _zscore_normalize(
+            continuity_factor_raw,
+            *DEFAULT_FACTOR_BASELINES["continuity_factor"],
+        )
+
+        panic_tail_ratio = _safe_ratio(snapshot.high_open_low_close_count, total_stocks)
+        squeeze_tail_ratio = _safe_ratio(snapshot.low_open_high_close_count, total_stocks)
+        extreme_factor_raw = panic_tail_ratio + squeeze_tail_ratio
+        extreme_factor = _zscore_normalize(
+            extreme_factor_raw,
+            *DEFAULT_FACTOR_BASELINES["extreme_factor"],
+        )
+        if extreme_factor_raw <= 1e-12:
+            extreme_direction_bias = 0.0
+        else:
+            extreme_direction_bias = _clamp(
+                (squeeze_tail_ratio - panic_tail_ratio) / extreme_factor_raw,
+                -1.0,
+                1.0,
+            )
+
+        volatility_factor_raw = (
+            0.5 * max(snapshot.pct_chg_std, 0.0)
+            + 0.5 * _amount_volatility_ratio(snapshot.amount_volatility)
+        )
+        volatility_factor = _zscore_normalize(
+            volatility_factor_raw,
+            *DEFAULT_FACTOR_BASELINES["volatility_factor"],
+        )
 
     temperature = _clamp(
         market_coefficient * 0.17

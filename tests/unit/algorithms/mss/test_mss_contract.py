@@ -44,6 +44,7 @@ def test_s1a_generates_mss_panorama_and_artifacts(tmp_path: Path) -> None:
     assert result.mss_panorama_count > 0
     assert result.sample_path.exists()
     assert result.factor_trace_path.exists()
+    assert result.factor_intermediate_sample_path.exists()
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path), read_only=True) as connection:

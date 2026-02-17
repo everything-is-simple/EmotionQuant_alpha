@@ -18,6 +18,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from scripts.quality.contract_behavior_regression import check_contract_behavior_regression
+from scripts.quality.design_traceability_check import check_design_traceability
 from scripts.quality.governance_consistency_check import check_governance_consistency
 from scripts.quality.naming_contracts_check import check_naming_contracts
 
@@ -128,9 +129,20 @@ def main() -> int:
         action="store_true",
         help="Check governance/system-overview consistency in SoT docs",
     )
+    parser.add_argument(
+        "--traceability",
+        action="store_true",
+        help="Check code modules contain design trace markers",
+    )
     args = parser.parse_args()
 
-    if not args.session and not args.scan and not args.contracts and not args.governance:
+    if (
+        not args.session
+        and not args.scan
+        and not args.contracts
+        and not args.governance
+        and not args.traceability
+    ):
         parser.print_help()
         return 2
 
@@ -142,8 +154,11 @@ def main() -> int:
     if args.contracts:
         exit_code = max(exit_code, check_naming_contracts())
         exit_code = max(exit_code, check_contract_behavior_regression())
+        exit_code = max(exit_code, check_design_traceability())
     if args.governance:
         exit_code = max(exit_code, check_governance_consistency())
+    if args.traceability and not args.contracts:
+        exit_code = max(exit_code, check_design_traceability())
     return exit_code
 
 
