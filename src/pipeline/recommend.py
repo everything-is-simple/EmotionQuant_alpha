@@ -27,6 +27,7 @@ DESIGN_TRACE = {
 class RecommendRunResult:
     trade_date: str
     mode: str
+    evidence_lane: str
     artifacts_dir: Path
     irs_count: int
     pas_count: int
@@ -43,6 +44,14 @@ class RecommendRunResult:
     integrated_sample_path: Path
     quality_gate_report_path: Path
     go_nogo_decision_path: Path
+
+
+def _resolve_s2c_artifacts_dir(*, trade_date: str, evidence_lane: str) -> Path:
+    if evidence_lane == "release":
+        return Path("artifacts") / "spiral-s2c" / trade_date
+    if evidence_lane == "debug":
+        return Path("artifacts") / "spiral-s2c-debug" / trade_date
+    raise ValueError(f"unsupported evidence_lane: {evidence_lane}")
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -125,6 +134,8 @@ def _run_s2a(
     trade_date: str,
     with_validation: bool,
     config: Config,
+    s2c_artifacts_dir: Path | None = None,
+    evidence_lane: str = "release",
 ) -> RecommendRunResult:
     if not with_validation:
         raise ValueError("S2a requires --with-validation")
@@ -156,8 +167,16 @@ def _run_s2a(
         )
 
     try:
-        irs_result = run_irs_daily(trade_date=trade_date, config=config)
-        pas_result = run_pas_daily(trade_date=trade_date, config=config)
+        irs_result = run_irs_daily(
+            trade_date=trade_date,
+            config=config,
+            artifacts_dir=s2c_artifacts_dir,
+        )
+        pas_result = run_pas_daily(
+            trade_date=trade_date,
+            config=config,
+            artifacts_dir=s2c_artifacts_dir,
+        )
         irs_count = irs_result.count
         pas_count = pas_result.count
 
@@ -168,6 +187,7 @@ def _run_s2a(
             irs_count=irs_count,
             pas_count=pas_count,
             mss_exists=mss_exists,
+            artifacts_dir=s2c_artifacts_dir,
         )
         validation_count = validation_result.count
         final_gate = validation_result.final_gate
@@ -224,6 +244,7 @@ def _run_s2a(
     return RecommendRunResult(
         trade_date=trade_date,
         mode="mss_irs_pas",
+        evidence_lane=evidence_lane,
         artifacts_dir=artifacts_dir,
         irs_count=irs_count,
         pas_count=pas_count,
@@ -249,9 +270,13 @@ def _run_s2b(
     with_validation: bool,
     with_validation_bridge: bool,
     config: Config,
+    evidence_lane: str,
 ) -> RecommendRunResult:
-    spiral_id = "s2c" if with_validation_bridge else "s2b"
-    artifacts_dir = Path("artifacts") / f"spiral-{spiral_id}" / trade_date
+    artifacts_dir = (
+        _resolve_s2c_artifacts_dir(trade_date=trade_date, evidence_lane=evidence_lane)
+        if with_validation_bridge
+        else Path("artifacts") / "spiral-s2b" / trade_date
+    )
     parquet_root = Path(config.parquet_path) / "l3"
     errors: list[dict[str, str]] = []
     irs_count = 0
@@ -287,6 +312,8 @@ def _run_s2b(
                 trade_date=trade_date,
                 with_validation=True,
                 config=config,
+                s2c_artifacts_dir=artifacts_dir if with_validation_bridge else None,
+                evidence_lane=evidence_lane,
             )
             irs_count = upstream.irs_count
             pas_count = upstream.pas_count
@@ -378,6 +405,7 @@ def _run_s2b(
     return RecommendRunResult(
         trade_date=trade_date,
         mode="integrated",
+        evidence_lane=evidence_lane,
         artifacts_dir=artifacts_dir,
         irs_count=irs_count,
         pas_count=pas_count,
@@ -403,19 +431,25 @@ def run_recommendation(
     mode: str,
     with_validation: bool,
     with_validation_bridge: bool = False,
+    evidence_lane: str = "release",
     config: Config,
 ) -> RecommendRunResult:
+    if evidence_lane not in {"release", "debug"}:
+        raise ValueError(f"unsupported evidence_lane: {evidence_lane}")
+
     if mode == "mss_irs_pas":
         return _run_s2a(
             trade_date=trade_date,
             with_validation=with_validation,
             config=config,
+            evidence_lane=evidence_lane,
         )
     if mode == "integrated":
         return _run_s2b(
             trade_date=trade_date,
             with_validation=with_validation,
             with_validation_bridge=with_validation_bridge,
+            evidence_lane=evidence_lane,
             config=config,
         )
     raise ValueError(f"unsupported mode for current stage: {mode}")

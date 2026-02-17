@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-17  
-**当前版本**: v4.5（S2c 执行中：桥接硬门禁稳定，IRS/PAS/Validation full 语义已落地）  
+**当前版本**: v4.6（S2c 已收口：release 证据统一，进入 S3a 准备）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S2c 执行中：已完成桥接硬门禁 + IRS/PAS/Validation full 语义，待完成最终收口后进入 S3a（ENH-10）**
+**S2c 已完成收口：桥接硬门禁 + full 语义 + release 证据同步已闭环，下一圈进入 S3a（ENH-10）**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -17,7 +17,7 @@
 - S1b（MSS 消费验证闭环）: 已完成并补齐 6A 证据链。
 - S2a（IRS + PAS + Validation 最小闭环）: 已完成并补齐 6A 证据链。
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
-- S2c（核心算法深化闭环）: 已完成桥接硬门禁与 IRS/PAS/Validation full 语义，待补齐 closeout 文档并完成最终 run 证据。
+- S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 
 ---
 
@@ -36,6 +36,9 @@
 4. 新增并通过 S2c 目标测试：`test_irs_full_semantics_contract.py`、`test_pas_full_semantics_contract.py`、`test_factor_validation_metrics_contract.py`、`test_weight_validation_walk_forward_contract.py`，并联同桥接回归共 `10 passed`。
 5. `contracts/governance` 本地门禁通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
 6. 扩展设计溯源检查：`scripts/quality/design_traceability_check.py` 纳入 IRS/PAS 模块。
+7. 完成 S2c 收口清障：新增 `evidence_lane`（release/debug）并将 S2c 正式证据统一到 release 车道。
+8. 新增同步脚本 `scripts/quality/sync_s2c_release_artifacts.py`，同步前校验 PASS/GO 与样例行数。
+9. 补齐并归档 S2c 收口文档：`s2c_semantics_traceability_matrix.md`、`s2c_algorithm_closeout.md`。
 
 ---
 
@@ -50,7 +53,7 @@
 | S1b | MSS 消费验证闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ 已完成 | 6A 证据已归档 |
-| S2c | 核心算法深化闭环（权重桥接 + 语义收口） | 🟠 执行中 | 桥接门禁与 IRS/PAS/Validation full 语义已完成，待 closeout 收口 |
+| S2c | 核心算法深化闭环（权重桥接 + 语义收口） | ✅ 已完成 | release 证据统一、closeout 文档补齐、A6 同步完成 |
 | S3a | ENH-10 数据采集增强闭环 | 📋 未开始 | 依赖 S2c 完成 |
 | S3 | 回测闭环 | 📋 未开始 | 依赖 S3a 完成 |
 | S4 | 纸上交易闭环 | 📋 未开始 | 依赖 S3 完成 |
@@ -60,11 +63,11 @@
 
 ---
 
-## 下一步（S2c 执行中）
+## 下一步（S3a 准备）
 
-1. 完成 S2c 最终收口文档（P0）：补齐 `s2c_semantics_traceability_matrix.md` 与 `s2c_algorithm_closeout.md`。
-2. 补跑最终集成 run 证据（P0）：`eq recommend --mode integrated --with-validation-bridge` 并更新样例产物链路。
-3. 执行 A6 最终同步（P0）：复核 contracts/governance 与桥接硬门禁后，再推进到 S3a。
+1. 启动 S3a A1/A2：锁定 ENH-10 的 1-3 个 Slice 与验收口径。
+2. 复核 S3a 前置：保持 `local_quality_check --contracts --governance` 与桥接硬门禁结果可追溯。
+3. 准备 S3a 首轮 run/test/artifact 骨架（`fetch_progress`、吞吐对比、恢复演练记录）。
 
 ---
 
@@ -80,6 +83,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v4.6 | S2c 收口完成：清理 PASS/FAIL 证据冲突，新增 `evidence_lane` 双车道与 release 同步脚本，补齐 closeout 文档并完成 A6 同步 |
 | 2026-02-17 | v4.5 | S2c 继续推进：完成 IRS/PAS/Validation full 语义实现与合同测试（10 passed），并通过 contracts/governance 门禁 |
 | 2026-02-17 | v4.4 | S2c 继续推进：新增 MSS full 语义起步测试与中间产物；接入 `DESIGN_TRACE` + traceability 自动检查，降低“实现-设计”漂移风险 |
 | 2026-02-17 | v4.3 | S2c 进入执行中：完成 `validation_weight_plan` 桥接硬门禁与目标回归（6 passed）+ S2a/S2b 回归（4 passed）；新增 `Governance/specs/spiral-s2c/*` 阶段证据 |

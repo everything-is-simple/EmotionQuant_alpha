@@ -1,4 +1,4 @@
-# S2b Quality Gate Report
+# S2 Quality Gate Report
 
 - trade_date: 20260218
 - status: PASS

@@ -1,50 +1,63 @@
-# S2c Final（6A 收口状态）
+# S2c Final（6A 收口）
 
 **Spiral**: S2c  
-**状态**: in_progress  
+**状态**: completed  
 **更新日期**: 2026-02-17  
-**CP Slice**: CP-02 + CP-03 + CP-04 + CP-10（本轮已完成）
+**CP Slice**: CP-02 + CP-03 + CP-04 + CP-10 + CP-05
 
 ## 1. 6A 状态
 
-- A1 Align: PASS（本轮范围锁定为 IRS/PAS/Validation full 语义补齐）
-- A2 Architect: PASS（跨模块契约与门禁边界已对齐）
-- A3 Act: PASS（IRS/PAS/Validation 实现与溯源检查已落地）
-- A4 Assert: PASS（目标测试与 contracts/governance 均通过）
-- A5 Archive: PASS（阶段性 review 与证据链已归档）
-- A6 Advance: IN_PROGRESS（S2c 最终 closeout 文档与状态切换未完成）
+- A1 Align: PASS（主目标锁定为 S2c 收口清障：证据冲突清理 + 收口文档补齐）
+- A2 Architect: PASS（桥接硬门禁、证据目录口径、release/debug 隔离规则明确）
+- A3 Act: PASS（`evidence_lane` 实现、S2c 产物分流、release 同步脚本落地）
+- A4 Assert: PASS（目标测试、contracts/governance、防跑偏回归通过）
+- A5 Archive: PASS（`review.md` + closeout 文档 + 追踪矩阵归档完成）
+- A6 Advance: PASS（最小同步 5 项完成，状态切换到 `completed`）
 
-## 2. run/test/artifact/review/sync（阶段性）
+## 2. run/test/artifact/review/sync
 
-- run: PARTIAL（本轮以语义合同测试为主，集成 run 证据待最终收口补跑）
-- test: PASS（10 passed）
-- artifact: PASS（IRS/PAS/Validation 核心样例产物已补齐）
+- run: PASS  
+  `python -m src.pipeline.main --env-file artifacts/spiral-s2c/20260218/.env.s2c.demo recommend --date 20260218 --mode integrated --with-validation-bridge --evidence-lane release`
+- test: PASS  
+  S2c 关键回归 + 新增 lane/sync 测试通过。
+- artifact: PASS  
+  release 证据重建并同步到 `Governance/specs/spiral-s2c/`。
 - review: PASS
-- sync: PASS（本轮文档已同步）
+- sync: PASS
 
 ## 3. 本次结论
 
-- 已完成: IRS full 语义、PAS full 语义、Validation full 语义（含五件套产物链路）。
-- 已完成: IRS/PAS `DESIGN_TRACE` 纳入 traceability gate，质量门禁可自动检查。
-- 保持有效: Validation-Integration 桥接硬门禁与 Gate 阻断语义。
-- 未完成: S2c 最终 closeout 文档与 completed 切换，当前继续保持 `in_progress`。
+1. S2c PASS/FAIL 双口径冲突已清理，正式口径统一为 release 证据（PASS/GO）。
+2. 产物污染风险已收敛：S2c 引入 `release/debug` 双目录隔离。
+3. 桥接硬门禁保持有效：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 可审计。
+4. S2c 执行卡要求的 closeout 文档已补齐，允许推进到 S3a。
 
 ## 4. 核心证据
 
 - requirements: `Governance/specs/spiral-s2c/requirements.md`
 - review: `Governance/specs/spiral-s2c/review.md`
-- test:
-  - `tests/unit/algorithms/irs/test_irs_full_semantics_contract.py`
-  - `tests/unit/algorithms/pas/test_pas_full_semantics_contract.py`
-  - `tests/unit/algorithms/validation/test_factor_validation_metrics_contract.py`
-  - `tests/unit/algorithms/validation/test_weight_validation_walk_forward_contract.py`
-  - `tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py`
-  - `tests/unit/integration/test_validation_weight_plan_bridge.py`
-  - `tests/unit/integration/test_algorithm_semantics_regression.py`
-- artifact:
-  - `artifacts/spiral-s2c/{trade_date}/irs_factor_intermediate_sample.parquet`
-  - `artifacts/spiral-s2c/{trade_date}/pas_factor_intermediate_sample.parquet`
-  - `artifacts/spiral-s2c/{trade_date}/validation_factor_report_sample.parquet`
-  - `artifacts/spiral-s2c/{trade_date}/validation_weight_report_sample.parquet`
-  - `artifacts/spiral-s2c/{trade_date}/validation_weight_plan_sample.parquet`
-  - `artifacts/spiral-s2c/{trade_date}/validation_run_manifest_sample.json`
+- closeout:
+  - `Governance/specs/spiral-s2c/s2c_semantics_traceability_matrix.md`
+  - `Governance/specs/spiral-s2c/s2c_algorithm_closeout.md`
+- run artifacts:
+  - `Governance/specs/spiral-s2c/integrated_recommendation_sample.parquet`
+  - `Governance/specs/spiral-s2c/quality_gate_report.md`
+  - `Governance/specs/spiral-s2c/s2_go_nogo_decision.md`
+- validation artifacts:
+  - `Governance/specs/spiral-s2c/validation_factor_report_sample.parquet`
+  - `Governance/specs/spiral-s2c/validation_weight_report_sample.parquet`
+  - `Governance/specs/spiral-s2c/validation_weight_plan_sample.parquet`
+  - `Governance/specs/spiral-s2c/validation_run_manifest_sample.json`
+
+## 5. 同步检查（A6）
+
+- `Governance/specs/spiral-s2c/final.md` 已更新
+- `Governance/record/development-status.md` 已更新
+- `Governance/record/debts.md` 已更新
+- `Governance/record/reusable-assets.md` 已更新
+- `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 已更新
+
+## 6. 跨文档联动
+
+- 结论: 已完成。  
+  本轮涉及运行证据口径与执行卡条目扩展，同步更新执行卡与治理记录，保持收口语义一致。

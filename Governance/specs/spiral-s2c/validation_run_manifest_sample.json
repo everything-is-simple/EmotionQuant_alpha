@@ -1,0 +1,21 @@
+{
+  "trade_date": "20260218",
+  "run_id": "validation-20260218-b35e1006",
+  "threshold_mode": "fixed",
+  "regime": "cold_or_volatile",
+  "final_gate": "PASS",
+  "selected_weight_plan": "vp_balanced_v1",
+  "input_summary": {
+    "mss_exists": true,
+    "irs_count": 1,
+    "pas_count": 1,
+    "stale_days": 0
+  },
+  "vote_detail": {
+    "factor_gate": "PASS",
+    "weight_gate": "PASS",
+    "reason": "all_checks_passed"
+  },
+  "contract_version": "nc-v1",
+  "created_at": "2026-02-17T07:53:31.668338+00:00"
+}

@@ -227,6 +227,7 @@ def run_validation_gate(
     irs_count: int,
     pas_count: int,
     mss_exists: bool,
+    artifacts_dir: Path | None = None,
 ) -> ValidationGateResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
@@ -605,12 +606,12 @@ def run_validation_gate(
         trade_date=trade_date,
     )
 
-    artifacts_dir = Path("artifacts") / "spiral-s2c" / trade_date
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
-    factor_report_sample_path = artifacts_dir / "validation_factor_report_sample.parquet"
-    weight_report_sample_path = artifacts_dir / "validation_weight_report_sample.parquet"
-    weight_plan_sample_path = artifacts_dir / "validation_weight_plan_sample.parquet"
-    run_manifest_sample_path = artifacts_dir / "validation_run_manifest_sample.json"
+    target_artifacts_dir = artifacts_dir or (Path("artifacts") / "spiral-s2c" / trade_date)
+    target_artifacts_dir.mkdir(parents=True, exist_ok=True)
+    factor_report_sample_path = target_artifacts_dir / "validation_factor_report_sample.parquet"
+    weight_report_sample_path = target_artifacts_dir / "validation_weight_report_sample.parquet"
+    weight_plan_sample_path = target_artifacts_dir / "validation_weight_plan_sample.parquet"
+    run_manifest_sample_path = target_artifacts_dir / "validation_run_manifest_sample.json"
 
     factor_report_frame.to_parquet(factor_report_sample_path, index=False)
     weight_report_frame.to_parquet(weight_report_sample_path, index=False)

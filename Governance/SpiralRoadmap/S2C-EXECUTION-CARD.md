@@ -1,7 +1,7 @@
-# S2c 执行卡（v0.2）
+# S2c 执行卡（v0.3）
 
 **状态**: Active  
-**更新时间**: 2026-02-16  
+**更新时间**: 2026-02-17  
 **阶段**: 阶段A（S0-S2c）  
 **微圈**: S2c（核心算法深化：完整语义实现 + 权重桥接硬门禁）
 
@@ -38,7 +38,7 @@
 ## 4. run
 
 ```bash
-eq recommend --date {trade_date} --mode integrated --with-validation-bridge
+eq recommend --date {trade_date} --mode integrated --with-validation-bridge --evidence-lane release
 ```
 
 ```bash
@@ -75,6 +75,7 @@ pytest tests/unit/integration/test_algorithm_semantics_regression.py -q
 - `artifacts/spiral-s2c/{trade_date}/s2c_semantics_traceability_matrix.md`
 - `artifacts/spiral-s2c/{trade_date}/s2c_algorithm_closeout.md`
 - `artifacts/spiral-s2c/{trade_date}/error_manifest_sample.json`
+- `artifacts/spiral-s2c-debug/{trade_date}/*`（调试/演练证据，不作为正式收口来源）
 
 ---
 
@@ -95,6 +96,7 @@ pytest tests/unit/integration/test_algorithm_semantics_regression.py -q
 - `validation_weight_plan` 桥接链路缺失或不可审计，状态必须置 `blocked`。
 - `final_gate=FAIL` 必须阻断后续圈推进，不得降级放行进入 S3a/S3。
 - 合同与治理检查失败时，只允许进入 S2r 修复圈。
+- 正式收口证据必须来自 `evidence_lane=release`；`debug` 目录不得直接同步到 `Governance/specs/spiral-s2c`。
 
 ---
 
@@ -132,5 +134,6 @@ pytest tests/unit/integration/test_algorithm_semantics_regression.py -q
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v0.3 | 2026-02-17 | 新增 `evidence_lane` 收口口径：正式证据固定 `release` 车道，`debug` 目录仅用于调试/演练 |
 | v0.2 | 2026-02-16 | 明确 S2c 为“核心算法完整实现 + 桥接硬门禁”双目标；新增 MSS/IRS/PAS/Validation/Integration 模块级补齐任务、测试与产物清单 |
 | v0.1 | 2026-02-16 | 首版：定义 S2c 执行卡（权重桥接 + 语义收口） |

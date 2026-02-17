@@ -95,6 +95,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable S2c bridge checks between validation gate and selected weight plan.",
     )
+    recommend_parser.add_argument(
+        "--evidence-lane",
+        choices=("release", "debug"),
+        default="debug",
+        help="Artifact lane for S2c evidence (release/debug).",
+    )
 
     subparsers.add_parser("version", help="Print CLI version.")
 
@@ -277,6 +283,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "mode": args.mode,
                 "with_validation": bool(args.with_validation),
                 "with_validation_bridge": bool(args.with_validation_bridge),
+                "evidence_lane": args.evidence_lane,
             },
             ensure_ascii=True,
             sort_keys=True,
@@ -288,6 +295,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             mode=args.mode,
             with_validation=bool(args.with_validation),
             with_validation_bridge=bool(args.with_validation_bridge),
+            evidence_lane=args.evidence_lane,
             config=ctx.config,
         )
     except ValueError as exc:
@@ -299,6 +307,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             "trade_date": args.date,
             "mode": args.mode,
             "with_validation_bridge": bool(args.with_validation_bridge),
+            "evidence_lane": result.evidence_lane,
             "final_gate": result.final_gate,
             "integrated_count": result.integrated_count,
             "quality_gate_status": result.quality_gate_status,
@@ -315,6 +324,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             "event": "s2a_recommend",
             "trade_date": args.date,
             "mode": args.mode,
+            "evidence_lane": result.evidence_lane,
             "irs_count": result.irs_count,
             "pas_count": result.pas_count,
             "validation_count": result.validation_count,

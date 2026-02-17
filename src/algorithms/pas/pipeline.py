@@ -160,6 +160,7 @@ def run_pas_daily(
     *,
     trade_date: str,
     config: Config,
+    artifacts_dir: Path | None = None,
 ) -> PasRunResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
@@ -410,12 +411,8 @@ def run_pas_daily(
         trade_date=trade_date,
     )
 
-    artifact_path = (
-        Path("artifacts")
-        / "spiral-s2c"
-        / trade_date
-        / "pas_factor_intermediate_sample.parquet"
-    )
+    target_artifacts_dir = artifacts_dir or (Path("artifacts") / "spiral-s2c" / trade_date)
+    artifact_path = target_artifacts_dir / "pas_factor_intermediate_sample.parquet"
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     factor_frame.to_parquet(artifact_path, index=False)
 

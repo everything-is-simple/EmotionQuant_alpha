@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-17  
-**版本**: v2.12  
+**版本**: v2.13  
 **范围**: S0-S6
 
 ---
@@ -60,6 +60,7 @@
 | S-QA-003 | 本地一致性检查脚本 | `scripts/quality/local_quality_check.py` | S | contracts/governance 本地门禁 |
 | S-QA-004 | 契约行为回归脚本 | `scripts/quality/contract_behavior_regression.py` | S | 边界行为固定回归 |
 | S-QA-005 | 设计溯源检查脚本 | `scripts/quality/design_traceability_check.py` | A | 检查 MSS/IRS/PAS/Validation/Integration 等核心模块 `DESIGN_TRACE` 标记，降低设计-实现漂移 |
+| S-QA-006 | S2c release 证据同步脚本 | `scripts/quality/sync_s2c_release_artifacts.py` | S | 同步前强校验 PASS/GO 与样例行数，防止调试证据污染正式收口 |
 | A-CODE-005 | 统一 CLI 入口骨架 | `src/pipeline/main.py` + `main.py` | A | 统一入口、参数路由、配置注入 |
 | A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
 | A-CODE-007 | L2 快照与 canary 最小闭环骨架 | `src/data/l2_pipeline.py` + `src/data/models/snapshots.py` | A | S0c 快照生成、质量字段门禁、错误分级 |
@@ -80,6 +81,8 @@
 | A-CODE-022 | PAS full 语义实现与中间产物输出 | `src/algorithms/pas/pipeline.py` | A | 三因子评分 + `effective_risk_reward_ratio` + `pas_factor_intermediate` 证据 |
 | A-CODE-023 | Validation full 语义实现（五件套） | `src/algorithms/validation/pipeline.py` | A | 因子验证 + Walk-Forward 权重验证 + Gate 决策 + `validation_run_manifest` |
 | A-TEST-024 | S2c full 语义合同测试集 | `tests/unit/algorithms/irs/test_irs_full_semantics_contract.py` + `tests/unit/algorithms/pas/test_pas_full_semantics_contract.py` + `tests/unit/algorithms/validation/test_factor_validation_metrics_contract.py` + `tests/unit/algorithms/validation/test_weight_validation_walk_forward_contract.py` | A | IRS/PAS/Validation full 语义回归保障 |
+| A-CODE-025 | S2c 证据车道隔离能力 | `src/pipeline/main.py` + `src/pipeline/recommend.py` + `src/algorithms/irs/pipeline.py` + `src/algorithms/pas/pipeline.py` + `src/algorithms/validation/pipeline.py` | A | `release/debug` 双车道，避免测试/演练覆盖正式证据 |
+| A-TEST-026 | S2c 证据隔离与同步校验测试 | `tests/unit/pipeline/test_recommend_evidence_lane.py` + `tests/unit/scripts/test_sync_s2c_release_artifacts.py` | A | 保证 lane 分流与 release 同步前置校验行为稳定 |
 
 ---
 
@@ -99,6 +102,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v2.13 | 增加 S2c release 同步脚本资产（S-QA-006）与证据车道隔离代码/测试资产（A-CODE-025、A-TEST-026） |
 | 2026-02-17 | v2.12 | 增加 IRS/PAS/Validation full 语义实现与测试资产（A-CODE-021/022/023、A-TEST-024），并更新 S-QA-005 覆盖范围 |
 | 2026-02-17 | v2.11 | 增加设计溯源检查资产（S-QA-005）与 MSS 语义实现/测试资产（A-CODE-019、A-TEST-020） |
 | 2026-02-17 | v2.10 | 增加 S2c 阶段证据模板（S-GOV-015）与桥接硬门禁实现/测试资产（A-CODE-017、A-TEST-018） |

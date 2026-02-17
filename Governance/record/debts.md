@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
 **最后更新**: 2026-02-17  
-**版本**: v1.11  
+**版本**: v1.12  
 **范围**: S0-S6
 
 ---
@@ -41,6 +41,7 @@
 | TD-S2-009 | IRS/PAS 当前使用最小启发式评分，未接入完整行业映射与收益校准 | 2026-02-17 | S2c 已完成 IRS/PAS full 语义实现与合同测试；剩余行业粒度问题继续由 `TD-S0-006` 跟踪 |
 | TD-S2-010 | S2c 已接入 `validation_weight_plan` 桥接硬门禁，但候选权重生成与 Walk-Forward 选优尚未实现 | 2026-02-17 | 候选权重评估与 Walk-Forward 选优已落地，桥接与语义回归测试通过 |
 | TD-GOV-008 | contracts/governance 检查未进入任务模板门禁 | 2026-02-14 | 已在 `SPIRAL-TASK-TEMPLATE.md` 增加 S2+/契约变更场景检查项 |
+| TD-GOV-013 | S2c 同日 PASS/FAIL 证据冲突（正式证据与调试证据混写） | 2026-02-17 | 已引入 `evidence_lane`（release/debug）隔离并新增 `scripts/quality/sync_s2c_release_artifacts.py` 前置校验，正式证据统一为 release |
 | TD-GOV-007 | 执行链路 `contract_version` 兼容口径缺失 | 2026-02-14 | 已统一为 `nc-v1` 并同步到 CP-05/06/07/10 与主控路线 |
 | TD-GOV-006 | PAS 与执行层 `risk_reward_ratio` 门槛漂移 | 2026-02-14 | 已统一为执行门槛 `risk_reward_ratio >= 1.0`，`<1.0` 过滤 |
 | TD-GOV-005 | Spiral 文档同步负担过重 | 2026-02-07 | 已改为最小同步 5 项，CP 文档仅在契约变化时更新 |
@@ -62,6 +63,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-17 | v1.12 | 清偿 TD-GOV-013：完成 S2c 证据冲突清障，新增 release/debug 证据隔离与 release 同步前置校验 |
 | 2026-02-17 | v1.11 | 清偿 TD-S0-003/TD-S2-009/TD-S2-010；TD-S0-002 调整为“生产级统计口径校准待 S3” |
 | 2026-02-17 | v1.10 | 新增 TD-GOV-012：设计溯源标记目前仅覆盖 S2c 关键模块，需继续扩展到全仓核心代码 |
 | 2026-02-17 | v1.9 | 更新 TD-S2-010：从“未接入桥接”调整为“桥接已落地、候选权重选优待实现”，计划处理圈前移至 S2c |
