@@ -110,3 +110,36 @@ def test_backtest_applies_t1_and_limit_rules(tmp_path: Path) -> None:
         (frame["status"] == "rejected") & (frame["reject_reason"] == "REJECT_LIMIT_UP")
     ]
     assert not rejected_limit_up.empty
+
+
+def test_backtest_rejects_buy_when_liquidity_dryup(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    signal_dates = ["20260218", "20260219"]
+    extra_dates = ["20260220"]
+    _prepare_inputs(config, signal_dates, extra_dates)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE raw_daily "
+            "SET vol=10, amount=1000, open=10.1, high=10.2, low=10.0, close=10.1 "
+            "WHERE trade_date='20260219' AND stock_code='000001'"
+        )
+
+    result = run_backtest(
+        start_date="20260218",
+        end_date="20260220",
+        engine="qlib",
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.quality_status in {"WARN", "PASS"}
+
+    frame = pd.read_parquet(result.backtest_trade_records_path)
+    rejected_low_fill = frame[
+        (frame["status"] == "rejected") & (frame["reject_reason"] == "REJECT_LOW_FILL_PROB")
+    ]
+    assert not rejected_low_fill.empty
+
+    gate_report = result.gate_report_path.read_text(encoding="utf-8")
+    assert "low_fill_prob_blocked_count:" in gate_report

@@ -1,72 +1,30 @@
-# TuShare 10000积分网关版配置
+# TuShare 非官方替代配置（tinyshare）
 
-**版本**: v1.1
-**最后更新**: 2026-02-04
-**适用场景**: 多 IP 并发 / 网关访问
-**定位**: 5000 积分配置的增强入口（数据口径保持一致）
-
----
+**定位**: 非官方替代接入说明（仅供本地验证与应急）
 
 ## 1. 适用场景
 
-- 多 IP 并发调用导致 IP 限制
-- 需要通过网关访问 TuShare API
-- 需要 10000 积分专属接口（如 `limit_list_ths`）
+- 官方 `tushare` token 不可用，但需要继续验证数据链路
+- 需要以最小改动复用现有 `source=tushare` 入口
 
----
-
-## 2. 配置项
-
-| 配置项 | 说明 | 示例 |
-| --- | --- | --- |
-| TUSHARE_TOKEN | 10000 积分 Token | `{{TUSHARE_TOKEN_10000}}` |
-| TUSHARE_GATEWAY_URL | 网关地址 | `{{TUSHARE_GATEWAY_URL}}` |
-| TUSHARE_RATE_LIMIT | 调用频率 | `1000/分钟` |
-
----
-
-## 3. 环境变量配置
+## 2. 环境变量配置
 
 ```bash
-TUSHARE_TOKEN={{TUSHARE_TOKEN_10000}}
-TUSHARE_GATEWAY_URL={{TUSHARE_GATEWAY_URL}}
+TUSHARE_TOKEN=<your_tinyshare_auth_code>
+TUSHARE_SDK_PROVIDER=tinyshare
+TUSHARE_RATE_LIMIT_PER_MIN=120
 ```
 
-> 建议将真实 Token 写入 `.env`（参考 `.env.example`），避免出现在文档与仓库中。
+> 安全要求：授权码只写入 `.env`，禁止写入文档、代码和提交历史。
 
----
+## 3. 运行验证
 
-## 4. 初始化示例（网关）
-
-```python
-import tushare as ts
-from utils.config import Config
-
-config = Config.from_env()
-pro = ts.pro_api()
-
-pro._DataApi__token = config.tushare_token
-pro._DataApi__http_url = config.tushare_gateway_url
+```bash
+python -m src.pipeline.main run --date 20260213 --source tushare --l1-only
+python -m src.pipeline.main run --date 20260213 --source tushare --to-l2
 ```
 
----
+## 4. 说明
 
-## 5. 验证方式
-
-- 调用 `trade_cal` 或 `daily` 拉取样例数据
-- 检查返回字段与 5000 积分口径一致
-
----
-
-## 6. 注意事项
-
-- 网关不可用时建议回退到 5000 积分配置
-- 仅作为访问入口差异，数据口径保持一致
-
----
-
-## 7. 关联文档
-
-- [tushare-config.md](./tushare-config.md)
-- [tushare-config-5000-官方.md](./tushare-config-5000-官方.md)
-- [../astock-rules-handbook.md](../astock-rules-handbook.md)
+- 代码侧通过 `TUSHARE_SDK_PROVIDER` 动态选择 `tushare` / `tinyshare`。
+- `trade_cal` 响应已做 `cal_date -> trade_date` 归一，兼容现有门禁检查。

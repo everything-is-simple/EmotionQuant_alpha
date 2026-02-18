@@ -28,6 +28,9 @@ LIMIT_RATIO_MAIN_BOARD = 0.10
 LIMIT_RATIO_GEM_STAR = 0.20
 LIMIT_RATIO_ST = 0.05
 LIMIT_PRICE_TOLERANCE_RATIO = 0.001
+MIN_FILL_PROBABILITY = 0.35
+QUEUE_PARTICIPATION_RATE = 0.15
+LIQUIDITY_DRYUP_VOLUME_THRESHOLD = 50_000.0
 
 BACKTEST_RESULT_COLUMNS = [
     "backtest_id",
@@ -339,11 +342,15 @@ def _read_price_frame(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'raw_daily'"
         ).fetchone()
         if not row or int(row[0]) <= 0:
-            return _empty_frame(["trade_date", "stock_code", "open", "high", "low", "close"])
+            return _empty_frame(["trade_date", "stock_code", "open", "high", "low", "close", "vol", "amount"])
+        has_vol = _table_has_column(connection, "raw_daily", "vol")
+        has_amount = _table_has_column(connection, "raw_daily", "amount")
+        vol_expr = "vol" if has_vol else "0.0 AS vol"
+        amount_expr = "amount" if has_amount else "0.0 AS amount"
         frame = connection.execute(
             "SELECT trade_date, "
             "COALESCE(NULLIF(stock_code, ''), SPLIT_PART(ts_code, '.', 1)) AS stock_code, "
-            "open, high, low, close "
+            f"open, high, low, close, {vol_expr}, {amount_expr} "
             "FROM raw_daily "
             "WHERE trade_date >= ? AND trade_date <= ? "
             "ORDER BY trade_date, stock_code",
@@ -362,6 +369,8 @@ def _build_price_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, str], dict
             "high": float(row.get("high", 0.0) or 0.0),
             "low": float(row.get("low", 0.0) or 0.0),
             "close": float(row.get("close", 0.0) or 0.0),
+            "vol": float(row.get("vol", 0.0) or 0.0),
+            "amount": float(row.get("amount", 0.0) or 0.0),
         }
     return lookup
 
@@ -424,6 +433,55 @@ def _is_limit_down(*, price: dict[str, float], prev_close: float | None, limit_r
         tolerance = _price_tolerance(limit_price)
         return open_price <= (limit_price + tolerance) and low_price <= (limit_price + tolerance)
     return open_price <= low_price * 1.001
+
+
+def _clip(value: float, low: float, high: float) -> float:
+    if value < low:
+        return low
+    if value > high:
+        return high
+    return value
+
+
+def _is_one_word_board(price: dict[str, float]) -> bool:
+    open_price = float(price.get("open", 0.0) or 0.0)
+    high_price = float(price.get("high", 0.0) or 0.0)
+    low_price = float(price.get("low", 0.0) or 0.0)
+    if open_price <= 0.0 or high_price <= 0.0 or low_price <= 0.0:
+        return False
+    epsilon = max(0.001, high_price * 0.0005)
+    return (
+        abs(high_price - low_price) <= epsilon
+        and abs(open_price - high_price) <= epsilon
+        and abs(open_price - low_price) <= epsilon
+    )
+
+
+def _resolve_liquidity_tier(volume: float) -> str:
+    if volume >= 1_000_000.0:
+        return "L1"
+    if volume >= 200_000.0:
+        return "L2"
+    return "L3"
+
+
+def _estimate_fill(
+    *, price: dict[str, float], order_shares: int
+) -> tuple[float, float, str]:
+    if order_shares <= 0:
+        return (0.0, 0.0, "L3")
+    volume = max(0.0, float(price.get("vol", 0.0) or 0.0))
+    liquidity_tier = _resolve_liquidity_tier(volume)
+    if volume <= 0.0:
+        return (0.0, 0.0, liquidity_tier)
+    if _is_one_word_board(price):
+        return (0.0, 0.0, liquidity_tier)
+    queue_capacity = max(1.0, volume * QUEUE_PARTICIPATION_RATE)
+    queue_ratio = min(1.0, float(order_shares) / queue_capacity)
+    dryup_penalty = 0.70 if volume < LIQUIDITY_DRYUP_VOLUME_THRESHOLD else 0.0
+    fill_probability = _clip(1.0 - queue_ratio - dryup_penalty, 0.0, 1.0)
+    fill_ratio = _clip(1.0 - 0.50 * queue_ratio - dryup_penalty, 0.0, 1.0)
+    return (fill_probability, fill_ratio, liquidity_tier)
 
 
 def run_backtest(
@@ -552,6 +610,8 @@ def run_backtest(
     limit_up_blocked_count = 0
     limit_down_blocked_count = 0
     t1_guard_blocked_count = 0
+    low_fill_prob_blocked_count = 0
+    zero_fill_blocked_count = 0
     missing_price_entry_count = 0
     missing_price_exit_count = 0
     signal_out_of_window_count = 0
@@ -764,7 +824,74 @@ def run_backtest(
                 if shares <= 0:
                     continue
 
-                amount = round(filled_price * shares, 4)
+                fill_probability, fill_ratio, _ = _estimate_fill(price=price, order_shares=shares)
+                if fill_probability < MIN_FILL_PROBABILITY:
+                    low_fill_prob_blocked_count += 1
+                    trade_rows.append(
+                        {
+                            "backtest_id": backtest_id,
+                            "trade_date": replay_day,
+                            "signal_date": str(signal.get("trade_date", replay_day)),
+                            "execute_date": replay_day,
+                            "stock_code": stock_code,
+                            "direction": "buy",
+                            "filled_price": 0.0,
+                            "shares": 0,
+                            "amount": 0.0,
+                            "pnl": 0.0,
+                            "pnl_pct": 0.0,
+                            "recommendation": str(signal.get("recommendation", "HOLD")),
+                            "final_score": round(float(signal.get("final_score", 50.0) or 50.0), 4),
+                            "risk_reward_ratio": round(
+                                float(signal.get("risk_reward_ratio", 0.0) or 0.0), 4
+                            ),
+                            "integration_mode": str(signal.get("integration_mode", "top_down")),
+                            "weight_plan_id": str(signal.get("weight_plan_id", "")),
+                            "status": "rejected",
+                            "reject_reason": "REJECT_LOW_FILL_PROB",
+                            "t1_restriction_hit": False,
+                            "limit_guard_result": "PASS",
+                            "session_guard_result": "PASS",
+                            "contract_version": str(signal.get("contract_version", "")),
+                            "created_at": created_at,
+                        }
+                    )
+                    continue
+                filled_shares = (int(shares * fill_ratio) // 100) * 100
+                if filled_shares <= 0:
+                    zero_fill_blocked_count += 1
+                    trade_rows.append(
+                        {
+                            "backtest_id": backtest_id,
+                            "trade_date": replay_day,
+                            "signal_date": str(signal.get("trade_date", replay_day)),
+                            "execute_date": replay_day,
+                            "stock_code": stock_code,
+                            "direction": "buy",
+                            "filled_price": 0.0,
+                            "shares": 0,
+                            "amount": 0.0,
+                            "pnl": 0.0,
+                            "pnl_pct": 0.0,
+                            "recommendation": str(signal.get("recommendation", "HOLD")),
+                            "final_score": round(float(signal.get("final_score", 50.0) or 50.0), 4),
+                            "risk_reward_ratio": round(
+                                float(signal.get("risk_reward_ratio", 0.0) or 0.0), 4
+                            ),
+                            "integration_mode": str(signal.get("integration_mode", "top_down")),
+                            "weight_plan_id": str(signal.get("weight_plan_id", "")),
+                            "status": "rejected",
+                            "reject_reason": "REJECT_ZERO_FILL",
+                            "t1_restriction_hit": False,
+                            "limit_guard_result": "PASS",
+                            "session_guard_result": "PASS",
+                            "contract_version": str(signal.get("contract_version", "")),
+                            "created_at": created_at,
+                        }
+                    )
+                    continue
+
+                amount = round(filled_price * filled_shares, 4)
                 _, _, _, buy_total_fee = calc_fees(amount, "buy")
                 required_cash = amount + buy_total_fee
                 if required_cash > cash:
@@ -773,7 +900,7 @@ def run_backtest(
 
                 can_sell_date = _next_trade_day(replay_days, replay_day) or replay_day
                 positions[stock_code] = {
-                    "shares": shares,
+                    "shares": filled_shares,
                     "buy_price": filled_price,
                     "buy_amount": amount,
                     "buy_fee": buy_total_fee,
@@ -796,7 +923,7 @@ def run_backtest(
                         "stock_code": stock_code,
                         "direction": "buy",
                         "filled_price": round(filled_price, 4),
-                        "shares": shares,
+                        "shares": filled_shares,
                         "amount": amount,
                         "pnl": 0.0,
                         "pnl_pct": 0.0,
@@ -865,6 +992,8 @@ def run_backtest(
             limit_up_blocked_count,
             limit_down_blocked_count,
             t1_guard_blocked_count,
+            low_fill_prob_blocked_count,
+            zero_fill_blocked_count,
             missing_price_entry_count,
             missing_price_exit_count,
             signal_out_of_window_count,
@@ -877,6 +1006,8 @@ def run_backtest(
             f"limit_up_blocked={limit_up_blocked_count};"
             f"limit_down_blocked={limit_down_blocked_count};"
             f"t1_guard_blocked={t1_guard_blocked_count};"
+            f"low_fill_prob_blocked={low_fill_prob_blocked_count};"
+            f"zero_fill_blocked={zero_fill_blocked_count};"
             f"missing_price_entry={missing_price_entry_count};"
             f"missing_price_exit={missing_price_exit_count};"
             f"signal_out_of_window={signal_out_of_window_count}"
@@ -980,6 +1111,8 @@ def run_backtest(
         f"- limit_up_blocked_count: {limit_up_blocked_count}",
         f"- limit_down_blocked_count: {limit_down_blocked_count}",
         f"- t1_guard_blocked_count: {t1_guard_blocked_count}",
+        f"- low_fill_prob_blocked_count: {low_fill_prob_blocked_count}",
+        f"- zero_fill_blocked_count: {zero_fill_blocked_count}",
         f"- missing_price_entry_count: {missing_price_entry_count}",
         f"- missing_price_exit_count: {missing_price_exit_count}",
         f"- signal_out_of_window_count: {signal_out_of_window_count}",
