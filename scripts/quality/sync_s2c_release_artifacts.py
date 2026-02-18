@@ -15,10 +15,14 @@ REQUIRED_FILES: tuple[str, ...] = (
     "quality_gate_report.md",
     "s2_go_nogo_decision.md",
     "integrated_recommendation_sample.parquet",
+    "mss_factor_intermediate_sample.parquet",
+    "validation_gate_decision_sample.parquet",
 )
 
 SYNC_FILES: tuple[str, ...] = (
     "integrated_recommendation_sample.parquet",
+    "mss_factor_intermediate_sample.parquet",
+    "validation_gate_decision_sample.parquet",
     "quality_gate_report.md",
     "s2_go_nogo_decision.md",
     "irs_factor_intermediate_sample.parquet",
@@ -50,6 +54,8 @@ def _validate_release_artifacts(release_dir: Path) -> list[str]:
     quality_path = release_dir / "quality_gate_report.md"
     go_nogo_path = release_dir / "s2_go_nogo_decision.md"
     integrated_path = release_dir / "integrated_recommendation_sample.parquet"
+    mss_factor_path = release_dir / "mss_factor_intermediate_sample.parquet"
+    validation_gate_path = release_dir / "validation_gate_decision_sample.parquet"
     if violations:
         return violations
 
@@ -70,6 +76,18 @@ def _validate_release_artifacts(release_dir: Path) -> list[str]:
         return violations
     if integrated_count <= 0:
         violations.append("integrated_recommendation_sample.parquet must have at least one row")
+
+    for parquet_path, label in (
+        (mss_factor_path, "mss_factor_intermediate_sample.parquet"),
+        (validation_gate_path, "validation_gate_decision_sample.parquet"),
+    ):
+        try:
+            row_count = int(len(pd.read_parquet(parquet_path)))
+        except Exception as exc:  # pragma: no cover - defensive guard
+            violations.append(f"failed to read {label}: {exc}")
+            continue
+        if row_count <= 0:
+            violations.append(f"{label} must have at least one row")
 
     return violations
 

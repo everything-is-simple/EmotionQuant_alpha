@@ -70,6 +70,16 @@ def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> boo
     return bool(row and int(row[0]) > 0)
 
 
+def _column_exists(
+    connection: duckdb.DuckDBPyConnection, table_name: str, column_name: str
+) -> bool:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        [table_name, column_name],
+    ).fetchone()
+    return bool(row and int(row[0]) > 0)
+
+
 def _has_mss_for_trade_date(database_path: Path, trade_date: str) -> bool:
     if not database_path.exists():
         return False
@@ -81,6 +91,82 @@ def _has_mss_for_trade_date(database_path: Path, trade_date: str) -> bool:
             [trade_date],
         ).fetchone()
     return bool(row and int(row[0]) > 0)
+
+
+def _load_trade_date_table(
+    *,
+    database_path: Path,
+    table_name: str,
+    trade_date: str,
+) -> tuple[pd.DataFrame, bool]:
+    if not database_path.exists():
+        return (pd.DataFrame.from_records([]), False)
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        if not _table_exists(connection, table_name):
+            return (pd.DataFrame.from_records([]), False)
+        order_by = (
+            " ORDER BY created_at DESC"
+            if _column_exists(connection, table_name, "created_at")
+            else ""
+        )
+        frame = connection.execute(
+            f"SELECT * FROM {table_name} WHERE trade_date = ?{order_by}",
+            [trade_date],
+        ).df()
+    return (frame, True)
+
+
+def _materialize_s2c_bridge_samples(
+    *,
+    database_path: Path,
+    parquet_root: Path,
+    trade_date: str,
+    artifacts_dir: Path,
+) -> tuple[int, list[str]]:
+    mss_frame, has_mss_table = _load_trade_date_table(
+        database_path=database_path,
+        table_name="mss_factor_intermediate",
+        trade_date=trade_date,
+    )
+    validation_frame, has_validation_table = _load_trade_date_table(
+        database_path=database_path,
+        table_name="validation_gate_decision",
+        trade_date=trade_date,
+    )
+    if mss_frame.empty:
+        mss_parquet_path = parquet_root / "mss_factor_intermediate.parquet"
+        if mss_parquet_path.exists():
+            mss_parquet_frame = pd.read_parquet(mss_parquet_path)
+            if "trade_date" in mss_parquet_frame.columns:
+                mss_frame = mss_parquet_frame[
+                    mss_parquet_frame["trade_date"].astype(str) == trade_date
+                ].reset_index(drop=True)
+    if validation_frame.empty:
+        validation_parquet_path = parquet_root / "validation_gate_decision.parquet"
+        if validation_parquet_path.exists():
+            validation_parquet_frame = pd.read_parquet(validation_parquet_path)
+            if "trade_date" in validation_parquet_frame.columns:
+                validation_frame = validation_parquet_frame[
+                    validation_parquet_frame["trade_date"].astype(str) == trade_date
+                ].reset_index(drop=True)
+
+    mss_sample_path = artifacts_dir / "mss_factor_intermediate_sample.parquet"
+    validation_sample_path = artifacts_dir / "validation_gate_decision_sample.parquet"
+    mss_frame.to_parquet(mss_sample_path, index=False)
+    validation_frame.to_parquet(validation_sample_path, index=False)
+
+    violations: list[str] = []
+    if not has_mss_table and mss_frame.empty:
+        violations.append("mss_factor_intermediate_source_missing")
+    elif mss_frame.empty:
+        violations.append("mss_factor_intermediate_empty_for_trade_date")
+
+    if not has_validation_table and validation_frame.empty:
+        violations.append("validation_gate_decision_source_missing")
+    elif validation_frame.empty:
+        violations.append("validation_gate_decision_empty_for_trade_date")
+
+    return (int(len(validation_frame)), violations)
 
 
 def _write_quality_gate_report(
@@ -272,6 +358,7 @@ def _run_s2b(
     config: Config,
     evidence_lane: str,
 ) -> RecommendRunResult:
+    database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     artifacts_dir = (
         _resolve_s2c_artifacts_dir(trade_date=trade_date, evidence_lane=evidence_lane)
         if with_validation_bridge
@@ -359,6 +446,15 @@ def _run_s2b(
             parquet_root / "quality_gate_report.parquet",
             index=False,
         )
+        if with_validation_bridge:
+            validation_count, sample_violations = _materialize_s2c_bridge_samples(
+                database_path=database_path,
+                parquet_root=parquet_root,
+                trade_date=trade_date,
+                artifacts_dir=artifacts_dir,
+            )
+            for item in sample_violations:
+                add_error("P0", "s2c_bridge_samples", item)
 
         if integration_result.count <= 0:
             add_error("P0", "gate", "integrated_recommendation_empty")
@@ -371,6 +467,12 @@ def _run_s2b(
             add_error("P0", "run_recommendation", str(exc))
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         pd.DataFrame.from_records([]).to_parquet(integrated_sample_path, index=False)
+        if with_validation_bridge:
+            pd.DataFrame.from_records([]).to_parquet(
+                artifacts_dir / "mss_factor_intermediate_sample.parquet",
+                index=False,
+            )
+            pd.DataFrame.from_records([]).to_parquet(validation_sample_path, index=False)
         _write_quality_gate_report(
             path=quality_gate_report_path,
             trade_date=trade_date,

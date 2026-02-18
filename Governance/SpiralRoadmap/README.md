@@ -1,7 +1,7 @@
 # SpiralRoadmap 目录说明
 
 **状态**: Active  
-**更新时间**: 2026-02-16  
+**更新时间**: 2026-02-18  
 **定位**: Spiral 执行路线与依赖图目录（执行伴随文档，不替代上位 SoT）
 
 ---
@@ -28,8 +28,17 @@
     - `S2B-EXECUTION-CARD.md`
     - `S2C-EXECUTION-CARD.md`
     - `S2R-EXECUTION-CARD.md`
-- `S3A-EXECUTION-CARD.md`
-  - S3a（ENH-10）一页执行卡（分批下载/断点续传/多线程）
+- `S3A-EXECUTION-CARD.md` ~ `S4BR-EXECUTION-CARD.md`
+  - 阶段B（S3a-S4b）全子圈一页执行卡（run/test/artifact/review/sync）
+  - 包含：
+    - `S3A-EXECUTION-CARD.md`
+    - `S3-EXECUTION-CARD.md`
+    - `S3R-EXECUTION-CARD.md`
+    - `S4-EXECUTION-CARD.md`
+    - `S4R-EXECUTION-CARD.md`
+    - `S3B-EXECUTION-CARD.md`
+    - `S4B-EXECUTION-CARD.md`
+    - `S4BR-EXECUTION-CARD.md`
 - `SPIRAL-PRODUCTION-ROUTES.md`
   - S0-S7a 三套完整实战路线（推荐/稳健/激进，含 S3b 收益归因与 S4b 极端防御专项）
 - `SPIRAL-STAGE-TEMPLATES.md`
@@ -70,6 +79,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.0 | 2026-02-18 | 按 6A 工作流补齐阶段B全子圈执行卡索引：新增 `S3/S3R/S4/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md` |
 | v1.9 | 2026-02-16 | 同步 S2c 算法深化圈：S0-S2 口径升级为 S0-S2c，并纳入 `S2C-EXECUTION-CARD.md` 索引 |
 | v1.8 | 2026-02-16 | 新增 `SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md` 入口，补齐阶段C（S5-S7a）可执行合同索引 |
 | v1.7 | 2026-02-16 | 新增 `SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 入口，补齐阶段B（S3a-S4b）可执行合同索引 |

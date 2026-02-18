@@ -1,7 +1,7 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.4）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.5）
 
 **状态**: Active  
-**更新时间**: 2026-02-17  
+**更新时间**: 2026-02-18  
 **适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、极端防御）  
 **文档角色**: S3a-S4b 执行合同（不是上位 SoT 替代）
 
@@ -24,13 +24,13 @@
 
 ---
 
-## 1. 现实基线快照（As-Is, 2026-02-17）
+## 1. 现实基线快照（As-Is, 2026-02-18）
 
-1. S2c 已按 6A 收口完成，S3a/S3 已进入 `in_progress`，并已打通 S3a->S3 消费门禁链路（见 `Governance/record/development-status.md`）。
+1. S2c 与 S3a 已按 6A 收口完成，S3/S4 处于 `in_progress`，并已打通 S3a->S3 消费门禁链路（见 `Governance/record/development-status.md`）。
 2. `eq` 统一入口已完成阶段B首批命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade`；`analysis/stress` 仍待后续圈补齐。
 3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路；`src/analysis` 仍待补齐。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
-5. S3a 一页执行卡已存在：`Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md`。
+5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md`。
 
 执行口径采用双层：
 
@@ -172,6 +172,7 @@ flowchart LR
 ### S3
 
 - 主目标：回测闭环（Qlib 主线 + 本地口径可对照）。
+- 执行卡：`Governance/SpiralRoadmap/S3-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_quality_gate_contract.py -q`
 - `target command`：`eq backtest --engine {engine} --start {start} --end {end}`
 - `target test`（本圈必须补齐并执行）：`tests/unit/backtest/test_backtest_contract.py tests/unit/backtest/test_validation_integration_bridge.py tests/unit/backtest/test_backtest_reproducibility.py`
@@ -188,6 +189,7 @@ flowchart LR
 
 - 触发：S3 `gate = FAIL`
 - 主目标：只修不扩，恢复回测门禁可通过。
+- 执行卡：`Governance/SpiralRoadmap/S3R-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/backtest -q`
 - `target command`：`eq backtest --engine {engine} --start {start} --end {end} --repair s3r`
 - `target test`（本圈必须补齐并执行）：`tests/unit/backtest/test_backtest_contract.py tests/unit/backtest/test_backtest_reproducibility.py`
@@ -200,6 +202,7 @@ flowchart LR
 ### S4
 
 - 主目标：纸上交易闭环（信号 -> 订单 -> 持仓 -> 风控日志可重放）。
+- 执行卡：`Governance/SpiralRoadmap/S4-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_integration_contract.py -q`
 - `target command`：`eq trade --mode paper --date {trade_date}`
 - `target test`（本圈必须补齐并执行）：`tests/unit/trading/test_order_pipeline_contract.py tests/unit/trading/test_position_lifecycle_contract.py tests/unit/trading/test_risk_guard_contract.py`
@@ -215,6 +218,7 @@ flowchart LR
 
 - 触发：S4 `gate = FAIL`
 - 主目标：修复交易闭环阻断项并重验。
+- 执行卡：`Governance/SpiralRoadmap/S4R-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/trading -q`
 - `target command`：`eq trade --mode paper --date {trade_date} --repair s4r`
 - `target test`（本圈必须补齐并执行）：`tests/unit/trading/test_order_pipeline_contract.py tests/unit/trading/test_risk_guard_contract.py`
@@ -227,6 +231,7 @@ flowchart LR
 ### S3b
 
 - 主目标：收益归因验证闭环（A/B/C + 实盘-回测偏差三分解）。
+- 执行卡：`Governance/SpiralRoadmap/S3B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：
   - `eq analysis --start {start} --end {end} --ab-benchmark`
@@ -242,6 +247,7 @@ flowchart LR
 ### S4b
 
 - 主目标：极端防御专项闭环（连续跌停、流动性枯竭）。
+- 执行卡：`Governance/SpiralRoadmap/S4B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_quality_gate_contract.py -q`
 - `target command`：
   - `eq stress --scenario limit_down_chain --date {trade_date}`
@@ -259,6 +265,7 @@ flowchart LR
 
 - 触发：S4b `gate = FAIL`
 - 主目标：只修不扩，恢复极端防御门禁通过。
+- 执行卡：`Governance/SpiralRoadmap/S4BR-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/trading -q`
 - `target command`：`eq stress --scenario all --date {trade_date} --repair s4br`
 - `target test`（本圈必须补齐并执行）：`tests/unit/trading/test_stress_limit_down_chain.py tests/unit/trading/test_stress_liquidity_dryup.py`
@@ -336,6 +343,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.5 | 2026-02-18 | 按 6A 执行卡强约束补齐阶段B全子圈任务卡（S3/S3r/S4/S4r/S3b/S4b/S4br），并在各圈执行合同挂接链接 |
 | v0.4 | 2026-02-17 | 刷新 As-Is 到当前执行进展：`eq` 已接入阶段B首批命令；S3 已扩展多交易日回放；S4 已启动 paper trade；同步首轮启动顺序 |
 | v0.3 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确阶段B中 ENH-10/04/06/09/03 的落位与审计路径 |
 | v0.2 | 2026-02-16 | 阶段B入口前置从 S2b 调整为 S2c；新增 `validation_weight_plan` 桥接硬门禁与回退规则 |

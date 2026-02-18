@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from src.algorithms.mss.pipeline import run_mss_scoring
@@ -65,6 +66,14 @@ def test_s2c_bridge_writes_release_and_debug_lanes_separately(tmp_path: Path) ->
     assert "spiral-s2c" in str(release_result.artifacts_dir)
     assert "spiral-s2c-debug" not in str(release_result.artifacts_dir)
     assert release_result.quality_gate_report_path.exists()
+    release_mss_sample = release_result.artifacts_dir / "mss_factor_intermediate_sample.parquet"
+    release_validation_sample = (
+        release_result.artifacts_dir / "validation_gate_decision_sample.parquet"
+    )
+    assert release_mss_sample.exists()
+    assert release_validation_sample.exists()
+    assert len(pd.read_parquet(release_mss_sample)) > 0
+    assert len(pd.read_parquet(release_validation_sample)) > 0
 
     debug_result = run_recommendation(
         trade_date=trade_date,
@@ -77,6 +86,12 @@ def test_s2c_bridge_writes_release_and_debug_lanes_separately(tmp_path: Path) ->
     assert debug_result.has_error is False
     assert "spiral-s2c-debug" in str(debug_result.artifacts_dir)
     assert debug_result.quality_gate_report_path.exists()
+    debug_mss_sample = debug_result.artifacts_dir / "mss_factor_intermediate_sample.parquet"
+    debug_validation_sample = debug_result.artifacts_dir / "validation_gate_decision_sample.parquet"
+    assert debug_mss_sample.exists()
+    assert debug_validation_sample.exists()
+    assert len(pd.read_parquet(debug_mss_sample)) > 0
+    assert len(pd.read_parquet(debug_validation_sample)) > 0
 
     assert release_result.artifacts_dir != debug_result.artifacts_dir
     assert (release_result.artifacts_dir / "quality_gate_report.md").exists()

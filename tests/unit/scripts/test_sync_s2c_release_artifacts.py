@@ -41,6 +41,22 @@ def test_sync_s2c_release_artifacts_success(tmp_path: Path) -> None:
         release_dir / "integrated_recommendation_sample.parquet",
         index=False,
     )
+    pd.DataFrame.from_records([{"trade_date": trade_date, "mss_score": 62.5}]).to_parquet(
+        release_dir / "mss_factor_intermediate_sample.parquet",
+        index=False,
+    )
+    pd.DataFrame.from_records(
+        [
+            {
+                "trade_date": trade_date,
+                "final_gate": "PASS",
+                "selected_weight_plan": "vp_balanced_v1",
+            }
+        ]
+    ).to_parquet(
+        release_dir / "validation_gate_decision_sample.parquet",
+        index=False,
+    )
     pd.DataFrame.from_records([{"trade_date": trade_date, "plan_id": "vp_balanced_v1"}]).to_parquet(
         release_dir / "validation_weight_plan_sample.parquet",
         index=False,
@@ -51,6 +67,8 @@ def test_sync_s2c_release_artifacts_success(tmp_path: Path) -> None:
     assert (spec_dir / "quality_gate_report.md").exists()
     assert (spec_dir / "s2_go_nogo_decision.md").exists()
     assert (spec_dir / "integrated_recommendation_sample.parquet").exists()
+    assert (spec_dir / "mss_factor_intermediate_sample.parquet").exists()
+    assert (spec_dir / "validation_gate_decision_sample.parquet").exists()
     assert (spec_dir / "validation_weight_plan_sample.parquet").exists()
 
 
@@ -78,6 +96,22 @@ def test_sync_s2c_release_artifacts_blocks_fail_status(tmp_path: Path) -> None:
     )
     pd.DataFrame.from_records([]).to_parquet(
         release_dir / "integrated_recommendation_sample.parquet",
+        index=False,
+    )
+    pd.DataFrame.from_records([{"trade_date": trade_date, "mss_score": 62.5}]).to_parquet(
+        release_dir / "mss_factor_intermediate_sample.parquet",
+        index=False,
+    )
+    pd.DataFrame.from_records(
+        [
+            {
+                "trade_date": trade_date,
+                "final_gate": "FAIL",
+                "selected_weight_plan": "",
+            }
+        ]
+    ).to_parquet(
+        release_dir / "validation_gate_decision_sample.parquet",
         index=False,
     )
 

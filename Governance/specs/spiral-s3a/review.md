@@ -31,6 +31,24 @@
 - `python -m scripts.quality.local_quality_check --contracts --governance`
 - 结果：PASS
 
+### 补充复验（2026-02-18，沙箱隔离环境）
+
+- run:
+  - `python -m src.pipeline.main --env-file none fetch-batch --start 20250101 --end 20260218 --batch-size 365 --workers 3`
+  - `python -m src.pipeline.main --env-file none fetch-status`
+  - `python -m src.pipeline.main --env-file none fetch-retry`
+  - 运行时采用隔离变量：`DATA_PATH/DUCKDB_DIR/PARQUET_PATH/CACHE_PATH/LOG_PATH -> G:/EmotionQuant-alpha/.tmp/s3a-data`，`TUSHARE_TOKEN=''`
+  - 结果：PASS（`status=completed`, `failed_batches=0`, `last_success_batch_id=2`）
+- test:
+  - `pytest tests/unit/data/test_fetch_batch_contract.py -q -p no:tmpdir -p no:cacheprovider -p pytest_safe_tmp_plugin`
+  - `pytest tests/unit/data/test_fetch_resume_contract.py -q -p no:tmpdir -p no:cacheprovider -p pytest_safe_tmp_plugin`
+  - `pytest tests/unit/data/test_fetch_retry_contract.py -q -p no:tmpdir -p no:cacheprovider -p pytest_safe_tmp_plugin`
+  - 结果：PASS（3/3）
+- contracts/governance:
+  - `python -m scripts.quality.local_quality_check --contracts --governance`
+  - 结果：PASS
+- 说明：本次为不污染正式数据目录的隔离复验，不替代 2026-02-17 已归档的真实 TuShare 链路证据。
+
 ## 3. A5 证据链
 
 - requirements: `Governance/specs/spiral-s3a/requirements.md`

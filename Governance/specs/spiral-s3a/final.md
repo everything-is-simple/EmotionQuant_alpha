@@ -44,3 +44,11 @@
 ## 5. 跨文档联动
 
 - 结论：未触发破坏性契约变更，不涉及额外 CP 契约结构变更。
+
+## 6. 补充复验（2026-02-18）
+
+- 复验口径：沙箱隔离复验（`.tmp/s3a-data` + `--env-file none` + `TUSHARE_TOKEN=''`），用于验证命令闭环与合同稳定性，不污染正式数据目录。
+- run：PASS（`fetch-batch/fetch-status/fetch-retry` 全部成功，`failed_batches=0`）。
+- test：PASS（`test_fetch_batch_contract.py`、`test_fetch_resume_contract.py`、`test_fetch_retry_contract.py` 通过）。
+- gate：PASS（`python -m scripts.quality.local_quality_check --contracts --governance`）。
+- 主结论：S3a 收口状态保持 `completed`，不变更后续圈位推进结论。
