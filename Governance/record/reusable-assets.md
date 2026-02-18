@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-17  
-**版本**: v2.17  
+**最后更新**: 2026-02-18  
+**版本**: v2.18  
 **范围**: S0-S6
 
 ---
@@ -90,7 +90,7 @@
 | A-CODE-031 | S3 多交易日回放与 A 股执行细节实现 | `src/backtest/pipeline.py` | A | 按交易日历执行 T+1、涨停买入拒绝、跌停卖出阻断、费用与权益曲线计算 |
 | A-TEST-032 | S3 T+1/涨跌停执行细节测试 | `tests/unit/backtest/test_backtest_t1_limit_rules.py` | A | 保证多日回放与 A 股执行约束行为稳定 |
 | A-CODE-033 | S4 paper trade 消费链与门禁实现 | `src/trading/pipeline.py` + `src/pipeline/main.py` | A | 复用 S3 consumption/gate 证据链，输出订单/持仓/风控样例产物 |
-| A-TEST-034 | S4 交易链路合同测试集 | `tests/unit/trading/support.py` + `tests/unit/trading/test_order_pipeline_contract.py` + `tests/unit/trading/test_position_lifecycle_contract.py` + `tests/unit/trading/test_risk_guard_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_trade_runs_paper_mode` | A | 保证 S4 订单、持仓生命周期与风控守卫契约稳定 |
+| A-TEST-034 | S4 交易链路合同测试集 | `tests/unit/trading/support.py` + `tests/unit/trading/test_order_pipeline_contract.py` + `tests/unit/trading/test_position_lifecycle_contract.py` + `tests/unit/trading/test_risk_guard_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_trade_runs_paper_mode` | A | 保证 S4 订单、持仓生命周期与风控守卫契约稳定；收口样例证据见 `artifacts/spiral-s4/20260222/manual_test_summary.md` |
 
 ---
 
@@ -110,6 +110,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-18 | v2.18 | 更新 S4 测试资产说明：补充收口样例证据入口（`artifacts/spiral-s4/20260222/manual_test_summary.md`） |
 | 2026-02-17 | v2.17 | 升级 S3a 资产登记为收口版：纳入真实 TuShare 适配、实测吞吐与失败恢复实测相关代码/测试资产 |
 | 2026-02-17 | v2.16 | 增加 S3 多交易日回放与 T+1/涨跌停资产（A-CODE-031、A-TEST-032）及 S4 paper trade 资产（A-CODE-033、A-TEST-034） |
 | 2026-02-17 | v2.15 | 增加 S3 回测输入准备与消费门禁资产（A-CODE-029）及 Backtest 合同/可复现测试资产（A-TEST-030） |

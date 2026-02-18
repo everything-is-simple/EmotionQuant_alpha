@@ -1,4 +1,4 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.6）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.7）
 
 **状态**: Active  
 **更新时间**: 2026-02-18  
@@ -26,7 +26,7 @@
 
 ## 1. 现实基线快照（As-Is, 2026-02-18）
 
-1. S2c 与 S3a 已按 6A 收口完成，S3/S4 处于 `in_progress`，并已打通 S3a->S3 消费门禁链路（见 `Governance/record/development-status.md`）。
+1. S2c、S3a、S4 已按 6A 收口完成，S3 处于 `in_progress`，并已打通 S3a->S3 与 S4->S3b 的消费门禁链路（见 `Governance/record/development-status.md`）。
 2. `eq` 统一入口已完成阶段B首批命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade`；`analysis/stress` 仍待后续圈补齐。
 3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路；`src/analysis` 仍待补齐。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
@@ -306,8 +306,8 @@ flowchart LR
 1. 跑 baseline command/test（环境健康检查）。
 2. 完成 S3a（ENH-10）真实链路演练并补齐吞吐/恢复证据。
 3. 继续推进 S3（回测）板块化涨跌停阈值与执行细节完善。
-4. 继续推进 S4（纸上交易）跨日持仓生命周期回放。
-5. S3/S4 满足 `PASS/WARN` 后进入 S3b（归因）与 S4b（极端防御）。
+4. S4 已收口完成（跨日持仓与跌停次日重试证据闭环）。
+5. 进入 S3b（归因），S3b 满足 `PASS/WARN` 后推进 S4b（极端防御）。
 
 启动命令：
 
@@ -345,6 +345,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.7 | 2026-02-18 | S4 收口完成并切换阶段B推进顺序：确认 `artifacts/spiral-s4/20260222` 为收口证据入口，下一圈进入 S3b |
 | v0.6 | 2026-02-18 | S3 门禁升级为“核心算法全量消费可审计”：新增 `mss/irs/pas` 三因子完整性与核心表窗口覆盖硬校验，并补充 `test_backtest_core_algorithm_coverage_gate.py` 到目标测试 |
 | v0.5 | 2026-02-18 | 按 6A 执行卡强约束补齐阶段B全子圈任务卡（S3/S3r/S4/S4r/S3b/S4b/S4br），并在各圈执行合同挂接链接 |
 | v0.4 | 2026-02-17 | 刷新 As-Is 到当前执行进展：`eq` 已接入阶段B首批命令；S3 已扩展多交易日回放；S4 已启动 paper trade；同步首轮启动顺序 |

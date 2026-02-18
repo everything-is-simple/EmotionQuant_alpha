@@ -1,4 +1,4 @@
-# S4 执行卡（v0.1）
+# S4 执行卡（v0.2）
 
 **状态**: Active  
 **更新时间**: 2026-02-18  
@@ -81,5 +81,6 @@ pytest tests/unit/trading/test_risk_guard_contract.py -q
 
 ## 9. 本轮进度（2026-02-18）
 
-- 已进入 `in_progress`，`eq trade --mode paper` 与最小交易链路已落地。
-- 下一步：扩展跨日持仓与卖出生命周期回放（含跌停不可卖次日重试）。
+- 已完成 S4 收口：`artifacts/spiral-s4/20260222/` 形成完整 run/test/artifact 证据链，`quality_status=WARN`、`go_nogo=GO`。
+- 已验证跨日持仓关键边界：跌停不可卖阻断与次日重试卖出可回放。
+- 下一步：进入 S3b（收益归因验证闭环）。

@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-18  
-**当前版本**: v4.12（S3 核心算法全量消费门禁落地：MSS/IRS/PAS 覆盖硬校验 + 证据链增强）  
+**当前版本**: v4.13（S4 收口完成：跨日持仓回放 + 跌停次日重试证据闭环）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3/S4 执行中：S3a 已收口完成，S3/S4 继续推进实战完整化**
+**S3 执行中，S4 已收口完成：下一圈进入 S3b 收益归因验证闭环**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -43,6 +43,14 @@
 3. S3 证据链增强：`consumption.md` 与 `gate_report.md` 新增 DuckDB 路径与核心表覆盖统计，支持审计复核。
 4. 新增 S3 回归测试：`tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py`，覆盖“字段空值阻断/核心表缺失阻断/正常覆盖通过”。
 5. 同步执行卡与路线合同：`S3-EXECUTION-CARD.md`、`SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 已纳入新门禁与测试清单。
+
+## 本次同步（2026-02-18，S4 收口）
+
+1. 完成 S4 收口实跑：`eq --env-file artifacts/spiral-s4/20260222/closeout_env_v3/.env.s4.closeout trade --mode paper --date 20260222`，产出 `quality_status=WARN`、`go_nogo=GO`。
+2. 完成交叉日持仓生命周期验证：在收口环境中复现“首日建仓 -> 次日跌停阻断（`REJECT_LIMIT_DOWN`）-> 再下一日重试卖出（`SELL_RETRY_NEXT_DAY`）”完整链路。
+3. S4 证据链补齐：`artifacts/spiral-s4/20260222/` 下新增 `run.log`、`test.log`、`manual_test_summary.md`，并同步标准产物 `trade_records/positions/risk_events/paper_trade_replay/consumption/gate_report`。
+4. 治理门禁复核通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
+5. 完成 A6 最小同步：更新 `spiral-s4 final/review/requirements`、`development-status`、`debts`、`reusable-assets`、`SPIRAL-CP-OVERVIEW`。
 
 ## 本次同步（2026-02-17，S3 板块化涨跌停阈值）
 
@@ -98,18 +106,18 @@
 | S2c | 核心算法深化闭环（权重桥接 + 语义收口） | ✅ 已完成 | release 证据统一、closeout 文档补齐、A6 同步完成 |
 | S3a | ENH-10 数据采集增强闭环 | ✅ 已完成 | 已接入真实 TuShare 客户端，实测吞吐与失败恢复证据齐备 |
 | S3 | 回测闭环 | 🔄 进行中 | 已扩展多交易日回放并落地板块化涨跌停阈值 |
-| S4 | 纸上交易闭环 | 🔄 进行中 | 已启动 `eq trade`，复用 S3 consumption/gate 证据链 |
+| S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4 完成 |
 | S6 | 稳定化闭环 | 📋 未开始 | 重跑一致性与债务清偿 |
 | S7a | ENH-11 自动调度闭环 | 📋 未开始 | 依赖 S6 完成 |
 
 ---
 
-## 下一步（S3/S4 执行中）
+## 下一步（S3b 启动）
 
-1. 继续补齐更细撮合规则（如一字板/流动性枯竭下成交可行性）并形成可回放证据。
-2. 扩展 S4 到跨日持仓与卖出生命周期回放（含跌停不可卖次日重试）。
-3. 持续在真实 token 环境做长窗口吞吐观测，并推进 S3/S4 收口。
+1. 启动 S3b：完成 A/B/C 对照与实盘-回测偏差三分解（signal/execution/cost）。
+2. 基于 S4 真实执行产物形成收益来源结论（信号主导或执行主导），作为 S4b 参数输入。
+3. 在 S3/S4 既有基础上继续补齐更细撮合规则（如一字板/流动性枯竭）并沉淀可回放证据。
 
 ---
 
@@ -125,6 +133,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-18 | v4.13 | S4 收口完成：以 `artifacts/spiral-s4/20260222` 形成 run/test/artifact 证据链，验证跨日持仓与跌停次日重试，`quality_status=WARN` 且 `go_nogo=GO`，下一圈切换 S3b |
 | 2026-02-18 | v4.12 | S3 新增核心算法全量消费门禁：`mss/irs/pas` 三因子完整性与核心表窗口覆盖硬校验；新增 `test_backtest_core_algorithm_coverage_gate.py`；同步执行卡与路线合同 |
 | 2026-02-17 | v4.11 | S3a 收口：接入真实 TuShare 客户端、落地实测吞吐报告、失败批次真实重跑恢复；全量测试 96 passed + contracts/governance PASS |
 | 2026-02-17 | v4.10 | S3 落地板块化涨跌停阈值（10%/20%/5%），新增并通过 `test_backtest_board_limit_thresholds.py`，并完成 S3 backtest 关键回归 7 passed |
