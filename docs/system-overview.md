@@ -50,7 +50,13 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 - 数据根目录：`DATA_PATH`（通过 `.env` 注入，实际部署为 `G:\EmotionQuant_data`，位于仓库外独立目录）
 - 默认数据库：`DATA_PATH/duckdb/emotionquant.duckdb`
 - 子目录布局：`parquet/` · `duckdb/` · `cache/` · `logs/`（均可通过 `.env` 单独覆盖）
+- 一键校验脚本：`powershell -ExecutionPolicy Bypass -File scripts/setup/prepare_storage_layout.ps1 -DataRoot G:\EmotionQuant_data`
 - 分库策略：仅在明确性能阈值触发后启用（需 ADR + 基准测试）
+
+### 4.0 仓库整洁度（执行口径）
+
+- 仓库 `G:\EmotionQuant-alpha` 仅保留代码/文档/治理与必要产物，临时目录按 `tmp_*` / `temp_*` / `.tmp_*` 统一清理。
+- 本地数据库与数据文件统一落在 `G:\EmotionQuant_data`，避免与仓库内容混存。
 
 ### 4.1 分层
 
@@ -128,6 +134,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v4.1.7 | 2026-02-18 | 固化本地部署口径：新增 `G:\EmotionQuant_data` 存储校验脚本入口；补充“仓库整洁度”执行口径（代码文档与数据目录分离） |
 | v4.1.6 | 2026-02-14 | 文档导航补齐命名契约体系入口（schema/glossary/模板）与质量门禁入口（本地检查命令 + CI workflow） |
 | v4.1.5 | 2026-02-14 | 修复 R33（review-011）：补充 `run/test/artifact/review/sync` 明文口径；A 股规则增加精度定义链接（铁律/原则）；新增“研究主选 vs 收口主线”术语消歧；文档导航补充 TRD/治理 SoT/6A 入口 |
 | v4.1.4 | 2026-02-12 | 文档导航中的 SpiralRoadmap 入口由 `draft/` 收敛为 `VORTEX-EVOLUTION-ROADMAP.md` + `DEPENDENCY-MAP.md` |

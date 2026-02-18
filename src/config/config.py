@@ -40,6 +40,7 @@ if BaseSettings:
 
     class Config(BaseSettings):
         tushare_token: str = ""
+        tushare_sdk_provider: str = "tushare"
         tushare_rate_limit_per_min: int = 120
 
         data_path: str = ""
@@ -125,6 +126,7 @@ else:
     @dataclass(frozen=True)
     class Config:
         tushare_token: str = ""
+        tushare_sdk_provider: str = "tushare"
         tushare_rate_limit_per_min: int = 120
 
         data_path: str = ""
@@ -190,6 +192,7 @@ else:
             )
             return cls(
                 tushare_token=os.getenv("TUSHARE_TOKEN", ""),
+                tushare_sdk_provider=os.getenv("TUSHARE_SDK_PROVIDER", "tushare"),
                 tushare_rate_limit_per_min=int(
                     os.getenv("TUSHARE_RATE_LIMIT_PER_MIN", "120")
                 ),

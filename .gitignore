@@ -154,3 +154,6 @@ artifacts/
 # 临时文件
 *.bak
 *.backup
+.tmp*/
+tmp_*/
+temp_*/

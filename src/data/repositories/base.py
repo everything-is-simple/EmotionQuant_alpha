@@ -51,10 +51,28 @@ class BaseRepository:
                 f"CREATE TABLE IF NOT EXISTS {self.table_name} "
                 "AS SELECT * FROM incoming_df WHERE 1=0"
             )
-            connection.execute(f"INSERT INTO {self.table_name} SELECT * FROM incoming_df")
+            self._sync_table_schema(connection)
+            connection.execute(f"INSERT INTO {self.table_name} BY NAME SELECT * FROM incoming_df")
             connection.unregister("incoming_df")
 
         return int(len(frame))
+
+    def _sync_table_schema(self, connection: duckdb.DuckDBPyConnection) -> None:
+        existing = connection.execute(
+            f"SELECT column_name FROM information_schema.columns "
+            f"WHERE table_name = '{self.table_name}'"
+        ).fetchall()
+        existing_columns = {str(item[0]) for item in existing}
+        incoming = connection.execute("DESCRIBE incoming_df").fetchall()
+        for column_name, column_type, *_ in incoming:
+            name = str(column_name)
+            if name in existing_columns:
+                continue
+            escaped_name = name.replace('"', '""')
+            connection.execute(
+                f'ALTER TABLE {self.table_name} ADD COLUMN "{escaped_name}" {column_type}'
+            )
+            existing_columns.add(name)
 
     def save_to_parquet(self, data: Any) -> Path:
         self._assert_table_name()

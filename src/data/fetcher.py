@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib
 import time
 from typing import Any, Callable, Protocol
 
@@ -87,15 +88,26 @@ class RealTuShareClient:
         "trade_cal": "trade_cal",
         "limit_list": "limit_list_d",
     }
+    _SDK_MODULES = {
+        "tushare": "tushare",
+        "tinyshare": "tinyshare",
+    }
 
-    def __init__(self, *, token: str) -> None:
+    def __init__(self, *, token: str, sdk_provider: str = "tushare") -> None:
         sanitized = token.strip()
         if not sanitized:
             raise ValueError("tushare_token is required for real client")
+        provider = str(sdk_provider).strip().lower() or "tushare"
+        module_name = self._SDK_MODULES.get(provider)
+        if module_name is None:
+            supported = ", ".join(sorted(self._SDK_MODULES))
+            raise ValueError(
+                f"unsupported tushare sdk provider: {sdk_provider!r}; supported: {supported}"
+            )
         try:
-            import tushare as ts
+            ts = importlib.import_module(module_name)
         except ImportError as exc:  # pragma: no cover - depends on runtime env
-            raise RuntimeError("tushare package is not installed") from exc
+            raise RuntimeError(f"{module_name} package is not installed") from exc
         self._pro = ts.pro_api(sanitized)
 
     def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -127,8 +139,16 @@ class RealTuShareClient:
         normalized: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
+            if api_name == "trade_cal" and not item.get("trade_date"):
+                cal_date = str(item.get("cal_date", "")).strip()
+                if cal_date:
+                    item["trade_date"] = cal_date
             ts_code = str(item.get("ts_code", ""))
-            if api_name in {"daily", "limit_list"} and not item.get("stock_code") and len(ts_code) >= 6:
+            if (
+                api_name in {"daily", "limit_list"}
+                and not item.get("stock_code")
+                and len(ts_code) >= 6
+            ):
                 item["stock_code"] = ts_code[:6]
             normalized.append(item)
         return normalized
@@ -149,7 +169,10 @@ class TuShareFetcher:
         if client is not None:
             self.client = client
         elif config is not None and config.tushare_token.strip():
-            self.client = RealTuShareClient(token=config.tushare_token)
+            self.client = RealTuShareClient(
+                token=config.tushare_token,
+                sdk_provider=config.tushare_sdk_provider,
+            )
         else:
             self.client = SimulatedTuShareClient()
         self.max_retries = max(1, max_retries)

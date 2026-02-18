@@ -62,7 +62,7 @@ def test_fetcher_uses_real_tushare_client_when_token_exists(
             return [{"ts_code": "000001.SZ", "trade_date": "20260215"}]
 
         def trade_cal(self, **_: Any) -> list[dict[str, Any]]:
-            return [{"exchange": "SSE", "trade_date": "20260215", "is_open": 1}]
+            return [{"exchange": "SSE", "cal_date": "20260215", "is_open": 1}]
 
         def limit_list_d(self, **_: Any) -> list[dict[str, Any]]:
             return [{"ts_code": "000002.SZ", "trade_date": "20260215", "limit_type": "U"}]
@@ -87,5 +87,44 @@ def test_fetcher_uses_real_tushare_client_when_token_exists(
     limit_rows = fetcher.fetch_with_retry("limit_list", {"trade_date": "20260215"})
 
     assert daily_rows[0]["stock_code"] == "000001"
+    assert trade_cal_rows[0]["trade_date"] == "20260215"
     assert trade_cal_rows[0]["is_open"] == 1
     assert limit_rows[0]["stock_code"] == "000002"
+
+
+def test_fetcher_uses_tinyshare_provider_when_configured(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeTinyProApi:
+        def daily(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"ts_code": "000333.SZ", "trade_date": "20260215"}]
+
+        def trade_cal(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"exchange": "SSE", "cal_date": "20260215", "is_open": 1}]
+
+        def limit_list_d(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"ts_code": "000001.SZ", "trade_date": "20260215", "limit_type": "U"}]
+
+    fake_tinyshare = types.SimpleNamespace(pro_api=lambda _token: FakeTinyProApi())
+    monkeypatch.setitem(__import__("sys").modules, "tinyshare", fake_tinyshare)
+
+    env_file = tmp_path / ".env.fetcher.tiny"
+    env_file.write_text(
+        "ENVIRONMENT=test\n"
+        "TUSHARE_TOKEN=test_token\n"
+        "TUSHARE_SDK_PROVIDER=tinyshare\n"
+        "TUSHARE_RATE_LIMIT_PER_MIN=6000\n",
+        encoding="utf-8",
+    )
+    config = Config.from_env(env_file=str(env_file))
+    fetcher = TuShareFetcher(config=config, max_retries=1)
+
+    daily_rows = fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
+    trade_cal_rows = fetcher.fetch_with_retry(
+        "trade_cal", {"start_date": "20260215", "end_date": "20260215"}
+    )
+    limit_rows = fetcher.fetch_with_retry("limit_list", {"trade_date": "20260215"})
+
+    assert daily_rows[0]["stock_code"] == "000333"
+    assert trade_cal_rows[0]["trade_date"] == "20260215"
+    assert limit_rows[0]["stock_code"] == "000001"
