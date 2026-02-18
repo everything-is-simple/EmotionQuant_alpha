@@ -1,4 +1,4 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.5）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.6）
 
 **状态**: Active  
 **更新时间**: 2026-02-18  
@@ -173,12 +173,14 @@ flowchart LR
 
 - 主目标：回测闭环（Qlib 主线 + 本地口径可对照）。
 - 执行卡：`Governance/SpiralRoadmap/S3-EXECUTION-CARD.md`
+- 设计基线：`docs/design/core-algorithms/`（MSS/IRS/PAS/Validation/Integration）
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_quality_gate_contract.py -q`
 - `target command`：`eq backtest --engine {engine} --start {start} --end {end}`
-- `target test`（本圈必须补齐并执行）：`tests/unit/backtest/test_backtest_contract.py tests/unit/backtest/test_validation_integration_bridge.py tests/unit/backtest/test_backtest_reproducibility.py`
+- `target test`（本圈必须补齐并执行）：`tests/unit/backtest/test_backtest_contract.py tests/unit/backtest/test_validation_integration_bridge.py tests/unit/backtest/test_backtest_reproducibility.py tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py`
 - 门禁：
   - `backtest_results` 与 `backtest_trade_records` 均可产出且记录数 `> 0`。
   - 输入消费链可追溯到 `integrated_recommendation`，且 `contract_version = "nc-v1"`。
+  - 核心算法全量消费可审计：`mss_score/irs_score/pas_score` 不得缺失，且窗口内 `mss_panorama/irs_industry_daily/stock_pas_daily` 覆盖计数 `> 0`。
   - `validation_weight_plan` 桥接可追溯：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id`。
   - 产出 A/B/C 对照指标摘要并形成基线结论。
   - 质量门结论 `status in (PASS, WARN)`。
@@ -343,6 +345,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.6 | 2026-02-18 | S3 门禁升级为“核心算法全量消费可审计”：新增 `mss/irs/pas` 三因子完整性与核心表窗口覆盖硬校验，并补充 `test_backtest_core_algorithm_coverage_gate.py` 到目标测试 |
 | v0.5 | 2026-02-18 | 按 6A 执行卡强约束补齐阶段B全子圈任务卡（S3/S3r/S4/S4r/S3b/S4b/S4br），并在各圈执行合同挂接链接 |
 | v0.4 | 2026-02-17 | 刷新 As-Is 到当前执行进展：`eq` 已接入阶段B首批命令；S3 已扩展多交易日回放；S4 已启动 paper trade；同步首轮启动顺序 |
 | v0.3 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确阶段B中 ENH-10/04/06/09/03 的落位与审计路径 |

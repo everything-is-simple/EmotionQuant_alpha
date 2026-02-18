@@ -2,14 +2,14 @@
 
 **版本**: v3.5.1（重构版）
 **最后更新**: 2026-02-14
-**状态**: 设计完成（模块接口闭环口径补齐；当前仓库无 Web API）
+**状态**: 设计完成并已落地（Python 模块/CLI；当前仓库无 Web API）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库 `src/integration/` 仅有骨架（`__init__.py`），IntegrationEngine/IntegrationRepository 为规划接口。
-- 本文档为设计规格，接口实现以 CP-05 落地为准（对应原 Phase 05）。
+- 当前仓库已落地 `src/integration/pipeline.py`，并由 `eq recommend --mode integrated --with-validation-bridge` 统一触发 Integration。
+- 本文档为设计规格与实现对照基线，接口演进需与 CP-05 同步更新（对应原 Phase 05）。
 
 ---
 

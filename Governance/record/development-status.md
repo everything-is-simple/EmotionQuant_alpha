@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-17  
-**当前版本**: v4.11（S3a 收口完成：真实 TuShare 适配 + 实测吞吐 + 失败恢复实测）  
+**最后更新**: 2026-02-18  
+**当前版本**: v4.12（S3 核心算法全量消费门禁落地：MSS/IRS/PAS 覆盖硬校验 + 证据链增强）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -35,6 +35,14 @@
 3. S3a 失败恢复从“状态直接改写”升级为“失败批次真实重跑”：`run_fetch_retry` 现执行重拉并回写恢复结果。
 4. 兼容真实非交易日语义：`src/data/l1_pipeline.py` 新增 `trade_cal_is_open` 判定，闭市日不再误报 `raw_daily_empty`。
 5. 全量回归通过：`python -m pytest -q`（96 passed）；治理门禁通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
+
+## 本次同步（2026-02-18，S3 核心算法全量消费门禁）
+
+1. S3 回测新增核心算法全量消费硬门禁：`src/backtest/pipeline.py` 对 `mss_score/irs_score/pas_score` 完整性执行阻断校验。
+2. S3 回测新增窗口覆盖校验：窗口内 `mss_panorama/irs_industry_daily/stock_pas_daily` 任一为 0 时阻断收口。
+3. S3 证据链增强：`consumption.md` 与 `gate_report.md` 新增 DuckDB 路径与核心表覆盖统计，支持审计复核。
+4. 新增 S3 回归测试：`tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py`，覆盖“字段空值阻断/核心表缺失阻断/正常覆盖通过”。
+5. 同步执行卡与路线合同：`S3-EXECUTION-CARD.md`、`SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 已纳入新门禁与测试清单。
 
 ## 本次同步（2026-02-17，S3 板块化涨跌停阈值）
 
@@ -117,6 +125,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-18 | v4.12 | S3 新增核心算法全量消费门禁：`mss/irs/pas` 三因子完整性与核心表窗口覆盖硬校验；新增 `test_backtest_core_algorithm_coverage_gate.py`；同步执行卡与路线合同 |
 | 2026-02-17 | v4.11 | S3a 收口：接入真实 TuShare 客户端、落地实测吞吐报告、失败批次真实重跑恢复；全量测试 96 passed + contracts/governance PASS |
 | 2026-02-17 | v4.10 | S3 落地板块化涨跌停阈值（10%/20%/5%），新增并通过 `test_backtest_board_limit_thresholds.py`，并完成 S3 backtest 关键回归 7 passed |
 | 2026-02-17 | v4.9 | S3 扩展到多交易日回放并补齐 T+1/涨跌停执行细节；启动 S4 `eq trade --mode paper`，接入 S3 consumption/gate 证据链与交易合同测试 |

@@ -2,14 +2,14 @@
 
 **版本**: v3.3.0（重构版）
 **最后更新**: 2026-02-14
-**状态**: 设计完成（验收口径补齐；代码未落地）
+**状态**: 设计完成（验收口径补齐；代码已落地）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库 `src/algorithms/irs/` 仅有骨架（`__init__.py`），DataRepository/IrsRepository 等为规划接口。
-- 本文档为信息流设计规格，具体实现以 CP-03 落地为准（对应原 Phase 03）。
+- 当前仓库已落地 `src/algorithms/irs/pipeline.py` 与 `tests/unit/algorithms/irs/*` 契约测试，信息流按本地 DuckDB 输入输出。
+- 本文档为信息流设计规格与实现对照基线，后续变更需与 CP-03 同步。
 
 ---
 

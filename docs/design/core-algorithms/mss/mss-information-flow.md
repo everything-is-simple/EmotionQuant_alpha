@@ -2,14 +2,14 @@
 
 **版本**: v3.1.6（重构版）
 **最后更新**: 2026-02-08
-**状态**: 设计完成（验收口径补齐；代码未落地）
+**状态**: 设计完成（验收口径补齐；代码已落地）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库 `src/algorithms/mss/` 仅有骨架（`__init__.py`），DataRepository/MssRepository 等为规划接口。
-- 本文档为信息流设计规格，具体实现以 CP-02 落地为准（对应原 Phase 02）。
+- 当前仓库已落地 `src/algorithms/mss/engine.py`、`src/algorithms/mss/pipeline.py` 与配套契约测试，信息流按 DuckDB/Parquet 本地链路执行。
+- 本文档为信息流设计规格与实现对照基线，后续变更需与 CP-02 同步。
 
 ---
 

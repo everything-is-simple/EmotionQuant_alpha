@@ -1,4 +1,4 @@
-# S3 执行卡（v0.1）
+# S3 执行卡（v0.2）
 
 **状态**: Active  
 **更新时间**: 2026-02-18  
@@ -29,6 +29,7 @@ eq backtest --engine {engine} --start {start} --end {end}
 pytest tests/unit/backtest/test_backtest_contract.py -q
 pytest tests/unit/backtest/test_validation_integration_bridge.py -q
 pytest tests/unit/backtest/test_backtest_reproducibility.py -q
+pytest tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py -q
 ```
 
 ---
@@ -75,10 +76,12 @@ pytest tests/unit/backtest/test_backtest_reproducibility.py -q
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 依赖图：`Governance/SpiralRoadmap/DEPENDENCY-MAP.md`
+- 核心算法设计基线：`docs/design/core-algorithms/`
 
 ---
 
 ## 9. 本轮进度（2026-02-18）
 
 - 已进入 `in_progress`，并完成多交易日回放与板块化涨跌停阈值（10%/20%/5%）落地。
+- 已补齐“完整核心算法+本地库”回测门禁：S3 对 `mss_score/irs_score/pas_score` 三因子完整性与 `mss_panorama/irs_industry_daily/stock_pas_daily` 窗口覆盖进行硬校验，并在 `consumption.md`/`gate_report.md` 输出 DuckDB 覆盖证据。
 - 下一步：继续补齐更细撮合规则与可回放证据，推进 S3 收口。

@@ -2,14 +2,14 @@
 
 **版本**: v3.5.0（重构版）
 **最后更新**: 2026-02-14
-**状态**: 设计完成（闭环落地口径补齐；代码待实现）
+**状态**: 设计完成（闭环落地口径补齐；代码已落地）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库 `src/integration/` 仅有骨架（`__init__.py`），IntegrationRepository/MssRepository/IrsRepository/PasRepository 等为规划接口。
-- 本文档为信息流设计规格，具体实现以 CP-05 落地为准（对应原 Phase 05）。
+- 当前仓库已落地 `src/integration/pipeline.py` 与 `tests/unit/integration/*` 契约测试，信息流按 Validation Gate + 权重桥接执行。
+- 本文档为信息流设计规格与实现对照基线，后续变更需与 CP-05 同步。
 
 ---
 

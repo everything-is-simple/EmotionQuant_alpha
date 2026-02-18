@@ -15,10 +15,12 @@ from src.data.fetch_batch_pipeline import read_fetch_status
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3)
 # - Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md (§1 目标, §4 artifact)
+# - Governance/SpiralRoadmap/S3-EXECUTION-CARD.md (§1 目标, §4 artifact)
 # - docs/design/core-infrastructure/backtest/backtest-algorithm.md (§3 信号入口, §4 A股约束)
 DESIGN_TRACE = {
     "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
     "s3a_execution_card": "Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md",
+    "s3_execution_card": "Governance/SpiralRoadmap/S3-EXECUTION-CARD.md",
     "backtest_algorithm_design": "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
 }
 
@@ -31,6 +33,18 @@ LIMIT_PRICE_TOLERANCE_RATIO = 0.001
 MIN_FILL_PROBABILITY = 0.35
 QUEUE_PARTICIPATION_RATE = 0.15
 LIQUIDITY_DRYUP_VOLUME_THRESHOLD = 50_000.0
+CORE_SIGNAL_COLUMNS = ("mss_score", "irs_score", "pas_score")
+WINDOW_TABLE_DATE_COLUMNS = {
+    "raw_trade_cal": "trade_date",
+    "raw_daily": "trade_date",
+    "mss_panorama": "trade_date",
+    "irs_industry_daily": "trade_date",
+    "stock_pas_daily": "trade_date",
+    "integrated_recommendation": "trade_date",
+    "validation_weight_plan": "trade_date",
+    "quality_gate_report": "trade_date",
+}
+CORE_INPUT_TABLES = ("mss_panorama", "irs_industry_daily", "stock_pas_daily")
 
 BACKTEST_RESULT_COLUMNS = [
     "backtest_id",
@@ -182,12 +196,20 @@ def _read_integrated_signals(
                     "weight_plan_id",
                     "contract_version",
                     "mss_score",
+                    "irs_score",
                     "pas_score",
                 ]
             )
+        has_mss_score = _table_has_column(connection, "integrated_recommendation", "mss_score")
+        has_irs_score = _table_has_column(connection, "integrated_recommendation", "irs_score")
+        has_pas_score = _table_has_column(connection, "integrated_recommendation", "pas_score")
+        mss_expr = "mss_score" if has_mss_score else "NULL AS mss_score"
+        irs_expr = "irs_score" if has_irs_score else "NULL AS irs_score"
+        pas_expr = "pas_score" if has_pas_score else "NULL AS pas_score"
         frame = connection.execute(
             "SELECT trade_date, stock_code, final_score, recommendation, position_size, entry, "
-            "risk_reward_ratio, integration_mode, weight_plan_id, contract_version, mss_score, pas_score "
+            "risk_reward_ratio, integration_mode, weight_plan_id, contract_version, "
+            f"{mss_expr}, {irs_expr}, {pas_expr} "
             "FROM integrated_recommendation "
             "WHERE trade_date >= ? AND trade_date <= ? "
             "ORDER BY trade_date, final_score DESC, stock_code",
@@ -289,6 +311,47 @@ def _table_has_column(
         [table_name, column_name],
     ).fetchone()
     return bool(row and int(row[0]) > 0)
+
+
+def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+        [table_name],
+    ).fetchone()
+    return bool(row and int(row[0]) > 0)
+
+
+def _read_window_table_counts(
+    *,
+    database_path: Path,
+    start_date: str,
+    end_date: str,
+) -> dict[str, int]:
+    counts = {name: 0 for name in WINDOW_TABLE_DATE_COLUMNS}
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        for table_name, date_column in WINDOW_TABLE_DATE_COLUMNS.items():
+            if not _table_exists(connection, table_name):
+                continue
+            if not _table_has_column(connection, table_name, date_column):
+                continue
+            row = connection.execute(
+                f"SELECT COUNT(*) FROM {table_name} WHERE {date_column} >= ? AND {date_column} <= ?",
+                [start_date, end_date],
+            ).fetchone()
+            counts[table_name] = int(row[0]) if row else 0
+    return counts
+
+
+def _check_core_signal_columns(integrated_frame: pd.DataFrame) -> list[str]:
+    violations: list[str] = []
+    for column_name in CORE_SIGNAL_COLUMNS:
+        if column_name not in integrated_frame.columns:
+            violations.append(f"integrated_recommendation_column_missing_{column_name}")
+            continue
+        series = pd.to_numeric(integrated_frame[column_name], errors="coerce")
+        if series.isna().any():
+            violations.append(f"integrated_recommendation_column_null_{column_name}")
+    return violations
 
 
 def _read_stock_profiles(*, database_path: Path) -> dict[str, dict[str, str]]:
@@ -532,6 +595,13 @@ def run_backtest(
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
         add_error("P0", "database", "duckdb_not_found")
+    window_table_counts = {name: 0 for name in WINDOW_TABLE_DATE_COLUMNS}
+    if database_path.exists():
+        window_table_counts = _read_window_table_counts(
+            database_path=database_path,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
     integrated_frame = _empty_frame(
         [
@@ -546,6 +616,7 @@ def run_backtest(
             "weight_plan_id",
             "contract_version",
             "mss_score",
+            "irs_score",
             "pas_score",
         ]
     )
@@ -581,6 +652,11 @@ def run_backtest(
             rr_filtered = integrated_frame[integrated_frame["risk_reward_ratio"] < 1.0]
             if not rr_filtered.empty:
                 add_error("P0", "contract", "integrated_recommendation_rr_below_threshold")
+            for violation in _check_core_signal_columns(integrated_frame):
+                add_error("P0", "contract", violation)
+            for table_name in CORE_INPUT_TABLES:
+                if int(window_table_counts.get(table_name, 0)) <= 0:
+                    add_error("P0", "signal_input", f"{table_name}_missing_for_backtest_window")
 
         quality_status, go_nogo, quality_message = _to_quality_status(gate_frame)
         if quality_status == "FAIL":
@@ -1066,6 +1142,7 @@ def run_backtest(
 
     a_metric = total_return
     b_metric = round(float((integrated_frame["mss_score"] - 50.0).mean() / 500.0), 8) if not integrated_frame.empty else 0.0
+    irs_metric = round(float((integrated_frame["irs_score"] - 50.0).mean() / 550.0), 8) if not integrated_frame.empty else 0.0
     c_metric = round(float((integrated_frame["pas_score"] - 50.0).mean() / 600.0), 8) if not integrated_frame.empty else 0.0
     ab_lines = [
         "# S3 A/B/C Metric Summary",
@@ -1073,12 +1150,18 @@ def run_backtest(
         f"- backtest_id: {backtest_id}",
         f"- A_sentiment_main_total_return: {a_metric}",
         f"- B_baseline_mss_proxy_return: {b_metric}",
+        f"- core_irs_proxy_return: {irs_metric}",
         f"- C_control_pas_proxy_return: {c_metric}",
         f"- conclusion: {'A_dominant' if a_metric >= max(b_metric, c_metric) else 'A_not_dominant'}",
         "",
     ]
     _write_markdown(ab_metric_summary_path, ab_lines)
 
+    core_coverage_status = (
+        "PASS"
+        if all(int(window_table_counts.get(item, 0)) > 0 for item in CORE_INPUT_TABLES)
+        else "FAIL"
+    )
     consumption_lines = [
         "# S3 Consumption Record",
         "",
@@ -1094,6 +1177,17 @@ def run_backtest(
         f"- bridge_rows: {len(bridge_frame)}",
         f"- bridge_check_status: {bridge_check_status}",
         f"- replay_trading_days: {len(replay_days)}",
+        "",
+        "## Local DB Coverage",
+        f"- local_duckdb_path: {database_path}",
+        f"- raw_trade_cal_rows_in_window: {window_table_counts.get('raw_trade_cal', 0)}",
+        f"- raw_daily_rows_in_window: {window_table_counts.get('raw_daily', 0)}",
+        f"- mss_panorama_rows_in_window: {window_table_counts.get('mss_panorama', 0)}",
+        f"- irs_industry_daily_rows_in_window: {window_table_counts.get('irs_industry_daily', 0)}",
+        f"- stock_pas_daily_rows_in_window: {window_table_counts.get('stock_pas_daily', 0)}",
+        f"- integrated_recommendation_rows_in_window: {window_table_counts.get('integrated_recommendation', 0)}",
+        f"- validation_weight_plan_rows_in_window: {window_table_counts.get('validation_weight_plan', 0)}",
+        f"- core_algorithm_coverage_status: {core_coverage_status}",
         "",
         f"- consumption_conclusion: {'ready_for_s4' if gate_go_nogo == 'GO' else 'blocked'}",
         "",
@@ -1116,6 +1210,11 @@ def run_backtest(
         f"- missing_price_entry_count: {missing_price_entry_count}",
         f"- missing_price_exit_count: {missing_price_exit_count}",
         f"- signal_out_of_window_count: {signal_out_of_window_count}",
+        f"- local_duckdb_path: {database_path}",
+        f"- mss_panorama_rows_in_window: {window_table_counts.get('mss_panorama', 0)}",
+        f"- irs_industry_daily_rows_in_window: {window_table_counts.get('irs_industry_daily', 0)}",
+        f"- stock_pas_daily_rows_in_window: {window_table_counts.get('stock_pas_daily', 0)}",
+        f"- core_algorithm_coverage_status: {core_coverage_status}",
         "",
     ]
     _write_markdown(gate_report_path, gate_lines)
