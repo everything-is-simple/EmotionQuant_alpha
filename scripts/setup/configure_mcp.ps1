@@ -99,6 +99,103 @@ function Resolve-ServerNames([object]$Payload) {
     return $names | Where-Object { $_ } | Select-Object -Unique
 }
 
+function Set-TomlSectionKey(
+    [System.Collections.Generic.List[string]]$Lines,
+    [string]$Section,
+    [string]$Key,
+    [string]$Value
+) {
+    $header = "[$Section]"
+    $sectionStart = -1
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i].Trim() -eq $header) {
+            $sectionStart = $i
+            break
+        }
+    }
+
+    if ($sectionStart -lt 0) {
+        if ($Lines.Count -gt 0 -and $Lines[$Lines.Count - 1].Trim() -ne "") {
+            [void]$Lines.Add("")
+        }
+        [void]$Lines.Add($header)
+        [void]$Lines.Add("$Key = $Value")
+        return
+    }
+
+    $sectionEnd = $Lines.Count
+    for ($i = $sectionStart + 1; $i -lt $Lines.Count; $i++) {
+        $trim = $Lines[$i].Trim()
+        if ($trim.StartsWith("[") -and $trim.EndsWith("]")) {
+            $sectionEnd = $i
+            break
+        }
+    }
+
+    $keyPattern = '^\s*' + [regex]::Escape($Key) + '\s*='
+    for ($i = $sectionStart + 1; $i -lt $sectionEnd; $i++) {
+        if ($Lines[$i] -match $keyPattern) {
+            $Lines[$i] = "$Key = $Value"
+            return
+        }
+    }
+
+    $Lines.Insert($sectionEnd, "$Key = $Value")
+}
+
+function Remove-TomlSectionKey(
+    [System.Collections.Generic.List[string]]$Lines,
+    [string]$Section,
+    [string]$Key
+) {
+    $header = "[$Section]"
+    $sectionStart = -1
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i].Trim() -eq $header) {
+            $sectionStart = $i
+            break
+        }
+    }
+    if ($sectionStart -lt 0) {
+        return
+    }
+
+    $sectionEnd = $Lines.Count
+    for ($i = $sectionStart + 1; $i -lt $Lines.Count; $i++) {
+        $trim = $Lines[$i].Trim()
+        if ($trim.StartsWith("[") -and $trim.EndsWith("]")) {
+            $sectionEnd = $i
+            break
+        }
+    }
+
+    $keyPattern = '^\s*' + [regex]::Escape($Key) + '\s*='
+    for ($i = $sectionEnd - 1; $i -gt $sectionStart; $i--) {
+        if ($Lines[$i] -match $keyPattern) {
+            $Lines.RemoveAt($i)
+        }
+    }
+}
+
+function Ensure-CodexConfigDefaults([string]$ConfigPath) {
+    if (-not (Test-Path $ConfigPath)) {
+        return
+    }
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in (Get-Content -Path $ConfigPath)) {
+        [void]$lines.Add([string]$line)
+    }
+
+    Set-TomlSectionKey -Lines $lines -Section "features" -Key "multi_agent" -Value "true"
+    Remove-TomlSectionKey -Lines $lines -Section "features" -Key "collab"
+    Set-TomlSectionKey -Lines $lines -Section "mcp_servers.sequential-thinking" -Key "startup_timeout_sec" -Value "60"
+    Set-TomlSectionKey -Lines $lines -Section "mcp_servers.mcp-playwright" -Key "startup_timeout_sec" -Value "60"
+
+    $newContent = ($lines -join [Environment]::NewLine).TrimEnd() + [Environment]::NewLine
+    Set-Content -Path $ConfigPath -Value $newContent -Encoding utf8
+}
+
 if (-not $DryRun) {
     $script:CodexBinary = Resolve-CodexBinary
     Ensure-Command -Name "npx"
@@ -211,6 +308,11 @@ Upsert-McpServer -Name "mcp-playwright" -AddArgs @(
     "--",
     "npx", "-y", "@playwright/mcp@latest"
 )
+
+if (-not $DryRun) {
+    $configPath = Join-Path $CodexHome "config.toml"
+    Ensure-CodexConfigDefaults -ConfigPath $configPath
+}
 
 if ($PruneExtra) {
     if ($DryRun) {
