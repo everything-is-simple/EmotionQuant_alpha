@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from src import __version__
 from src.pipeline.main import build_parser, main
+import src.pipeline.main as cli_main_module
 
 
 def test_build_parser_uses_eq_as_program_name() -> None:
@@ -70,6 +72,54 @@ def test_main_accepts_env_file_none(monkeypatch: pytest.MonkeyPatch, capsys: pyt
     exit_code = main(["--env-file", "none", "run", "--date", "20260215", "--dry-run"])
     assert exit_code == 0
     assert "dry-run completed" in capsys.readouterr().out
+
+
+def test_main_analysis_command_wires_to_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s3b.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_analysis(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3b" / "20260219"
+        return SimpleNamespace(
+            trade_date="20260219",
+            start_date="20260218",
+            end_date="20260219",
+            artifacts_dir=artifacts_dir,
+            ab_benchmark_report_path=artifacts_dir / "ab_benchmark_report.md",
+            live_backtest_deviation_report_path=artifacts_dir / "live_backtest_deviation_report.md",
+            attribution_summary_path=artifacts_dir / "attribution_summary.json",
+            consumption_path=artifacts_dir / "consumption.md",
+            gate_report_path=artifacts_dir / "gate_report.md",
+            error_manifest_path=artifacts_dir / "error_manifest.json",
+            quality_status="PASS",
+            go_nogo="GO",
+            has_error=False,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_analysis", _fake_run_analysis)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "analysis",
+            "--start",
+            "20260218",
+            "--end",
+            "20260219",
+            "--ab-benchmark",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3b_analysis"
+    assert payload["status"] == "ok"
+    assert payload["quality_status"] == "PASS"
 
 
 def test_main_mss_runs_after_l1_and_l2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

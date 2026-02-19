@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from src.backtest.pipeline import run_backtest
+from src.analysis.pipeline import run_analysis
 from src import __version__
 from src.algorithms.mss.pipeline import run_mss_scoring
 from src.algorithms.mss.probe import run_mss_probe
@@ -27,12 +28,14 @@ from src.trading.pipeline import run_paper_trade
 # - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3a)
 # - Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 # - docs/design/core-infrastructure/backtest/backtest-algorithm.md (§1-§4)
+# - docs/design/core-infrastructure/analysis/analysis-algorithm.md (§1-§4)
 # - docs/design/core-infrastructure/trading/trading-algorithm.md (§2-§5)
 DESIGN_TRACE = {
     "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
     "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
     "s3a_execution_card": "Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md",
     "backtest_algorithm_design": "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
+    "analysis_algorithm_design": "docs/design/core-infrastructure/analysis/analysis-algorithm.md",
     "trading_algorithm_design": "docs/design/core-infrastructure/trading/trading-algorithm.md",
 }
 
@@ -156,6 +159,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Trading mode. Current supported: paper.",
     )
     trade_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    analysis_parser = subparsers.add_parser("analysis", help="Run S3b analysis pipeline.")
+    analysis_parser.add_argument("--start", help="Start trade date in YYYYMMDD.")
+    analysis_parser.add_argument("--end", help="End trade date in YYYYMMDD.")
+    analysis_parser.add_argument("--date", help="Trade date in YYYYMMDD.")
+    analysis_parser.add_argument(
+        "--ab-benchmark",
+        action="store_true",
+        help="Generate A/B/C benchmark report in S3b.",
+    )
+    analysis_parser.add_argument(
+        "--deviation",
+        choices=("live-backtest",),
+        help="Generate live-backtest deviation report.",
+    )
+    analysis_parser.add_argument(
+        "--attribution-summary",
+        action="store_true",
+        help="Generate signal attribution summary output.",
+    )
     subparsers.add_parser("fetch-status", help="Show latest S3a fetch status.")
     subparsers.add_parser("fetch-retry", help="Retry failed S3a fetch batches.")
 
@@ -599,6 +621,45 @@ def _run_trade(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_error else 0
 
 
+def _run_analysis(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    try:
+        result = run_analysis(
+            config=ctx.config,
+            start_date=str(args.start or "").strip(),
+            end_date=str(args.end or "").strip(),
+            trade_date=str(args.date or "").strip(),
+            run_ab_benchmark=bool(args.ab_benchmark),
+            deviation_mode=str(args.deviation or "").strip(),
+            run_attribution_summary=bool(args.attribution_summary),
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    print(
+        json.dumps(
+            {
+                "event": "s3b_analysis",
+                "trade_date": result.trade_date,
+                "start_date": result.start_date,
+                "end_date": result.end_date,
+                "quality_status": result.quality_status,
+                "go_nogo": result.go_nogo,
+                "artifacts_dir": str(result.artifacts_dir),
+                "ab_benchmark_report_path": str(result.ab_benchmark_report_path),
+                "live_backtest_deviation_report_path": str(result.live_backtest_deviation_report_path),
+                "attribution_summary_path": str(result.attribution_summary_path),
+                "consumption_path": str(result.consumption_path),
+                "gate_report_path": str(result.gate_report_path),
+                "error_manifest_path": str(result.error_manifest_path),
+                "status": "failed" if result.has_error else "ok",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -637,6 +698,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_backtest(ctx, args)
     if command == "trade":
         return _run_trade(ctx, args)
+    if command == "analysis":
+        return _run_analysis(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2
