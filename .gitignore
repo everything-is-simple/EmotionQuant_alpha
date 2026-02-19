@@ -155,5 +155,7 @@ artifacts/
 *.bak
 *.backup
 .tmp*/
+tests_tmp/
 tmp_*/
 temp_*/
+gcm-diagnose.log
