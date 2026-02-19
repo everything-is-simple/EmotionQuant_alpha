@@ -167,10 +167,17 @@ class RealTuShareClient:
         "tinyshare": "tinyshare",
     }
 
-    def __init__(self, *, token: str, sdk_provider: str = "tushare") -> None:
+    def __init__(
+        self,
+        *,
+        token: str,
+        sdk_provider: str = "tushare",
+        http_url: str = "",
+    ) -> None:
         sanitized = token.strip()
         if not sanitized:
             raise ValueError("tushare_token is required for real client")
+        gateway_http_url = str(http_url).strip()
         provider = str(sdk_provider).strip().lower() or "tushare"
         module_name = self._SDK_MODULES.get(provider)
         if module_name is None:
@@ -183,6 +190,11 @@ class RealTuShareClient:
         except ImportError as exc:  # pragma: no cover - depends on runtime env
             raise RuntimeError(f"{module_name} package is not installed") from exc
         self._pro = ts.pro_api(sanitized)
+        # Some third-party gateways require explicit token/http_url injection on DataApi.
+        if hasattr(self._pro, "_DataApi__token"):
+            setattr(self._pro, "_DataApi__token", sanitized)
+        if gateway_http_url and hasattr(self._pro, "_DataApi__http_url"):
+            setattr(self._pro, "_DataApi__http_url", gateway_http_url)
 
     def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         method_name = self._API_METHOD_MAP.get(api_name)
@@ -272,8 +284,12 @@ class TuShareFetcher:
             primary_provider = str(
                 config.tushare_primary_sdk_provider or config.tushare_sdk_provider or "tushare"
             ).strip()
+            primary_http_url = str(
+                config.tushare_primary_http_url or config.tushare_http_url
+            ).strip()
             fallback_token = str(config.tushare_fallback_token).strip()
             fallback_provider = str(config.tushare_fallback_sdk_provider or "tushare").strip()
+            fallback_http_url = str(config.tushare_fallback_http_url).strip()
 
             if primary_token:
                 self._clients.append(
@@ -282,6 +298,7 @@ class TuShareFetcher:
                         RealTuShareClient(
                             token=primary_token,
                             sdk_provider=primary_provider,
+                            http_url=primary_http_url,
                         ),
                     )
                 )
@@ -292,6 +309,7 @@ class TuShareFetcher:
                         RealTuShareClient(
                             token=fallback_token,
                             sdk_provider=fallback_provider,
+                            http_url=fallback_http_url,
                         ),
                     )
                 )

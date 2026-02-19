@@ -11,6 +11,8 @@
 ```bash
 TUSHARE_PRIMARY_TOKEN=<trial_token>
 TUSHARE_PRIMARY_SDK_PROVIDER=tinyshare
+# 可选：第三方网关地址（若服务方提供）
+TUSHARE_PRIMARY_HTTP_URL=http://106.54.191.157:5000
 TUSHARE_RATE_LIMIT_PER_MIN=120
 ```
 
@@ -42,6 +44,7 @@ $env:PARQUET_PATH="G:/EmotionQuant_data/parquet"
 
 $env:TUSHARE_PRIMARY_TOKEN="<trial_token>"
 $env:TUSHARE_PRIMARY_SDK_PROVIDER="tinyshare"
+$env:TUSHARE_PRIMARY_HTTP_URL="http://106.54.191.157:5000"
 $env:TUSHARE_FALLBACK_TOKEN="<official_5000_token>"
 $env:TUSHARE_FALLBACK_SDK_PROVIDER="tushare"
 $env:TUSHARE_RATE_LIMIT_PER_MIN="120"

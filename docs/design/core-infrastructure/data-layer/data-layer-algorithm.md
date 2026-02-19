@@ -13,6 +13,8 @@
 - 已实现低频节流策略：`index_member/stock_basic` 按月快照、`index_classify` 按半年度快照，避免批量回填时重复消耗配额。
 - 已落地最小契约：`src/data/models/snapshots.py` 补齐 `data_quality/stale_days/source_trade_date` 字段与约束。
 - 已落地质量门禁原型：`src/data/quality_gate.py`（覆盖率、`stale_days`、跨日一致性前置检查）。
+- 已验证现实风险：生产回填阶段出现过 DuckDB 文件锁冲突，需纳入采集层非功能门禁（锁等待/重试/锁持有者记录）。
+- 已验证多源可用性差异：TuShare（近期可用）+ AKShare（可用）+ BaoStock（需修复日期格式）；设计已升级为“主源+兜底”策略。
 - 本文档为权威设计规格，接口/流程继续按本规格迭代落地。
 
 ---
@@ -82,18 +84,28 @@ Data Layer是EmotionQuant系统的数据基础设施层，负责：
 
 ## 2. L1 原始数据采集
 
-### 2.1 数据源：TuShare 5000积分接口
+### 2.1 数据源策略：主源 + 兜底
 
-| 接口 | 用途 | 更新频率 | 积分要求 |
-|------|------|----------|----------|
-| `daily` | 个股日线行情 | 每日 | 5000 |
-| `daily_basic` | 换手率、市值 | 每日 | 5000 |
-| `limit_list_d` | 涨跌停列表 | 每日 | 5000 |
-| `index_daily` | 基准指数日线 | 每日 | 5000 |
-| `index_member` | 行业成分股 | 月度 | 5000 |
-| `index_classify` | 申万行业分类 | 半年/年度（低频） | 免费 |
-| `stock_basic` | 股票基础信息 | 月度 | 5000 |
-| `trade_cal` | 交易日历 | 年度 | 免费 |
+| 优先级 | 数据源 | 用途 | 备注 |
+|------|------|------|------|
+| P0 主源 | `TuShare` | 全量 L1 八类接口 | 有 token 时优先；以官方字段为标准口径 |
+| P1 兜底 | `AKShare` | 主源失败时兜底 | 免费、覆盖广；字段需统一映射 |
+| P2 兜底 | `BaoStock` | 第二兜底 | 免费、稳定；日期格式与字段需适配 |
+
+> 设计约束：无论来自哪个数据源，入库前必须归一化到统一字段口径（`ts_code/stock_code/trade_date/open/high/low/close/vol/amount`），禁止在 L2/L3 感知“源差异”。
+
+### 2.1.1 L1 八类逻辑接口（统一口径）
+
+| 逻辑接口 | 用途 | 更新频率 |
+|------|------|----------|
+| `daily` | 个股日线行情 | 每日 |
+| `daily_basic` | 换手率、市值 | 每日 |
+| `limit_list_d` | 涨跌停列表 | 每日 |
+| `index_daily` | 基准指数日线 | 每日 |
+| `index_member` | 行业成分股 | 月度 |
+| `index_classify` | 申万行业分类 | 半年/年度（低频） |
+| `stock_basic` | 股票基础信息 | 月度 |
+| `trade_cal` | 交易日历 | 年度 |
 
 ### 2.2 采集策略
 
@@ -152,6 +164,14 @@ ${DATA_PATH}/parquet/
 | `index_classify` | `index_classify/` | `raw_index_classify` | 行业分类 |
 | `stock_basic` | `stock_basic/` | `raw_stock_basic` | 股票基础 |
 | `trade_cal` | `trade_cal/` | `raw_trade_cal` | 交易日历 |
+
+### 2.4 源切换与锁恢复策略（P0）
+
+1. 源切换顺序：`TuShare -> AKShare -> BaoStock`。
+2. 切换触发：鉴权失败、限流、网络超时、空结果异常（非停牌/非休市）之一成立。
+3. DuckDB 写入锁：必须执行“有限等待 + 重试 + 锁持有者记录”，重试失败才可标记批次失败。
+4. 证据要求：每次切源和锁重试都必须写入 `fetch_progress.json` / `fetch_retry_report.md`。
+5. 一致性要求：同一批次内不同源返回字段必须完成映射与类型校验，不通过则阻断入库。
 
 ---
 
@@ -661,6 +681,15 @@ decision = evaluate_data_quality_gate(
 
 > 统一规则：任一核心输入触发“重度降级”即 `status=blocked`；轻度降级下透传 `data_quality/stale_days/source_trade_date`。
 
+### 8.5 非功能门禁（P0）
+
+| 检查项 | 阈值 | 说明 |
+|--------|------|------|
+| DuckDB 锁等待时长 | 单次 <= 30s | 超阈值必须记录锁持有进程并进入重试 |
+| 批次重试上限 | <= 3 次 | 超上限标记失败并产出失败证据 |
+| 切源次数 | 单批次 <= 2 次 | 超限进入 `WARN/blocked` 并触发人工复核 |
+| 幂等写入 | 100% | 重试不得造成重复写入 |
+
 ---
 
 ## 9. 验收与验证（可执行口径）
@@ -671,6 +700,7 @@ decision = evaluate_data_quality_gate(
 - 覆盖率：当日成交股票覆盖率 ≥ 95%。
 - 时效性：L1 数据日期必须等于最近交易日。
 - 一致性：同一 trade_date 的 L1/L2/L3 记录一致（不能跨日混用）。
+- 可追溯：每个批次需保留数据源链路（主源/兜底切换记录）与锁冲突恢复记录。
 
 ### 9.2 量纲一致性
 
@@ -720,6 +750,7 @@ decision = evaluate_data_quality_gate(
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.1.5 | 2026-02-19 | 新增“主源+兜底”策略（TuShare->AKShare->BaoStock）；补充 DuckDB 锁恢复与非功能门禁；统一 L1 八类逻辑接口口径与切源证据要求 |
 | v3.1.4 | 2026-02-14 | 修复 R32（review-010）：补齐 `src/data/models` 质量字段契约落地说明；新增 `src/data/quality_gate.py` 门禁自动化口径（覆盖率/`stale_days`/跨日一致性）；补充降级分级、可选盘中增量层、分库触发与回迁策略 |
 | v3.1.3 | 2026-02-09 | 修复 R23：补充 TuShare 接口-目录-逻辑表名映射；`process_industry_snapshot` 增加 `config.flat_threshold`；补充 `stock_gene_cache` 返回值与异常处理语义 |
 | v3.1.2 | 2026-02-08 | 修复 R14：行业估值聚合改为过滤+Winsorize+median；`stock_pas_daily` DDL 补 `id`；`integrated_recommendation` DDL 补 `weight_plan_id/validation_gate` 且 `stock_code` 统一 `VARCHAR(20)`；调度流程补 `stock_gene_cache` 与 Validation Gate；`flat_count` 阈值改为 `config.flat_threshold` |

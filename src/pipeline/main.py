@@ -175,10 +175,14 @@ def _config_snapshot(config: Config) -> dict[str, object]:
         "tushare_primary_sdk_provider": str(
             config.tushare_primary_sdk_provider or config.tushare_sdk_provider
         ),
+        "tushare_primary_http_url": str(
+            config.tushare_primary_http_url or config.tushare_http_url
+        ),
         "tushare_has_primary_token": bool(
             str(config.tushare_primary_token or config.tushare_token).strip()
         ),
         "tushare_fallback_sdk_provider": str(config.tushare_fallback_sdk_provider),
+        "tushare_fallback_http_url": str(config.tushare_fallback_http_url),
         "tushare_has_fallback_token": bool(str(config.tushare_fallback_token).strip()),
         "tushare_rate_limit_per_min": config.tushare_rate_limit_per_min,
     }

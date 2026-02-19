@@ -199,6 +199,44 @@ def test_fetcher_uses_tinyshare_provider_when_configured(
     assert stock_basic_rows[0]["stock_code"] == "000333"
 
 
+def test_fetcher_applies_primary_http_url_when_configured(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeGatewayProApi:
+        def __init__(self) -> None:
+            self._DataApi__http_url = ""
+            self._DataApi__token = ""
+
+        def daily(self, **_: Any) -> list[dict[str, Any]]:
+            return [
+                {
+                    "ts_code": "000001.SZ",
+                    "trade_date": "20260215",
+                    "gateway_url": self._DataApi__http_url,
+                }
+            ]
+
+    fake_tushare = types.SimpleNamespace(pro_api=lambda _token: FakeGatewayProApi())
+    monkeypatch.setitem(__import__("sys").modules, "tushare", fake_tushare)
+
+    env_file = tmp_path / ".env.fetcher.gateway"
+    env_file.write_text(
+        "ENVIRONMENT=test\n"
+        "TUSHARE_TOKEN=test_token\n"
+        "TUSHARE_SDK_PROVIDER=tushare\n"
+        "TUSHARE_HTTP_URL=http://106.54.191.157:5000\n"
+        "TUSHARE_RATE_LIMIT_PER_MIN=6000\n",
+        encoding="utf-8",
+    )
+    config = Config.from_env(env_file=str(env_file))
+    fetcher = TuShareFetcher(config=config, max_retries=1)
+
+    rows = fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
+
+    assert rows[0]["stock_code"] == "000001"
+    assert rows[0]["gateway_url"] == "http://106.54.191.157:5000"
+
+
 def test_fetcher_falls_back_to_official_channel_when_primary_fails(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
