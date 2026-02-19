@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-18  
-**版本**: v2.18  
+**最后更新**: 2026-02-19  
+**版本**: v2.20  
 **范围**: S0-S6
 
 ---
@@ -35,6 +35,8 @@
 | S-GOV-013 | S2b 6A 证据档案模板 | `Governance/specs/spiral-s2b/*` | S | Integration 圈 requirements/review/final 与样例证据复用 |
 | S-GOV-014 | S3a 6A 证据档案模板 | `Governance/specs/spiral-s3a/*` | S | ENH-10 圈 requirements/review/final 与门禁证据骨架复用 |
 | S-GOV-015 | S2c 6A 阶段证据模板 | `Governance/specs/spiral-s2c/*` | A | 桥接硬门禁子步与 full 语义收口证据复用 |
+| S-GOV-016 | S3ar 6A 证据档案模板 | `Governance/specs/spiral-s3ar/*` | S | 采集稳定性修复圈 requirements/review/final 与门禁证据骨架复用 |
+| S-GOV-017 | S3ar 执行卡模板 | `Governance/SpiralRoadmap/S3AR-EXECUTION-CARD.md` | S | 双 TuShare 主备与 DuckDB 锁恢复 run/test/artifact/review/sync 合同复用 |
 
 ---
 
@@ -46,6 +48,7 @@
 | S-DES-002 | 模块索引 | `docs/module-index.md` | S | 设计导航 |
 | S-DES-003 | 命名契约 Schema | `docs/naming-contracts.schema.json` | S | 枚举/阈值机器可读单源 |
 | S-DES-004 | 命名契约术语表 | `docs/naming-contracts-glossary.md` | S | 名词与边界统一 |
+| S-DES-007 | TuShare 主备通道策略文档 | `docs/reference/tushare/tushare-channel-policy.md` | S | 10000 主 + 5000 兜底 + 限速口径统一 |
 | A-DES-005 | 回测选型策略 | `docs/design/core-infrastructure/backtest/backtest-engine-selection.md` | A | 引擎替换决策 |
 | A-DES-006 | 因子/权重验证设计 | `docs/design/core-algorithms/validation/*` | A | 验证模块落地 |
 
@@ -61,6 +64,7 @@
 | S-QA-004 | 契约行为回归脚本 | `scripts/quality/contract_behavior_regression.py` | S | 边界行为固定回归 |
 | S-QA-005 | 设计溯源检查脚本 | `scripts/quality/design_traceability_check.py` | A | 检查 MSS/IRS/PAS/Validation/Integration 等核心模块 `DESIGN_TRACE` 标记，降低设计-实现漂移 |
 | S-QA-006 | S2c release 证据同步脚本 | `scripts/quality/sync_s2c_release_artifacts.py` | S | 同步前强校验 PASS/GO 与样例行数，防止调试证据污染正式收口 |
+| A-QA-007 | TuShare L1 吞吐压测脚本 | `scripts/data/benchmark_tushare_l1_rate.py` | A | 统一输出 calls/min、成功率、延迟分位与错误类型，作为主备通道实测证据 |
 | A-CODE-005 | 统一 CLI 入口骨架 | `src/pipeline/main.py` + `main.py` | A | 统一入口、参数路由、配置注入 |
 | A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
 | A-CODE-007 | L2 快照与 canary 最小闭环骨架 | `src/data/l2_pipeline.py` + `src/data/models/snapshots.py` | A | S0c 快照生成、质量字段门禁、错误分级 |
@@ -103,6 +107,7 @@
 5. MSS 自适应分位阈值基线生成器（目标 S3）
 6. Probe 真实收益口径桥接器（目标 S3）
 7. IRS/PAS 评分校准器（目标 S3）
+8. 采集多源底牌适配器（AKShare/BaoStock）与锁恢复门禁增强测试资产（目标 S3ar-next）
 
 ---
 
@@ -110,6 +115,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-19 | v2.20 | 新增 TuShare 主备通道策略文档资产（S-DES-007）与吞吐压测脚本资产（A-QA-007）；将 AK/Bao 空缺调整为 S3ar-next 预留 |
+| 2026-02-19 | v2.19 | 新增 S3ar 资产登记：`Governance/specs/spiral-s3ar/*` 与 `S3AR-EXECUTION-CARD.md`；补充“多源兜底与锁恢复”空缺项 |
 | 2026-02-18 | v2.18 | 更新 S4 测试资产说明：补充收口样例证据入口（`artifacts/spiral-s4/20260222/manual_test_summary.md`） |
 | 2026-02-17 | v2.17 | 升级 S3a 资产登记为收口版：纳入真实 TuShare 适配、实测吞吐与失败恢复实测相关代码/测试资产 |
 | 2026-02-17 | v2.16 | 增加 S3 多交易日回放与 T+1/涨跌停资产（A-CODE-031、A-TEST-032）及 S4 paper trade 资产（A-CODE-033、A-TEST-034） |

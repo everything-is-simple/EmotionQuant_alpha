@@ -3,7 +3,7 @@
 ## 0. 文档信息
 
 - 状态: 当前唯一有效主计划（覆盖 R1-R31 收敛后实施阶段）
-- 最后更新: 2026-02-13
+- 最后更新: 2026-02-19
 - 适用: Spiral S0-S6（扩展微圈 S3a/S7a 可选，且与 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 严格对齐）
 - 输入来源:
   - `.reports/archive-critique-r1-r31-20260210/`
@@ -45,8 +45,8 @@
 
 ### 2.1 数据采集与配置
 
-1. 主采集源: TuShare（5000 积分官方口径优先）。
-2. 配置权威: `docs/reference/tushare/tushare-config.md`（5000 积分口径参见 `docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md`）。
+1. 主采集源: TuShare 双通道（10000 网关主通道 + 5000 官方兜底通道）。
+2. 配置权威: `docs/reference/tushare/tushare-channel-policy.md`（5000 口径参见 `docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md`）。
 3. 密钥与路径: 仅 `Config.from_env()` 注入，禁止硬编码。
 4. 数据路径原则: 远端补采 -> 本地落库 -> 主流程读取。
 
@@ -296,6 +296,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-02-19 | v2.2.1 | 数据采集口径修订：主采集源改为“双 TuShare 主备”（10000 网关主 + 5000 官方兜底）；配置权威入口切换为 `tushare-channel-policy.md` |
 | 2026-02-13 | v2.2.0 | 正式纳入 ENH-10/ENH-11；新增扩展微圈 S3a/S7a；补充“先数据效率、后运维自动化”排期口径 |
 | 2026-02-11 | v2.1.0 | 主计划对齐审计：明确主从权威关系（本文件为唯一执行基线）、吸收 ENH-09（Qlib 适配层）、统一 ENH-06/07/08 排期口径（S3/S5/S0+S6）、补充 Validation 权重桥接归属 CP-10 说明 |
 | 2026-02-10 | v2.0.0 | 基于现有 CP 与设计稿重构为“核心冻结 + 外挂增强”全流程 Spiral 路线；吸收 4 份批判/行动报告建议并收敛到唯一主计划 |

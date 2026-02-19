@@ -1,7 +1,7 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.7）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.9）
 
 **状态**: Active  
-**更新时间**: 2026-02-18  
+**更新时间**: 2026-02-19  
 **适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、极端防御）  
 **文档角色**: S3a-S4b 执行合同（不是上位 SoT 替代）
 
@@ -30,8 +30,8 @@
 2. `eq` 统一入口已完成阶段B首批命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade`；`analysis/stress` 仍待后续圈补齐。
 3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路；`src/analysis` 仍待补齐。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
-5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md`。
-6. 现实新增阻断：采集阶段出现过 DuckDB 文件锁导致批次失败；同时已确认多数据源可用性差异（TuShare/AKShare/BaoStock），需先完成采集稳定性修复圈再推进 S3b。
+5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S3AR/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md`。
+6. 现实新增阻断：采集阶段出现过 DuckDB 文件锁导致批次失败；当前已落地双 TuShare 主备（10000 网关主 + 5000 官方兜底），AKShare/BaoStock 仅为后续底牌预留，需先完成 S3ar 稳定性收口再推进 S3b。
 
 执行口径采用双层：
 
@@ -119,7 +119,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 | S3 | 回测闭环（Qlib+本地口径） | CP-10, CP-06, CP-09 | 4d | S3a | S4 或 S3r |
 | S3r | 回测修复子圈 | CP-10, CP-06, CP-09 | 1-2d | S3 FAIL | 回 S3 |
 | S4 | 纸上交易闭环 | CP-07, CP-09 | 4d | S3 PASS/WARN | S3b 或 S4r |
-| S3ar | 采集稳定性修复圈（多源兜底 + 锁恢复） | CP-01, CP-09 | 1-2d | S4 完成 | S3b |
+| S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | CP-01, CP-09 | 1-2d | S4 完成 | S3b |
 | S4r | 纸上交易修复子圈 | CP-07, CP-09 | 1-2d | S4 FAIL | 回 S4 |
 | S3b | 收益归因验证闭环 | CP-09, CP-10 | 2d | S4 PASS/WARN | S4b |
 | S4b | 极端防御专项闭环 | CP-07, CP-09 | 2d | S3b PASS/WARN | S5 或 S4br |
@@ -173,16 +173,18 @@ flowchart LR
 
 ### S3ar（新增）
 
-- 主目标：采集稳定性修复闭环（多源兜底 + DuckDB 锁恢复），确保历史回填不因单点数据源/锁冲突阻断。
+- 主目标：采集稳定性修复闭环（双 TuShare 主备 + DuckDB 锁恢复），确保历史回填不因单点通道/锁冲突阻断。
 - `target command`：
   - `eq fetch-batch --start {start} --end {end} --batch-size 365 --workers 3`
   - `eq fetch-retry`
-- `target test`（本圈必须补齐并执行）：`tests/unit/data/test_fetch_source_fallback_contract.py tests/unit/data/test_fetch_duckdb_lock_recovery_contract.py`
+- `target test`：`tests/unit/data/test_fetcher_contract.py tests/unit/data/test_fetch_retry_contract.py tests/unit/config/test_config_defaults.py`
 - 门禁：
-  - 源切换链路固定为 `TuShare -> AKShare -> BaoStock`，且切换记录可审计。
+  - 当前切换链路固定为 `TuShare Primary -> TuShare Fallback`，且切换记录可审计。
+  - 主/兜底独立限速口径（全局 + 通道级）可验证，且压测结果可复核。
   - DuckDB 锁冲突可恢复（重试后成功）或可审计失败（锁持有者、等待时长、重试次数）。
   - 幂等写入必须成立（重试不重复写入）。
-- 产物：`fetch_progress.json`, `fetch_retry_report.md`, `source_failover_report.md`
+- 产物：`fetch_progress.json`, `fetch_retry_report.md`, `throughput_benchmark.md`, `tushare_l1_rate_benchmark_*.json`
+- 预留：AKShare/BaoStock 作为最后底牌，登记路线与债务，不在本圈实装。
 - 消费：S3b 记录“归因窗口所用数据已通过采集稳定性门禁”。
 
 ### S3
@@ -363,6 +365,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.9 | 2026-02-19 | 修订 S3ar 执行口径为“双 TuShare 主备已实现 + AKShare/BaoStock 预留”；同步 target test 与产物清单到当前代码实现，消除设计-实现漂移 |
 | v0.8 | 2026-02-19 | 新增 S3ar（采集稳定性修复圈）：将多源兜底与 DuckDB 锁恢复纳入阶段B强门禁；并将 S3b->S4b 推进口径硬化为“默认 PASS 推进” |
 | v0.7 | 2026-02-18 | S4 收口完成并切换阶段B推进顺序：确认 `artifacts/spiral-s4/20260222` 为收口证据入口，下一圈进入 S3b |
 | v0.6 | 2026-02-18 | S3 门禁升级为“核心算法全量消费可审计”：新增 `mss/irs/pas` 三因子完整性与核心表窗口覆盖硬校验，并补充 `test_backtest_core_algorithm_coverage_gate.py` 到目标测试 |

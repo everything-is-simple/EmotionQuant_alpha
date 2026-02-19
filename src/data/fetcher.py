@@ -321,31 +321,47 @@ class TuShareFetcher:
         self.retry_report: list[FetchAttempt] = []
         self._now_fn = now_fn or time.monotonic
         self._sleep_fn = sleep_fn or time.sleep
-        self._last_call_at: float | None = None
-        self._min_interval_seconds = 0.0
-        if config is not None and any(
-            isinstance(channel_client, RealTuShareClient) for _, channel_client in self._clients
-        ):
-            rate_limit = max(0, int(config.tushare_rate_limit_per_min))
-            self._min_interval_seconds = 60.0 / rate_limit if rate_limit > 0 else 0.0
+        self._channel_last_call_at: dict[str, float] = {}
+        self._channel_min_interval_seconds: dict[str, float] = {}
+        if config is not None:
+            global_rate_limit = max(0, int(config.tushare_rate_limit_per_min))
+            primary_rate_limit = max(0, int(config.tushare_primary_rate_limit_per_min))
+            fallback_rate_limit = max(0, int(config.tushare_fallback_rate_limit_per_min))
+            for channel_name, channel_client in self._clients:
+                if not isinstance(channel_client, RealTuShareClient):
+                    self._channel_min_interval_seconds[channel_name] = 0.0
+                    continue
+                if channel_name == "primary":
+                    rate_limit = primary_rate_limit if primary_rate_limit > 0 else global_rate_limit
+                elif channel_name == "fallback":
+                    rate_limit = fallback_rate_limit if fallback_rate_limit > 0 else global_rate_limit
+                else:
+                    rate_limit = global_rate_limit
+                self._channel_min_interval_seconds[channel_name] = (
+                    60.0 / rate_limit if rate_limit > 0 else 0.0
+                )
+        else:
+            for channel_name, _ in self._clients:
+                self._channel_min_interval_seconds[channel_name] = 0.0
 
-    def _respect_rate_limit(self) -> None:
-        if self._min_interval_seconds <= 0:
+    def _respect_rate_limit(self, channel_name: str) -> None:
+        min_interval_seconds = self._channel_min_interval_seconds.get(channel_name, 0.0)
+        if min_interval_seconds <= 0:
             return
         now = self._now_fn()
-        if self._last_call_at is not None:
-            elapsed = now - self._last_call_at
-            remaining = self._min_interval_seconds - elapsed
+        last_call_at = self._channel_last_call_at.get(channel_name)
+        if last_call_at is not None:
+            elapsed = now - last_call_at
+            remaining = min_interval_seconds - elapsed
             if remaining > 0:
                 self._sleep_fn(remaining)
                 now = self._now_fn()
-        self._last_call_at = now
+        self._channel_last_call_at[channel_name] = now
 
     def fetch_with_retry(self, api_name: str, params: dict[str, Any]) -> Any:
         attempts: list[FetchAttempt] = []
         for attempt in range(1, self.max_retries + 1):
             try:
-                self._respect_rate_limit()
                 payload = self._call_with_failover(api_name=api_name, params=params)
                 item = FetchAttempt(
                     api_name=api_name,
@@ -373,6 +389,7 @@ class TuShareFetcher:
         errors: list[str] = []
         for channel_name, channel_client in self._clients:
             try:
+                self._respect_rate_limit(channel_name)
                 return channel_client.call(api_name, params)
             except Exception as exc:  # pragma: no cover - exercised via contract tests
                 errors.append(f"{channel_name}:{exc}")

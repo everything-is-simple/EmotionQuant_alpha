@@ -1,7 +1,7 @@
 # Data Layer API接口
 
-**版本**: v3.1.3（重构版）
-**最后更新**: 2026-02-14
+**版本**: v3.1.4（重构版）
+**最后更新**: 2026-02-19
 **状态**: 设计修订完成（含质量门禁闭环 API）
 
 ---
@@ -9,6 +9,8 @@
 ## 实现状态（仓库现状）
 
 - 当前仓库仍以骨架/占位实现为主：`src/data/fetcher.py`（TuShareFetcher）、`src/data/repositories/*`（BaseRepository + L1 Repos）。
+- 当前已落地双通道 TuShare：`TUSHARE_PRIMARY_*`（主）+ `TUSHARE_FALLBACK_*`（兜底），主路失败自动切换。
+- 当前已落地限速口径：全局 `TUSHARE_RATE_LIMIT_PER_MIN`，并支持通道独立限速 `TUSHARE_PRIMARY_RATE_LIMIT_PER_MIN` / `TUSHARE_FALLBACK_RATE_LIMIT_PER_MIN`。
 - 已落地最小门禁 API：`src/data/quality_gate.py::evaluate_data_quality_gate()`（ready/degraded/blocked）。
 - 本文档中的 `TuShareClient` / `DataFetcher` / `DataProcessor` / `MarketSnapshotRepository` 等多数仍为规划接口。
 
@@ -63,7 +65,7 @@ client = TuShareClient.from_env()
 # 显式初始化
 client = TuShareClient(
     token="your_token",
-    rate_limit=120  # 每分钟调用次数
+    rate_limit=120  # 全局每分钟调用次数（可被 primary/fallback 通道独立限速覆盖）
 )
 ```
 

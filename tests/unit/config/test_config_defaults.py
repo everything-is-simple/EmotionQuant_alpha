@@ -22,6 +22,8 @@ def test_config_uses_default_storage_paths_when_env_missing() -> None:
         "TUSHARE_FALLBACK_TOKEN",
         "TUSHARE_FALLBACK_SDK_PROVIDER",
         "TUSHARE_FALLBACK_HTTP_URL",
+        "TUSHARE_PRIMARY_RATE_LIMIT_PER_MIN",
+        "TUSHARE_FALLBACK_RATE_LIMIT_PER_MIN",
         "BACKTEST_TRANSFER_FEE_RATE",
         "BACKTEST_MIN_COMMISSION",
     )
@@ -49,6 +51,8 @@ def test_config_uses_default_storage_paths_when_env_missing() -> None:
     assert cfg.tushare_fallback_token == ""
     assert cfg.tushare_fallback_sdk_provider == "tushare"
     assert cfg.tushare_fallback_http_url == ""
+    assert cfg.tushare_primary_rate_limit_per_min == 0
+    assert cfg.tushare_fallback_rate_limit_per_min == 0
     assert cfg.backtest_transfer_fee_rate == 0.00002
     assert cfg.backtest_min_commission == 5.0
 

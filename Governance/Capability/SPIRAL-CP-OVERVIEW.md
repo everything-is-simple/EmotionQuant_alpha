@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.3.9  
+**版本**: v7.3.10  
 **最后更新**: 2026-02-19  
 **适用对象**: 个人开发、个人使用
 
@@ -59,7 +59,7 @@
 |---|---|---|---|---|
 | S2c | 核心算法深化闭环 | MSS/IRS/PAS/Validation/Integration 全语义桥接 | S2b 后、S3a 前 | `validation_weight_plan` 可解析 + Gate/权重桥接验证 + 算法语义回归 |
 | S3a | 数据采集增强闭环 | ENH-10（分批+断点续传+多线程） | S2c 后、S3 前 | `fetch_progress` + 吞吐对比 + 恢复演练记录 |
-| S3ar | 采集稳定性修复圈 | 多源兜底 + DuckDB 锁恢复门禁 | S4 后、S3b 前 | `source_failover_report` + 锁恢复证据 + 幂等写入验证 |
+| S3ar | 采集稳定性修复圈 | 双 TuShare 主备策略收口 + DuckDB 锁恢复门禁（AK/Bao 预留） | S4 后、S3b 前 | `fetch_progress` + `fetch_retry_report` + 吞吐/限速证据 + 幂等写入验证 |
 | S7a | 自动调度闭环 | ENH-11（每日自动下载+开机自启） | S6 后 | 调度安装记录 + 最近执行历史 + 交易日去重验证 |
 
 > 约束：S2c 是 S2->S3 迁移的必选算法收口圈；S3a/S3ar/S7a 不改变 CP 主路线语义，只交付执行层与运维层增强能力。
@@ -79,7 +79,7 @@
 | S3a | ENH-10 数据采集增强闭环 | ✅ completed | `Governance/specs/spiral-s3a/final.md` |
 | S3 | 回测闭环 | 🔄 in_progress | `Governance/specs/spiral-s3/final.md` |
 | S4 | 纸上交易闭环 | ✅ completed | `Governance/specs/spiral-s4/final.md` |
-| S3ar | 采集稳定性修复圈（多源兜底 + 锁恢复） | 🔄 in_progress | `Governance/specs/spiral-s3ar/final.md` |
+| S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | 🔄 in_progress | `Governance/specs/spiral-s3ar/final.md` |
 | S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
 | S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
 | S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
@@ -203,6 +203,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.3.10 | 2026-02-19 | S3ar 口径从“多源已实装”修订为“当前双 TuShare 主备已实装 + AKShare/BaoStock 预留”；收口证据改为 `fetch_progress/fetch_retry_report/吞吐限速`，消除设计-实现漂移 |
 | v7.3.9 | 2026-02-19 | 新增 S3ar 微圈（多源兜底 + DuckDB 锁恢复）并将下一圈顺序调整为 `S3ar -> S3b` |
 | v7.3.8 | 2026-02-18 | S4 状态切换为 `completed`：完成跨日持仓生命周期与跌停次日重试回放证据，下一圈切换 S3b |
 | v7.3.7 | 2026-02-17 | S3a 状态切换为 `completed`：完成真实 TuShare 客户端接入、实测吞吐基准与失败恢复实测证据 |

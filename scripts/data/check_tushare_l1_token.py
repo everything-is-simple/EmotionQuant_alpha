@@ -4,8 +4,9 @@
 检查 TuShare token 是否可用于 EmotionQuant 所需的 8 个 L1 原始接口。
 
 默认读取顺序：
-1) 环境变量 TUSHARE_FALLBACK_TOKEN
-2) docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md
+1) 环境变量 TUSHARE_PRIMARY_TOKEN
+2) docs/reference/tushare/tushare-10000积分-网关/tushare-10000积分-网关.TXT
+3) docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md
 
 可通过参数覆盖。
 """
@@ -24,6 +25,7 @@ from typing import Any
 
 
 DEFAULT_TOKEN_FILES = [
+    "docs/reference/tushare/tushare-10000积分-网关/tushare-10000积分-网关.TXT",
     "docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md",
     "docs/reference/tushare/tushare-5000积分-官方.txt",
 ]
@@ -212,7 +214,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--token", default="", help="Token string. If empty, read env/file.")
     parser.add_argument(
         "--token-env",
-        default="TUSHARE_FALLBACK_TOKEN",
+        default="TUSHARE_PRIMARY_TOKEN",
         help="Env var name for token fallback.",
     )
     parser.add_argument(
@@ -351,4 +353,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

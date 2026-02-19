@@ -1,7 +1,7 @@
 # EmotionQuant 技术选型基线 (Technical Baseline)
 
-**版本**: v1.1.0
-**最后更新**: 2026-02-14
+**版本**: v1.2.0
+**最后更新**: 2026-02-19
 **定位**: 统一记录系统技术选型决策、备选方案与排除理由
 
 ---
@@ -14,7 +14,7 @@
 | 开发环境 | Windows（PowerShell 7.x） |
 | 运行时 | Python ≥3.10 |
 | 目标市场 | 中国 A 股 |
-| 数据预算 | TuShare Pro 5000 积分 |
+| 数据预算 | 双 Key：10000 网关（主）+ 5000 官方（兜底） |
 | 部署形态 | 单机本地运行 |
 | 数据位置 | `DATA_PATH` 环境变量注入（默认 `G:\EmotionQuant_data`，仓库外独立目录） |
 
@@ -25,7 +25,7 @@
 | 领域 | 选型 | 一句话理由 | 备选 | 排除理由 |
 |---|---|---|---|---|
 | 编程语言 | Python ≥3.10 | 量化生态最成熟，Qlib/pandas/numpy 全链路原生支持 | — | — |
-| 数据源 | TuShare Pro（5000 积分） | A 股覆盖最全、5000 积分频率够用 | AKShare | 字段映射维护成本高，双源个人项目不值得 |
+| 数据源 | TuShare 双通道（10000 网关主 + 5000 官方兜底） | 10000 覆盖更全，5000 延迟更低；主路失败可自动兜底 | AKShare / BaoStock | 作为最终底牌预留，当前未实装 |
 | 落盘格式 | Parquet | 列式存储，pandas 原生支持，跨平台 | CSV | 无类型、无压缩、大文件性能差 |
 | 查询引擎 | DuckDB（单库） | 单文件嵌入式、SQL 查询、零运维 | SQLite / PostgreSQL | SQLite 无列式优化；PG 需独立运维 |
 | 回测主选 | Qlib | 因子研究完整、社区活跃、近年持续更新 | backtrader / RQAlpha | BT 社区停滞；RQ 定制度低 |
@@ -91,7 +91,7 @@
 
 | 方案 | 排除理由 | 评估时间 |
 |---|---|---|
-| AKShare 作为主/备数据源 | TuShare 5000 积分覆盖足够；双源字段映射维护成本高 | 2026-02 |
+| AKShare/BaoStock 作为当前主流程数据源 | 当前圈聚焦双 TuShare 主备稳定性；AKShare/BaoStock 保留为路线图底牌预留（未来圈实现） | 2026-02 |
 | PostgreSQL 替代 DuckDB | 需要独立服务进程和运维，个人项目不值得 | 2026-02 |
 | vn.py / easytrader 实盘接入 | S0-S6 范围内不含实盘，纸上交易自研即可 | 2026-02 |
 | RQAlpha 回测引擎 | Qlib + 向量化基线已够，不再接入第三个引擎 | 2026-02 |
@@ -120,7 +120,7 @@
 |---|---|
 | 系统架构总览 | `docs/system-overview.md` |
 | 回测引擎选型分析 | `docs/design/core-infrastructure/backtest/backtest-engine-selection.md` |
-| TuShare 配置 | `docs/reference/tushare/tushare-config.md` |
+| TuShare 通道策略 | `docs/reference/tushare/tushare-channel-policy.md` |
 | TuShare 5000 积分官方口径 | `docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md` |
 | 数据模型定义 | `docs/design/core-infrastructure/data-layer/data-layer-data-models.md` |
 | 外挂增强系统设计 | `docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` |
@@ -138,5 +138,6 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.2.0 | 2026-02-19 | 数据源口径升级为“双 TuShare 主备”（10000 网关主、5000 官方兜底）；AKShare/BaoStock 调整为路线图预留底牌；修复 TuShare 配置交叉引用 |
 | v1.1.0 | 2026-02-14 | 补充 Schema-first 命名契约与 `contract_version` 执行前校验基线；新增质量门禁基线（本地检查/CI/行为回归）与契约模板交叉引用 |
 | v1.0.0 | 2026-02-12 | 首版：汇聚散落的技术选型决策为统一基线文档 |

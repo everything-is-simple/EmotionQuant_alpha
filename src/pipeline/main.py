@@ -185,6 +185,8 @@ def _config_snapshot(config: Config) -> dict[str, object]:
         "tushare_fallback_http_url": str(config.tushare_fallback_http_url),
         "tushare_has_fallback_token": bool(str(config.tushare_fallback_token).strip()),
         "tushare_rate_limit_per_min": config.tushare_rate_limit_per_min,
+        "tushare_primary_rate_limit_per_min": config.tushare_primary_rate_limit_per_min,
+        "tushare_fallback_rate_limit_per_min": config.tushare_fallback_rate_limit_per_min,
     }
 
 

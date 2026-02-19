@@ -1,7 +1,7 @@
 # Data Layer 数据管线设计
 
-**版本**: v3.1.4（重构版）
-**最后更新**: 2026-02-14
+**版本**: v3.1.6（重构版）
+**最后更新**: 2026-02-19
 **状态**: 设计修订完成（对齐 MSS/IRS/PAS/Integration；含质量门禁闭环）
 
 ---
@@ -14,7 +14,9 @@
 - 已落地最小契约：`src/data/models/snapshots.py` 补齐 `data_quality/stale_days/source_trade_date` 字段与约束。
 - 已落地质量门禁原型：`src/data/quality_gate.py`（覆盖率、`stale_days`、跨日一致性前置检查）。
 - 已验证现实风险：生产回填阶段出现过 DuckDB 文件锁冲突，需纳入采集层非功能门禁（锁等待/重试/锁持有者记录）。
-- 已验证多源可用性差异：TuShare（近期可用）+ AKShare（可用）+ BaoStock（需修复日期格式）；设计已升级为“主源+兜底”策略。
+- 已落地双通道 TuShare 采集策略：`primary` + `fallback`（主路失败自动切换兜底）。
+- 已落地限速策略：支持全局限速（`TUSHARE_RATE_LIMIT_PER_MIN`）与通道独立限速（`TUSHARE_PRIMARY_RATE_LIMIT_PER_MIN`、`TUSHARE_FALLBACK_RATE_LIMIT_PER_MIN`）。
+- AKShare/BaoStock 仅保留为最终底牌路线图预留，当前版本未实装（避免设计-实现漂移）。
 - 本文档为权威设计规格，接口/流程继续按本规格迭代落地。
 
 ---
@@ -84,15 +86,16 @@ Data Layer是EmotionQuant系统的数据基础设施层，负责：
 
 ## 2. L1 原始数据采集
 
-### 2.1 数据源策略：主源 + 兜底
+### 2.1 数据源策略：双 TuShare 主备（当前实现）+ 多源底牌（路线图预留）
 
-| 优先级 | 数据源 | 用途 | 备注 |
-|------|------|------|------|
-| P0 主源 | `TuShare` | 全量 L1 八类接口 | 有 token 时优先；以官方字段为标准口径 |
-| P1 兜底 | `AKShare` | 主源失败时兜底 | 免费、覆盖广；字段需统一映射 |
-| P2 兜底 | `BaoStock` | 第二兜底 | 免费、稳定；日期格式与字段需适配 |
+| 优先级 | 数据源 | 用途 | 状态 | 备注 |
+|------|------|------|------|------|
+| P0 主源 | `TuShare`（10000 网关） | 全量 L1 八类接口 | 已实现 | 通过 `TUSHARE_PRIMARY_*` 配置；覆盖更全 |
+| P1 兜底 | `TuShare`（5000 官方） | 主路失败时兜底 | 已实现 | 通过 `TUSHARE_FALLBACK_*` 配置；响应更快 |
+| P2 预留 | `AKShare` | 最后底牌 | 未实现（路线图） | 仅做未来底牌，不进入当前主流程 |
+| P3 预留 | `BaoStock` | 最后底牌 | 未实现（路线图） | 仅做未来底牌，不进入当前主流程 |
 
-> 设计约束：无论来自哪个数据源，入库前必须归一化到统一字段口径（`ts_code/stock_code/trade_date/open/high/low/close/vol/amount`），禁止在 L2/L3 感知“源差异”。
+> 设计约束：无论来自哪个通道/数据源，入库前必须归一化到统一字段口径（`ts_code/stock_code/trade_date/open/high/low/close/vol/amount`），禁止在 L2/L3 感知“源差异”。
 
 ### 2.1.1 L1 八类逻辑接口（统一口径）
 
@@ -115,7 +118,8 @@ class TuShareDataFetcher:
     TuShare数据获取器
     
     限流策略：
-    - 令牌桶：120次/分钟
+    - 全局限流：TUSHARE_RATE_LIMIT_PER_MIN（默认120次/分钟）
+    - 通道独立限流：PRIMARY/FALLBACK 可单独配置（0=继承全局）
     - 指数退避重试：最多3次
     - 并发下载：4线程
     """
@@ -167,11 +171,12 @@ ${DATA_PATH}/parquet/
 
 ### 2.4 源切换与锁恢复策略（P0）
 
-1. 源切换顺序：`TuShare -> AKShare -> BaoStock`。
-2. 切换触发：鉴权失败、限流、网络超时、空结果异常（非停牌/非休市）之一成立。
-3. DuckDB 写入锁：必须执行“有限等待 + 重试 + 锁持有者记录”，重试失败才可标记批次失败。
-4. 证据要求：每次切源和锁重试都必须写入 `fetch_progress.json` / `fetch_retry_report.md`。
-5. 一致性要求：同一批次内不同源返回字段必须完成映射与类型校验，不通过则阻断入库。
+1. 当前源切换顺序（已实现）：`TuShare Primary -> TuShare Fallback`。
+2. 预留底牌顺序（未实现）：`... -> AKShare -> BaoStock`。
+3. 切换触发：鉴权失败、限流、网络超时、空结果异常（非停牌/非休市）之一成立。
+4. DuckDB 写入锁：必须执行“有限等待 + 重试 + 锁持有者记录”，重试失败才可标记批次失败（锁恢复细节仍在 S3ar 中）。
+5. 证据要求：当前必须保留 `fetch_progress.json` / `fetch_retry_report.md` / `throughput_benchmark.md`。
+6. 一致性要求：同一批次内不同通道/源返回字段必须完成映射与类型校验，不通过则阻断入库。
 
 ---
 
@@ -750,6 +755,7 @@ decision = evaluate_data_quality_gate(
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v3.1.6 | 2026-02-19 | 对齐实现：明确当前为“双 TuShare 主备”（10000 网关主、5000 官方兜底）；AKShare/BaoStock 调整为路线图预留；补充全局+通道独立限速口径 |
 | v3.1.5 | 2026-02-19 | 新增“主源+兜底”策略（TuShare->AKShare->BaoStock）；补充 DuckDB 锁恢复与非功能门禁；统一 L1 八类逻辑接口口径与切源证据要求 |
 | v3.1.4 | 2026-02-14 | 修复 R32（review-010）：补齐 `src/data/models` 质量字段契约落地说明；新增 `src/data/quality_gate.py` 门禁自动化口径（覆盖率/`stale_days`/跨日一致性）；补充降级分级、可选盘中增量层、分库触发与回迁策略 |
 | v3.1.3 | 2026-02-09 | 修复 R23：补充 TuShare 接口-目录-逻辑表名映射；`process_industry_snapshot` 增加 `config.flat_threshold`；补充 `stock_gene_cache` 返回值与异常处理语义 |

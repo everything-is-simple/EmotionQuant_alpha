@@ -275,3 +275,99 @@ def test_fetcher_falls_back_to_official_channel_when_primary_fails(
     assert rows[0]["stock_code"] == "000001"
     assert counters["primary_daily_calls"] == 1
     assert counters["fallback_daily_calls"] == 1
+
+
+class FakeClock:
+    def __init__(self) -> None:
+        self.current = 0.0
+        self.sleeps: list[float] = []
+
+    def now(self) -> float:
+        return self.current
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.current += seconds
+
+
+def test_fetcher_applies_primary_channel_rate_limit_when_configured(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeProApi:
+        def daily(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"ts_code": "000001.SZ", "trade_date": "20260215"}]
+
+    fake_tushare = types.SimpleNamespace(pro_api=lambda _token: FakeProApi())
+    monkeypatch.setitem(__import__("sys").modules, "tushare", fake_tushare)
+    monkeypatch.setenv("TUSHARE_RATE_LIMIT_PER_MIN", "6000")
+    monkeypatch.setenv("TUSHARE_PRIMARY_RATE_LIMIT_PER_MIN", "30")
+
+    env_file = tmp_path / ".env.fetcher.primary.rate"
+    env_file.write_text(
+        "ENVIRONMENT=test\n"
+        "TUSHARE_PRIMARY_TOKEN=official_token\n"
+        "TUSHARE_PRIMARY_SDK_PROVIDER=tushare\n"
+        "TUSHARE_RATE_LIMIT_PER_MIN=6000\n"
+        "TUSHARE_PRIMARY_RATE_LIMIT_PER_MIN=30\n",
+        encoding="utf-8",
+    )
+    config = Config.from_env(env_file=str(env_file))
+    clock = FakeClock()
+    fetcher = TuShareFetcher(
+        config=config,
+        max_retries=1,
+        now_fn=clock.now,
+        sleep_fn=clock.sleep,
+    )
+
+    fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
+    fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
+
+    assert len(clock.sleeps) == 1
+    assert clock.sleeps[0] == pytest.approx(2.0, abs=1e-6)
+
+
+def test_fetcher_applies_fallback_channel_rate_limit_when_primary_unlimited(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakePrimaryProApi:
+        def daily(self, **_: Any) -> list[dict[str, Any]]:
+            raise RuntimeError("primary_temporarily_unavailable")
+
+    class FakeFallbackProApi:
+        def daily(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"ts_code": "000001.SZ", "trade_date": "20260215"}]
+
+    fake_tinyshare = types.SimpleNamespace(pro_api=lambda _token: FakePrimaryProApi())
+    fake_tushare = types.SimpleNamespace(pro_api=lambda _token: FakeFallbackProApi())
+    monkeypatch.setitem(__import__("sys").modules, "tinyshare", fake_tinyshare)
+    monkeypatch.setitem(__import__("sys").modules, "tushare", fake_tushare)
+    monkeypatch.setenv("TUSHARE_RATE_LIMIT_PER_MIN", "0")
+    monkeypatch.setenv("TUSHARE_PRIMARY_RATE_LIMIT_PER_MIN", "0")
+    monkeypatch.setenv("TUSHARE_FALLBACK_RATE_LIMIT_PER_MIN", "30")
+
+    env_file = tmp_path / ".env.fetcher.fallback.rate"
+    env_file.write_text(
+        "ENVIRONMENT=test\n"
+        "TUSHARE_PRIMARY_TOKEN=trial_token\n"
+        "TUSHARE_PRIMARY_SDK_PROVIDER=tinyshare\n"
+        "TUSHARE_FALLBACK_TOKEN=official_token\n"
+        "TUSHARE_FALLBACK_SDK_PROVIDER=tushare\n"
+        "TUSHARE_RATE_LIMIT_PER_MIN=0\n"
+        "TUSHARE_FALLBACK_RATE_LIMIT_PER_MIN=30\n",
+        encoding="utf-8",
+    )
+    config = Config.from_env(env_file=str(env_file))
+    clock = FakeClock()
+    fetcher = TuShareFetcher(
+        config=config,
+        max_retries=1,
+        now_fn=clock.now,
+        sleep_fn=clock.sleep,
+    )
+
+    fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
+    fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
+
+    assert len(clock.sleeps) == 1
+    assert clock.sleeps[0] == pytest.approx(2.0, abs=1e-6)

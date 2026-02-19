@@ -20,7 +20,7 @@ powershell -ExecutionPolicy Bypass -File scripts/data/start_l1_full_fetch.ps1 -S
 powershell -ExecutionPolicy Bypass -File scripts/data/start_l1_full_fetch.ps1 -RunnerStatus
 powershell -ExecutionPolicy Bypass -File scripts/data/start_l1_full_fetch.ps1 -StopRunner
 
-# Check TuShare token for required 8 L1 APIs (fallback token by default)
+# Check TuShare token for required 8 L1 APIs (primary token by default)
 python scripts/data/check_tushare_l1_token.py
 
 # Check with explicit token source file
@@ -32,6 +32,23 @@ python scripts/data/check_tushare_l1_token.py `
   --token-file docs/reference/tushare/tushare-10000积分-网关/tushare-10000积分-网关.TXT `
   --provider tushare `
   --http-url http://106.54.191.157:5000
+
+# Benchmark one L1 API with concurrent calls (official channel example)
+python scripts/data/benchmark_tushare_l1_rate.py `
+  --token-env TUSHARE_PRIMARY_TOKEN `
+  --provider tushare `
+  --api daily `
+  --calls 500 `
+  --workers 50
+
+# Benchmark gateway channel throughput (10000 trial)
+python scripts/data/benchmark_tushare_l1_rate.py `
+  --token-file docs/reference/tushare/tushare-10000积分-网关/tushare-10000积分-网关.TXT `
+  --provider tushare `
+  --http-url http://106.54.191.157:5000 `
+  --api daily `
+  --calls 500 `
+  --workers 50
 
 # Status only (no download)
 powershell -ExecutionPolicy Bypass -File scripts/data/run_l1_fetch.ps1 -StatusOnly

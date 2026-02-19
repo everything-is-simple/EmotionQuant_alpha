@@ -118,6 +118,8 @@ if BaseSettings:
         tushare_fallback_sdk_provider: str = "tushare"
         tushare_fallback_http_url: str = ""
         tushare_rate_limit_per_min: int = 120
+        tushare_primary_rate_limit_per_min: int = 0
+        tushare_fallback_rate_limit_per_min: int = 0
 
         data_path: str = ""
         duckdb_dir: str = ""
@@ -223,6 +225,8 @@ else:
         tushare_fallback_sdk_provider: str = "tushare"
         tushare_fallback_http_url: str = ""
         tushare_rate_limit_per_min: int = 120
+        tushare_primary_rate_limit_per_min: int = 0
+        tushare_fallback_rate_limit_per_min: int = 0
 
         data_path: str = ""
         duckdb_dir: str = ""
@@ -308,6 +312,12 @@ else:
                 tushare_fallback_http_url=tushare_channels["tushare_fallback_http_url"],
                 tushare_rate_limit_per_min=int(
                     os.getenv("TUSHARE_RATE_LIMIT_PER_MIN", "120")
+                ),
+                tushare_primary_rate_limit_per_min=int(
+                    os.getenv("TUSHARE_PRIMARY_RATE_LIMIT_PER_MIN", "0")
+                ),
+                tushare_fallback_rate_limit_per_min=int(
+                    os.getenv("TUSHARE_FALLBACK_RATE_LIMIT_PER_MIN", "0")
                 ),
                 data_path=storage["data_path"],
                 duckdb_dir=storage["duckdb_dir"],
