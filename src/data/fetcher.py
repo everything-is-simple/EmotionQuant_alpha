@@ -77,6 +77,75 @@ class SimulatedTuShareClient:
                 }
             ]
 
+        if api_name == "daily_basic":
+            trade_date = str(params.get("trade_date", ""))
+            if not trade_date:
+                raise ValueError("daily_basic requires trade_date")
+            return [
+                {
+                    "ts_code": "000001.SZ",
+                    "stock_code": "000001",
+                    "trade_date": trade_date,
+                    "turnover_rate": 1.25,
+                    "pe_ttm": 12.8,
+                    "pb": 1.35,
+                    "total_mv": 123000000000.0,
+                }
+            ]
+
+        if api_name == "index_daily":
+            trade_date = str(params.get("trade_date", ""))
+            if not trade_date:
+                raise ValueError("index_daily requires trade_date")
+            return [
+                {
+                    "ts_code": "000001.SH",
+                    "trade_date": trade_date,
+                    "open": 3200.0,
+                    "high": 3210.0,
+                    "low": 3185.0,
+                    "close": 3205.0,
+                    "pct_chg": 0.42,
+                }
+            ]
+
+        if api_name == "index_member":
+            trade_date = str(
+                params.get("trade_date", "")
+                or params.get("start_date", "")
+                or params.get("end_date", "")
+            )
+            return [
+                {
+                    "index_code": "801010.SI",
+                    "con_code": "000001.SZ",
+                    "in_date": "20100101",
+                    "out_date": None,
+                    "trade_date": trade_date,
+                }
+            ]
+
+        if api_name == "index_classify":
+            return [
+                {
+                    "index_code": "801010.SI",
+                    "industry_name": "农林牧渔",
+                    "level": "L1",
+                    "src": "SW2021",
+                }
+            ]
+
+        if api_name == "stock_basic":
+            return [
+                {
+                    "ts_code": "000001.SZ",
+                    "stock_code": "000001",
+                    "name": "平安银行",
+                    "list_status": "L",
+                    "exchange": "SZSE",
+                }
+            ]
+
         raise ValueError(f"unsupported api_name: {api_name}")
 
 
@@ -85,8 +154,13 @@ class RealTuShareClient:
 
     _API_METHOD_MAP = {
         "daily": "daily",
+        "daily_basic": "daily_basic",
         "trade_cal": "trade_cal",
         "limit_list": "limit_list_d",
+        "index_daily": "index_daily",
+        "index_member": "index_member",
+        "index_classify": "index_classify",
+        "stock_basic": "stock_basic",
     }
     _SDK_MODULES = {
         "tushare": "tushare",
@@ -121,7 +195,7 @@ class RealTuShareClient:
             raise RuntimeError(f"tushare api not available: {method_name}")
         payload = method(**params)
         rows = self._normalize_records(payload)
-        return self._normalize_fields(api_name=api_name, rows=rows)
+        return self._normalize_fields(api_name=api_name, rows=rows, request_params=params)
 
     def _normalize_records(self, payload: Any) -> list[dict[str, Any]]:
         if payload is None:
@@ -134,22 +208,44 @@ class RealTuShareClient:
         raise TypeError(f"unsupported payload type from tushare: {type(payload)!r}")
 
     def _normalize_fields(
-        self, *, api_name: str, rows: list[dict[str, Any]]
+        self,
+        *,
+        api_name: str,
+        rows: list[dict[str, Any]],
+        request_params: dict[str, Any],
     ) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
+        requested_trade_date = str(
+            request_params.get("trade_date", "")
+            or request_params.get("start_date", "")
+            or request_params.get("end_date", "")
+        ).strip()
         for row in rows:
             item = dict(row)
             if api_name == "trade_cal" and not item.get("trade_date"):
                 cal_date = str(item.get("cal_date", "")).strip()
                 if cal_date:
                     item["trade_date"] = cal_date
+            if (
+                api_name in {"daily", "daily_basic", "index_daily", "limit_list", "index_member"}
+                and not str(item.get("trade_date", "")).strip()
+                and requested_trade_date
+            ):
+                item["trade_date"] = requested_trade_date
             ts_code = str(item.get("ts_code", ""))
             if (
-                api_name in {"daily", "limit_list"}
+                api_name in {"daily", "daily_basic", "limit_list", "stock_basic"}
                 and not item.get("stock_code")
                 and len(ts_code) >= 6
             ):
                 item["stock_code"] = ts_code[:6]
+            if api_name == "index_member":
+                con_code = str(item.get("con_code", "")).strip()
+                if not ts_code and con_code:
+                    item["ts_code"] = con_code
+                    ts_code = con_code
+                if not item.get("stock_code") and len(ts_code) >= 6:
+                    item["stock_code"] = ts_code[:6]
             normalized.append(item)
         return normalized
 
@@ -166,22 +262,52 @@ class TuShareFetcher:
         now_fn: Callable[[], float] | None = None,
         sleep_fn: Callable[[float], None] | None = None,
     ) -> None:
+        self._clients: list[tuple[str, FetchClient]] = []
         if client is not None:
-            self.client = client
-        elif config is not None and config.tushare_token.strip():
-            self.client = RealTuShareClient(
-                token=config.tushare_token,
-                sdk_provider=config.tushare_sdk_provider,
-            )
-        else:
-            self.client = SimulatedTuShareClient()
+            self._clients = [("custom", client)]
+        elif config is not None:
+            primary_token = str(
+                config.tushare_primary_token or config.tushare_token
+            ).strip()
+            primary_provider = str(
+                config.tushare_primary_sdk_provider or config.tushare_sdk_provider or "tushare"
+            ).strip()
+            fallback_token = str(config.tushare_fallback_token).strip()
+            fallback_provider = str(config.tushare_fallback_sdk_provider or "tushare").strip()
+
+            if primary_token:
+                self._clients.append(
+                    (
+                        "primary",
+                        RealTuShareClient(
+                            token=primary_token,
+                            sdk_provider=primary_provider,
+                        ),
+                    )
+                )
+            if fallback_token and (fallback_token != primary_token or fallback_provider != primary_provider):
+                self._clients.append(
+                    (
+                        "fallback",
+                        RealTuShareClient(
+                            token=fallback_token,
+                            sdk_provider=fallback_provider,
+                        ),
+                    )
+                )
+        if not self._clients:
+            self._clients = [("simulated", SimulatedTuShareClient())]
+        # Keep legacy attribute for compatibility with existing callers/tests.
+        self.client = self._clients[0][1]
         self.max_retries = max(1, max_retries)
         self.retry_report: list[FetchAttempt] = []
         self._now_fn = now_fn or time.monotonic
         self._sleep_fn = sleep_fn or time.sleep
         self._last_call_at: float | None = None
         self._min_interval_seconds = 0.0
-        if isinstance(self.client, RealTuShareClient) and config is not None:
+        if config is not None and any(
+            isinstance(channel_client, RealTuShareClient) for _, channel_client in self._clients
+        ):
             rate_limit = max(0, int(config.tushare_rate_limit_per_min))
             self._min_interval_seconds = 60.0 / rate_limit if rate_limit > 0 else 0.0
 
@@ -202,7 +328,7 @@ class TuShareFetcher:
         for attempt in range(1, self.max_retries + 1):
             try:
                 self._respect_rate_limit()
-                payload = self.client.call(api_name, params)
+                payload = self._call_with_failover(api_name=api_name, params=params)
                 item = FetchAttempt(
                     api_name=api_name,
                     attempt=attempt,
@@ -224,3 +350,14 @@ class TuShareFetcher:
                     raise FetchError(api_name=api_name, attempts=attempts) from exc
 
         raise FetchError(api_name=api_name, attempts=attempts)
+
+    def _call_with_failover(self, *, api_name: str, params: dict[str, Any]) -> Any:
+        errors: list[str] = []
+        for channel_name, channel_client in self._clients:
+            try:
+                return channel_client.call(api_name, params)
+            except Exception as exc:  # pragma: no cover - exercised via contract tests
+                errors.append(f"{channel_name}:{exc}")
+        if errors:
+            raise RuntimeError("; ".join(errors))
+        raise RuntimeError("no_available_tushare_client")

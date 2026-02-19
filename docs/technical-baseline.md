@@ -121,7 +121,7 @@
 | 系统架构总览 | `docs/system-overview.md` |
 | 回测引擎选型分析 | `docs/design/core-infrastructure/backtest/backtest-engine-selection.md` |
 | TuShare 配置 | `docs/reference/tushare/tushare-config.md` |
-| TuShare 5000 积分官方口径 | `docs/reference/tushare/tushare-config-5000-官方.md` |
+| TuShare 5000 积分官方口径 | `docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md` |
 | 数据模型定义 | `docs/design/core-infrastructure/data-layer/data-layer-data-models.md` |
 | 外挂增强系统设计 | `docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` |
 | 改进主计划 | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |

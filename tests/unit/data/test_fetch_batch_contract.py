@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from src.config.config import Config
-from src.data.fetch_batch_pipeline import run_fetch_batch
+from src.data.fetch_batch_pipeline import FetchBatchProgressEvent, run_fetch_batch
 
 
 def test_fetch_batch_generates_progress_and_artifacts(
@@ -42,3 +42,27 @@ def test_fetch_batch_generates_progress_and_artifacts(
     assert "measured_wall_seconds:" in throughput_text
     assert "single_thread_batches_per_sec:" in throughput_text
     assert "effective_batches_per_sec:" in throughput_text
+
+
+def test_fetch_batch_emits_realtime_progress_events(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = Config.from_env(env_file=None)
+    events: list[FetchBatchProgressEvent] = []
+
+    result = run_fetch_batch(
+        start_date="20260101",
+        end_date="20260110",
+        batch_size=3,
+        workers=3,
+        config=config,
+        progress_callback=events.append,
+    )
+
+    assert events
+    assert events[0].current_status == "started"
+    last_event = events[-1]
+    assert last_event.current_batch_id is None
+    assert last_event.current_status == "completed"
+    assert last_event.total_batches == result.total_batches
+    assert last_event.completed_batches == result.completed_batches
+    assert last_event.failed_batches == result.failed_batches

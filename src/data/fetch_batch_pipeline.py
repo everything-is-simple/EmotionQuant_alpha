@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -37,6 +38,18 @@ class BatchExecutionRecord:
     trade_dates: int
     open_trade_dates: int
     error: str = ""
+
+
+@dataclass(frozen=True)
+class FetchBatchProgressEvent:
+    total_batches: int
+    completed_batches: int
+    failed_batches: int
+    processed_batches: int
+    current_batch_id: int | None
+    current_start_date: str | None
+    current_end_date: str | None
+    current_status: str
 
 
 @dataclass(frozen=True)
@@ -407,10 +420,18 @@ def _read_error_manifest_text(path: Path) -> str:
     return "unknown_error"
 
 
+def _has_live_tushare_token(config: Config) -> bool:
+    return bool(
+        str(config.tushare_token).strip()
+        or str(getattr(config, "tushare_primary_token", "")).strip()
+        or str(getattr(config, "tushare_fallback_token", "")).strip()
+    )
+
+
 def _execute_batch_window(window: BatchWindow, *, config: Config) -> BatchExecutionRecord:
     started = perf_counter()
     trade_dates = _iter_trade_dates(window.start_date, window.end_date)
-    if not config.tushare_token.strip():
+    if not _has_live_tushare_token(config):
         return BatchExecutionRecord(
             batch_id=window.batch_id,
             start_date=window.start_date,
@@ -468,6 +489,31 @@ def _execute_batch_window(window: BatchWindow, *, config: Config) -> BatchExecut
     )
 
 
+def _emit_progress_event(
+    *,
+    progress_callback: Callable[[FetchBatchProgressEvent], None] | None,
+    total_batches: int,
+    completed_ids: set[int],
+    failed_ids: set[int],
+    window: BatchWindow | None,
+    current_status: str,
+) -> None:
+    if progress_callback is None:
+        return
+    progress_callback(
+        FetchBatchProgressEvent(
+            total_batches=int(total_batches),
+            completed_batches=len(completed_ids),
+            failed_batches=len(failed_ids),
+            processed_batches=len(completed_ids) + len(failed_ids),
+            current_batch_id=None if window is None else int(window.batch_id),
+            current_start_date=None if window is None else window.start_date,
+            current_end_date=None if window is None else window.end_date,
+            current_status=current_status,
+        )
+    )
+
+
 def run_fetch_batch(
     *,
     start_date: str,
@@ -477,9 +523,10 @@ def run_fetch_batch(
     config: Config,
     fail_once_batch_ids: set[int] | None = None,
     stop_after_batches: int | None = None,
+    progress_callback: Callable[[FetchBatchProgressEvent], None] | None = None,
 ) -> FetchBatchRunResult:
     execution_mode = (
-        "real_tushare_sequential_write_safe" if config.tushare_token.strip() else "simulated_offline"
+        "real_tushare_sequential_write_safe" if _has_live_tushare_token(config) else "simulated_offline"
     )
     windows = _build_batches(start_date, end_date, batch_size)
     state = _resolve_state(
@@ -498,6 +545,14 @@ def run_fetch_batch(
         str(int(batch_id)): str(message)
         for batch_id, message in state.get("failed_batch_errors", {}).items()
     }
+    _emit_progress_event(
+        progress_callback=progress_callback,
+        total_batches=int(state.get("total_batches", len(windows))),
+        completed_ids=completed_ids,
+        failed_ids=failed_ids,
+        window=None,
+        current_status="started",
+    )
 
     processed = 0
     execution_records: list[BatchExecutionRecord] = []
@@ -526,6 +581,14 @@ def run_fetch_batch(
                 )
             )
             processed += 1
+            _emit_progress_event(
+                progress_callback=progress_callback,
+                total_batches=int(state.get("total_batches", len(windows))),
+                completed_ids=completed_ids,
+                failed_ids=failed_ids,
+                window=window,
+                current_status="failed",
+            )
             continue
 
         record = _execute_batch_window(window, config=config)
@@ -539,6 +602,14 @@ def run_fetch_batch(
             failed_ids.add(batch_id)
             failed_batch_errors[str(batch_id)] = record.error or "batch_execution_failed"
         processed += 1
+        _emit_progress_event(
+            progress_callback=progress_callback,
+            total_batches=int(state.get("total_batches", len(windows))),
+            completed_ids=completed_ids,
+            failed_ids=failed_ids,
+            window=window,
+            current_status=record.status,
+        )
 
     wall_seconds = perf_counter() - started
     state["completed_batch_ids"] = sorted(completed_ids)
@@ -546,6 +617,14 @@ def run_fetch_batch(
     state["failure_injected_batch_ids"] = sorted(injected_ids)
     state["failed_batch_errors"] = failed_batch_errors
     _update_status(state)
+    _emit_progress_event(
+        progress_callback=progress_callback,
+        total_batches=int(state.get("total_batches", len(windows))),
+        completed_ids=completed_ids,
+        failed_ids=failed_ids,
+        window=None,
+        current_status=str(state.get("status", "in_progress")),
+    )
 
     _, progress_path = _save_state(state)
     artifacts_dir = _artifacts_dir(end_date)

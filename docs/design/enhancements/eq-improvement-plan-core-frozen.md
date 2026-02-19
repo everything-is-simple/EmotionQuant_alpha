@@ -46,7 +46,7 @@
 ### 2.1 数据采集与配置
 
 1. 主采集源: TuShare（5000 积分官方口径优先）。
-2. 配置权威: `docs/reference/tushare/tushare-config.md`（5000 积分口径参见 `docs/reference/tushare/tushare-config-5000-官方.md`）。
+2. 配置权威: `docs/reference/tushare/tushare-config.md`（5000 积分口径参见 `docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md`）。
 3. 密钥与路径: 仅 `Config.from_env()` 注入，禁止硬编码。
 4. 数据路径原则: 远端补采 -> 本地落库 -> 主流程读取。
 

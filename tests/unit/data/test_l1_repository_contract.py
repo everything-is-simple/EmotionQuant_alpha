@@ -16,6 +16,16 @@ class MissingTradeCalClient:
         trade_date = str(params.get("trade_date") or params.get("start_date") or "")
         if api_name == "daily":
             return [{"ts_code": "000001.SZ", "stock_code": "000001", "trade_date": trade_date}]
+        if api_name == "daily_basic":
+            return [{"ts_code": "000001.SZ", "stock_code": "000001", "trade_date": trade_date}]
+        if api_name == "index_daily":
+            return [{"ts_code": "000001.SH", "trade_date": trade_date, "pct_chg": 0.2}]
+        if api_name == "index_member":
+            return [{"index_code": "801010.SI", "con_code": "000001.SZ", "trade_date": trade_date}]
+        if api_name == "index_classify":
+            return [{"index_code": "801010.SI", "industry_name": "农林牧渔", "trade_date": trade_date}]
+        if api_name == "stock_basic":
+            return [{"ts_code": "000001.SZ", "stock_code": "000001", "name": "平安银行", "trade_date": trade_date}]
         if api_name == "trade_cal":
             return []
         if api_name == "limit_list":
@@ -28,10 +38,45 @@ class ClosedDayClient:
         trade_date = str(params.get("trade_date") or params.get("start_date") or "")
         if api_name == "daily":
             return []
+        if api_name == "daily_basic":
+            return []
+        if api_name == "index_daily":
+            return []
+        if api_name == "index_member":
+            return [{"index_code": "801010.SI", "con_code": "000001.SZ", "trade_date": trade_date}]
+        if api_name == "index_classify":
+            return [{"index_code": "801010.SI", "industry_name": "农林牧渔", "trade_date": trade_date}]
+        if api_name == "stock_basic":
+            return [{"ts_code": "000001.SZ", "stock_code": "000001", "name": "平安银行", "trade_date": trade_date}]
         if api_name == "trade_cal":
             return [{"exchange": "SSE", "trade_date": trade_date, "is_open": 0}]
         if api_name == "limit_list":
             return []
+        raise ValueError(f"unsupported api: {api_name}")
+
+
+class StrictIndexDailyClient:
+    def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        trade_date = str(params.get("trade_date") or params.get("start_date") or "")
+        if api_name == "daily":
+            return [{"ts_code": "000001.SZ", "stock_code": "000001", "trade_date": trade_date}]
+        if api_name == "daily_basic":
+            return [{"ts_code": "000001.SZ", "stock_code": "000001", "trade_date": trade_date}]
+        if api_name == "index_daily":
+            ts_code = str(params.get("ts_code", "")).strip()
+            if not ts_code:
+                raise RuntimeError("Tushare 错误: 必填参数, ts_code")
+            return [{"ts_code": ts_code, "trade_date": trade_date, "pct_chg": 0.2}]
+        if api_name == "index_member":
+            return [{"index_code": "801010.SI", "con_code": "000001.SZ", "trade_date": trade_date}]
+        if api_name == "index_classify":
+            return [{"index_code": "801010.SI", "industry_name": "农林牧渔", "trade_date": trade_date}]
+        if api_name == "stock_basic":
+            return [{"ts_code": "000001.SZ", "stock_code": "000001", "name": "平安银行", "trade_date": trade_date}]
+        if api_name == "trade_cal":
+            return [{"exchange": "SSE", "trade_date": trade_date, "is_open": 1}]
+        if api_name == "limit_list":
+            return [{"ts_code": "000001.SZ", "stock_code": "000001", "trade_date": trade_date}]
         raise ValueError(f"unsupported api: {api_name}")
 
 
@@ -110,3 +155,44 @@ def test_l1_collection_allows_closed_trade_date_without_daily_rows(tmp_path: Pat
     assert result.has_error is False
     payload = json.loads((result.artifacts_dir / "raw_counts.json").read_text(encoding="utf-8"))
     assert payload["gate_checks"]["trade_cal_is_open"] is False
+
+
+def test_l1_collection_skips_low_frequency_datasets_in_same_month(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    fetcher = TuShareFetcher(max_retries=1)
+
+    first = run_l1_collection(
+        trade_date="20260203",
+        source="tushare",
+        config=config,
+        fetcher=fetcher,
+    )
+    second = run_l1_collection(
+        trade_date="20260210",
+        source="tushare",
+        config=config,
+        fetcher=fetcher,
+    )
+
+    assert first.raw_counts["raw_index_member"] > 0
+    assert first.raw_counts["raw_stock_basic"] > 0
+    assert first.raw_counts["raw_index_classify"] > 0
+
+    assert second.raw_counts["raw_index_member"] == 0
+    assert second.raw_counts["raw_stock_basic"] == 0
+    assert second.raw_counts["raw_index_classify"] == 0
+
+
+def test_l1_collection_fallbacks_when_index_daily_requires_ts_code(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    fetcher = TuShareFetcher(client=StrictIndexDailyClient(), max_retries=1)
+
+    result = run_l1_collection(
+        trade_date="20260215",
+        source="tushare",
+        config=config,
+        fetcher=fetcher,
+    )
+
+    assert result.has_error is False
+    assert result.raw_counts["raw_index_daily"] > 0

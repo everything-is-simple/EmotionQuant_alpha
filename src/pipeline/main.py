@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -10,7 +11,12 @@ from src import __version__
 from src.algorithms.mss.pipeline import run_mss_scoring
 from src.algorithms.mss.probe import run_mss_probe
 from src.config.config import Config
-from src.data.fetch_batch_pipeline import read_fetch_status, run_fetch_batch, run_fetch_retry
+from src.data.fetch_batch_pipeline import (
+    FetchBatchProgressEvent,
+    read_fetch_status,
+    run_fetch_batch,
+    run_fetch_retry,
+)
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
@@ -130,6 +136,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=3,
         help="Parallel workers for fetch, default 3.",
     )
+    fetch_batch_parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable realtime progress bar output to stderr.",
+    )
     backtest_parser = subparsers.add_parser("backtest", help="Run S3 backtest baseline pipeline.")
     backtest_parser.add_argument(
         "--engine",
@@ -161,6 +172,14 @@ def _config_snapshot(config: Config) -> dict[str, object]:
         "parquet_path": config.parquet_path,
         "cache_path": config.cache_path,
         "log_path": config.log_path,
+        "tushare_primary_sdk_provider": str(
+            config.tushare_primary_sdk_provider or config.tushare_sdk_provider
+        ),
+        "tushare_has_primary_token": bool(
+            str(config.tushare_primary_token or config.tushare_token).strip()
+        ),
+        "tushare_fallback_sdk_provider": str(config.tushare_fallback_sdk_provider),
+        "tushare_has_fallback_token": bool(str(config.tushare_fallback_token).strip()),
         "tushare_rate_limit_per_min": config.tushare_rate_limit_per_min,
     }
 
@@ -387,6 +406,29 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
 
 
 def _run_fetch_batch(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    def _render_progress(event: FetchBatchProgressEvent) -> None:
+        total = max(1, int(event.total_batches))
+        processed = min(int(event.processed_batches), total)
+        ratio = processed / total
+        width = 24
+        filled = int(ratio * width)
+        bar = f"{'#' * filled}{'-' * (width - filled)}"
+        head = (
+            f"\r[fetch-batch] [{bar}] {ratio * 100:6.2f}% "
+            f"{processed}/{total} completed={event.completed_batches} failed={event.failed_batches}"
+        )
+        if event.current_batch_id is None:
+            tail = f" status={event.current_status}"
+        else:
+            tail = (
+                f" batch={event.current_batch_id} "
+                f"{event.current_start_date}-{event.current_end_date} {event.current_status}"
+            )
+        print(f"{head}{tail}", end="", file=sys.stderr, flush=True)
+        if event.current_batch_id is None and event.current_status != "started":
+            print("", file=sys.stderr, flush=True)
+
+    progress_callback = None if bool(args.no_progress) else _render_progress
     try:
         result = run_fetch_batch(
             start_date=args.start,
@@ -394,6 +436,7 @@ def _run_fetch_batch(ctx: PipelineContext, args: argparse.Namespace) -> int:
             batch_size=int(args.batch_size),
             workers=int(args.workers),
             config=ctx.config,
+            progress_callback=progress_callback,
         )
     except ValueError as exc:
         print(str(exc))

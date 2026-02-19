@@ -13,6 +13,12 @@ def test_config_uses_default_storage_paths_when_env_missing() -> None:
         "PARQUET_PATH",
         "CACHE_PATH",
         "LOG_PATH",
+        "TUSHARE_TOKEN",
+        "TUSHARE_SDK_PROVIDER",
+        "TUSHARE_PRIMARY_TOKEN",
+        "TUSHARE_PRIMARY_SDK_PROVIDER",
+        "TUSHARE_FALLBACK_TOKEN",
+        "TUSHARE_FALLBACK_SDK_PROVIDER",
         "BACKTEST_TRANSFER_FEE_RATE",
         "BACKTEST_MIN_COMMISSION",
     )
@@ -34,6 +40,10 @@ def test_config_uses_default_storage_paths_when_env_missing() -> None:
     assert cfg.parquet_path == str(base / "parquet")
     assert cfg.cache_path == str(base / "cache")
     assert cfg.log_path == str(base / "logs")
+    assert cfg.tushare_primary_token == ""
+    assert cfg.tushare_primary_sdk_provider == "tushare"
+    assert cfg.tushare_fallback_token == ""
+    assert cfg.tushare_fallback_sdk_provider == "tushare"
     assert cfg.backtest_transfer_fee_rate == 0.00002
     assert cfg.backtest_min_commission == 5.0
 

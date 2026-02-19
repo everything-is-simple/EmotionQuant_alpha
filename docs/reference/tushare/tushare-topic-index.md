@@ -61,5 +61,5 @@
 ## 6. 关联文档
 
 - [tushare-config.md](./tushare-config.md)
-- [tushare-config-5000-官方.md](./tushare-config-5000-官方.md)
-- [tushare-config-10000.md](./tushare-config-10000.md)
+- [tushare-config-5000积分-官方-兜底号.md](./tushare-config-5000积分-官方-兜底号.md)
+- [tushare-config-10000积分-第三方-试用号.md](./tushare-config-10000积分-第三方-试用号.md)

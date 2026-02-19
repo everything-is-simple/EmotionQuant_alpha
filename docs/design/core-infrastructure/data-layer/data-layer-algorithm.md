@@ -9,6 +9,8 @@
 ## 实现状态（仓库现状）
 
 - 当前仓库 `src/data/` 仍以骨架实现为主（`fetcher.py`、`repositories/*`）。
+- L1 八类原始接口已接入统一采集链路（`daily/daily_basic/limit_list_d/index_daily/index_member/index_classify/stock_basic/trade_cal`）。
+- 已实现低频节流策略：`index_member/stock_basic` 按月快照、`index_classify` 按半年度快照，避免批量回填时重复消耗配额。
 - 已落地最小契约：`src/data/models/snapshots.py` 补齐 `data_quality/stale_days/source_trade_date` 字段与约束。
 - 已落地质量门禁原型：`src/data/quality_gate.py`（覆盖率、`stale_days`、跨日一致性前置检查）。
 - 本文档为权威设计规格，接口/流程继续按本规格迭代落地。

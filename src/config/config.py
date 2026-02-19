@@ -36,11 +36,70 @@ def _resolve_storage_paths(
     }
 
 
+def _resolve_tushare_channels(
+    *,
+    primary_token: str,
+    primary_sdk_provider: str,
+    fallback_token: str,
+    fallback_sdk_provider: str,
+    legacy_token: str,
+    legacy_sdk_provider: str,
+) -> dict[str, str]:
+    normalized_primary_token = primary_token.strip()
+    normalized_fallback_token = fallback_token.strip()
+    normalized_legacy_token = legacy_token.strip()
+    normalized_primary_provider = primary_sdk_provider.strip()
+    normalized_fallback_provider = fallback_sdk_provider.strip()
+    normalized_legacy_provider = legacy_sdk_provider.strip()
+
+    resolved_primary_token = normalized_primary_token or normalized_legacy_token
+    resolved_primary_provider = normalized_primary_provider or normalized_legacy_provider or "tushare"
+
+    # Backward-compatible migration path 1:
+    # if primary channel is configured and fallback is empty, reuse legacy token as fallback.
+    auto_fallback_from_legacy = (
+        (not normalized_fallback_token)
+        and bool(normalized_primary_token)
+        and bool(normalized_legacy_token)
+        and normalized_legacy_token != normalized_primary_token
+    )
+    resolved_fallback_token = normalized_legacy_token if auto_fallback_from_legacy else normalized_fallback_token
+    resolved_fallback_provider = (
+        (normalized_legacy_provider or "tushare")
+        if auto_fallback_from_legacy
+        else (normalized_fallback_provider or "tushare")
+    )
+
+    # Backward-compatible migration path 2:
+    # if still no fallback and primary provider is not tushare, add protocol fallback:
+    # same token with official tushare SDK provider.
+    if (
+        not resolved_fallback_token
+        and bool(resolved_primary_token)
+        and resolved_primary_provider.strip().lower() != "tushare"
+    ):
+        resolved_fallback_token = resolved_primary_token
+        resolved_fallback_provider = "tushare"
+    return {
+        "tushare_primary_token": resolved_primary_token,
+        "tushare_primary_sdk_provider": resolved_primary_provider,
+        "tushare_fallback_token": resolved_fallback_token,
+        "tushare_fallback_sdk_provider": resolved_fallback_provider,
+        # Backward-compatible aliases.
+        "tushare_token": resolved_primary_token,
+        "tushare_sdk_provider": resolved_primary_provider,
+    }
+
+
 if BaseSettings:
 
     class Config(BaseSettings):
         tushare_token: str = ""
         tushare_sdk_provider: str = "tushare"
+        tushare_primary_token: str = ""
+        tushare_primary_sdk_provider: str = ""
+        tushare_fallback_token: str = ""
+        tushare_fallback_sdk_provider: str = "tushare"
         tushare_rate_limit_per_min: int = 120
 
         data_path: str = ""
@@ -103,6 +162,14 @@ if BaseSettings:
                 and cfg.backtest_initial_capital != default_initial_cash
             ):
                 initial_cash = cfg.backtest_initial_capital
+            tushare_channels = _resolve_tushare_channels(
+                primary_token=cfg.tushare_primary_token,
+                primary_sdk_provider=cfg.tushare_primary_sdk_provider,
+                fallback_token=cfg.tushare_fallback_token,
+                fallback_sdk_provider=cfg.tushare_fallback_sdk_provider,
+                legacy_token=cfg.tushare_token,
+                legacy_sdk_provider=cfg.tushare_sdk_provider,
+            )
             return cfg.model_copy(
                 update=_resolve_storage_paths(
                     cfg.data_path,
@@ -111,6 +178,7 @@ if BaseSettings:
                     cfg.cache_path,
                     cfg.log_path,
                 )
+                | tushare_channels
                 | {
                     "backtest_initial_cash": initial_cash,
                     "backtest_initial_capital": initial_cash,
@@ -127,6 +195,10 @@ else:
     class Config:
         tushare_token: str = ""
         tushare_sdk_provider: str = "tushare"
+        tushare_primary_token: str = ""
+        tushare_primary_sdk_provider: str = ""
+        tushare_fallback_token: str = ""
+        tushare_fallback_sdk_provider: str = "tushare"
         tushare_rate_limit_per_min: int = 120
 
         data_path: str = ""
@@ -190,9 +262,21 @@ else:
                 os.getenv("CACHE_PATH", ""),
                 os.getenv("LOG_PATH", ""),
             )
+            tushare_channels = _resolve_tushare_channels(
+                primary_token=os.getenv("TUSHARE_PRIMARY_TOKEN", ""),
+                primary_sdk_provider=os.getenv("TUSHARE_PRIMARY_SDK_PROVIDER", ""),
+                fallback_token=os.getenv("TUSHARE_FALLBACK_TOKEN", ""),
+                fallback_sdk_provider=os.getenv("TUSHARE_FALLBACK_SDK_PROVIDER", "tushare"),
+                legacy_token=os.getenv("TUSHARE_TOKEN", ""),
+                legacy_sdk_provider=os.getenv("TUSHARE_SDK_PROVIDER", "tushare"),
+            )
             return cls(
-                tushare_token=os.getenv("TUSHARE_TOKEN", ""),
-                tushare_sdk_provider=os.getenv("TUSHARE_SDK_PROVIDER", "tushare"),
+                tushare_token=tushare_channels["tushare_token"],
+                tushare_sdk_provider=tushare_channels["tushare_sdk_provider"],
+                tushare_primary_token=tushare_channels["tushare_primary_token"],
+                tushare_primary_sdk_provider=tushare_channels["tushare_primary_sdk_provider"],
+                tushare_fallback_token=tushare_channels["tushare_fallback_token"],
+                tushare_fallback_sdk_provider=tushare_channels["tushare_fallback_sdk_provider"],
                 tushare_rate_limit_per_min=int(
                     os.getenv("TUSHARE_RATE_LIMIT_PER_MIN", "120")
                 ),
