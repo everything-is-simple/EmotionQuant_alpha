@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import locale
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -43,16 +44,40 @@ CONTRACT_SENSITIVE_FILES = {
 }
 
 
+def _decode_output(payload: bytes | str | None) -> str:
+    if payload is None:
+        return ""
+    if isinstance(payload, str):
+        return payload
+
+    candidates = [
+        "utf-8",
+        locale.getpreferredencoding(False),
+        "gbk",
+    ]
+    tried: set[str] = set()
+    for encoding in candidates:
+        normalized = (encoding or "").strip()
+        if not normalized or normalized in tried:
+            continue
+        tried.add(normalized)
+        try:
+            return payload.decode(normalized)
+        except UnicodeDecodeError:
+            continue
+    return payload.decode("utf-8", errors="replace")
+
+
 def run_cmd(args: list[str], capture: bool = True) -> tuple[int, str]:
     proc = subprocess.run(
         args,
         cwd=PROJECT_ROOT,
         capture_output=capture,
-        text=True,
+        text=False,
         check=False,
     )
     if capture:
-        return proc.returncode, proc.stdout.strip()
+        return proc.returncode, _decode_output(proc.stdout).strip()
     return proc.returncode, ""
 
 
