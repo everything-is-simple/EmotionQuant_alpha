@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-19  
-**当前版本**: v4.15（S3ar 口径修订：先收口双 TuShare 主备与 DuckDB 锁恢复，AK/Bao 预留）  
+**当前版本**: v4.16（S3b 最小执行入口已落地：`eq analysis` + 合同测试）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -51,6 +51,14 @@
 3. S4 证据链补齐：`artifacts/spiral-s4/20260222/` 下新增 `run.log`、`test.log`、`manual_test_summary.md`，并同步标准产物 `trade_records/positions/risk_events/paper_trade_replay/consumption/gate_report`。
 4. 治理门禁复核通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
 5. 完成 A6 最小同步：更新 `spiral-s4 final/review/requirements`、`development-status`、`debts`、`reusable-assets`、`SPIRAL-CP-OVERVIEW`。
+
+## 本次同步（2026-02-19，S3b 最小执行入口）
+
+1. S3b 最小执行入口已落地：`src/analysis/pipeline.py` + `eq analysis`（`src/pipeline/main.py`）。
+2. 新增 S3b 三类产物输出：`ab_benchmark_report.md`、`live_backtest_deviation_report.md`、`attribution_summary.json`，并统一生成 `consumption.md/gate_report.md/error_manifest`。
+3. 新增 S3b 合同测试：`tests/unit/analysis/test_ab_benchmark_contract.py`、`tests/unit/analysis/test_live_backtest_deviation_contract.py`、`tests/unit/analysis/test_attribution_summary_contract.py`。
+4. 新增 CLI 绑定测试：`tests/unit/pipeline/test_cli_entrypoint.py::test_main_analysis_command_wires_to_pipeline`。
+5. 治理门禁复核通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
 
 ## 本次同步（2026-02-17，S3 板块化涨跌停阈值）
 
@@ -135,6 +143,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-19 | v4.16 | S3b 最小执行入口落地：新增 `eq analysis`、`src/analysis/pipeline.py` 与 3 条 analysis 合同测试；阶段B由“仅文档可执行”升级为“命令/测试可执行” |
 | 2026-02-19 | v4.15 | S3ar 口径修订为“双 TuShare 主备 + 独立限速 + 锁恢复”，并将 AKShare/BaoStock 调整为最后底牌预留（当前圈不实装） |
 | 2026-02-19 | v4.14 | 调整下一圈顺序为 `S3ar -> S3b`：新增采集稳定性修复圈（多源兜底 + DuckDB 锁恢复）作为归因前置门禁 |
 | 2026-02-18 | v4.13 | S4 收口完成：以 `artifacts/spiral-s4/20260222` 形成 run/test/artifact 证据链，验证跨日持仓与跌停次日重试，`quality_status=WARN` 且 `go_nogo=GO`，下一圈切换 S3b |

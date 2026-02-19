@@ -568,7 +568,7 @@ class IntegrationEngine:
 - **风险一致性**：BU 不得突破 TD 的风控阈值（止损、回撤、持仓集中度等）。
 - **可追溯性**：集成输出必须记录 `integration_mode`（top_down/bottom_up/dual_verify/complementary）。
 
-### 10.7 回测验证计划（CP-06，对应原 Phase 06）
+### 10.7 回测验证计划（CP-06，历史线性编号 06）
 
 | 验证项 | 方法 | 预期结果 |
 |--------|------|----------|

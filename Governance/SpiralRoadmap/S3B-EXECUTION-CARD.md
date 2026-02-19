@@ -79,6 +79,8 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
 
 ---
 
-## 9. 本轮进度（2026-02-18）
+## 9. 本轮进度（2026-02-19）
 
-- 计划中，前置依赖为 S4 `PASS/WARN`。
+- 已落地最小执行入口：`eq analysis`（A/B/C 对照、实盘-回测偏差、归因摘要）。
+- 已补齐 S3b 合同测试骨架：`tests/unit/analysis/*`。
+- 当前圈位状态维持 `Active`：需补齐实盘窗口证据后再收口。

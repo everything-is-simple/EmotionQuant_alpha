@@ -1,4 +1,4 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v0.9）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.0）
 
 **状态**: Active  
 **更新时间**: 2026-02-19  
@@ -27,8 +27,8 @@
 ## 1. 现实基线快照（As-Is, 2026-02-19）
 
 1. S2c、S3a、S4 已按 6A 收口完成，S3 处于 `in_progress`，并已打通 S3a->S3 与 S4->S3b 的消费门禁链路（见 `Governance/record/development-status.md`）。
-2. `eq` 统一入口已完成阶段B首批命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade`；`analysis/stress` 仍待后续圈补齐。
-3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路；`src/analysis` 仍待补齐。
+2. `eq` 统一入口已完成阶段B关键命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade/analysis`；`stress` 仍待后续圈补齐。
+3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路，`src/analysis` 已落地 S3b 最小执行入口。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
 5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S3AR/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md`。
 6. 现实新增阻断：采集阶段出现过 DuckDB 文件锁导致批次失败；当前已落地双 TuShare 主备（10000 网关主 + 5000 官方兜底），AKShare/BaoStock 仅为后续底牌预留，需先完成 S3ar 稳定性收口再推进 S3b。
@@ -365,6 +365,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.0 | 2026-02-19 | S3b 最小执行入口落地：`eq analysis` + `src/analysis/pipeline.py` + `tests/unit/analysis/*`；As-Is 从“analysis 待补齐”修订为“analysis 已可执行” |
 | v0.9 | 2026-02-19 | 修订 S3ar 执行口径为“双 TuShare 主备已实现 + AKShare/BaoStock 预留”；同步 target test 与产物清单到当前代码实现，消除设计-实现漂移 |
 | v0.8 | 2026-02-19 | 新增 S3ar（采集稳定性修复圈）：将多源兜底与 DuckDB 锁恢复纳入阶段B强门禁；并将 S3b->S4b 推进口径硬化为“默认 PASS 推进” |
 | v0.7 | 2026-02-18 | S4 收口完成并切换阶段B推进顺序：确认 `artifacts/spiral-s4/20260222` 为收口证据入口，下一圈进入 S3b |

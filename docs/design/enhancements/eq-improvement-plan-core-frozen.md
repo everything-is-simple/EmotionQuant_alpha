@@ -12,11 +12,13 @@
   - `.reports/对标批判响应行动计划_20260209_233929.md`
   - `.reports/EmotionQuant_行动计划_采纳批判建议_20260209_2341.md`
   - `docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md`（外挂选型审计输入）
+  - `docs/design/enhancements/debt-clearance-plan-v1.md`（债务清偿执行附录，辅助本计划落地）
 
 执行口径声明:
 
 1. 本文档是唯一执行基线（run/test/artifact/review/sync 以本文为准）。
 2. `enhancement-selection-analysis_claude-opus-max_20260210.md` 作为外挂选型与排期论证依据，不单独构成执行入口。
+3. `debt-clearance-plan-v1.md` 仅用于债务项执行编排，不得覆盖或替代本基线。
 
 ---
 
@@ -296,6 +298,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-02-19 | v2.2.2 | 补充债务执行附录入口：登记 `debt-clearance-plan-v1.md` 为辅助清偿计划，明确其不替代主基线 |
 | 2026-02-19 | v2.2.1 | 数据采集口径修订：主采集源改为“双 TuShare 主备”（10000 网关主 + 5000 官方兜底）；配置权威入口切换为 `tushare-channel-policy.md` |
 | 2026-02-13 | v2.2.0 | 正式纳入 ENH-10/ENH-11；新增扩展微圈 S3a/S7a；补充“先数据效率、后运维自动化”排期口径 |
 | 2026-02-11 | v2.1.0 | 主计划对齐审计：明确主从权威关系（本文件为唯一执行基线）、吸收 ENH-09（Qlib 适配层）、统一 ENH-06/07/08 排期口径（S3/S5/S0+S6）、补充 Validation 权重桥接归属 CP-10 说明 |

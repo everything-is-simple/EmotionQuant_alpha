@@ -39,6 +39,8 @@
     - `S3B-EXECUTION-CARD.md`
     - `S4B-EXECUTION-CARD.md`
     - `S4BR-EXECUTION-CARD.md`
+- `S3AR-S3B-EXECUTABLE-TASKLIST.md`
+  - S3ar/S3b 四列表任务单（文件/命令/测试/产物），用于把债务清偿计划落到可执行粒度
 - `SPIRAL-PRODUCTION-ROUTES.md`
   - S0-S7a 三套完整实战路线（推荐/稳健/激进，含 S3b 收益归因与 S4b 极端防御专项）
 - `SPIRAL-STAGE-TEMPLATES.md`
@@ -79,6 +81,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.1 | 2026-02-19 | 新增 `S3AR-S3B-EXECUTABLE-TASKLIST.md` 入口，用于 S3ar/S3b 四列表执行拆解（文件/命令/测试/产物） |
 | v2.0 | 2026-02-18 | 按 6A 工作流补齐阶段B全子圈执行卡索引：新增 `S3/S3R/S4/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md` |
 | v1.9 | 2026-02-16 | 同步 S2c 算法深化圈：S0-S2 口径升级为 S0-S2c，并纳入 `S2C-EXECUTION-CARD.md` 索引 |
 | v1.8 | 2026-02-16 | 新增 `SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md` 入口，补齐阶段C（S5-S7a）可执行合同索引 |

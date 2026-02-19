@@ -1,7 +1,7 @@
 # 核心基础设施设计目录
 
-**最后更新**: 2026-02-11  
-**状态**: 设计完成（代码未落地）
+**最后更新**: 2026-02-19  
+**状态**: 设计基线有效（代码分圈落地中）
 
 ---
 
@@ -69,8 +69,8 @@
 
 ### 3.1 Data Layer：数据采集与清洗
 
-**职责**：从 TuShare 采集 A 股数据，清洗后存入本地 Parquet/DuckDB  
-**输入**：TuShare API（5000 积分）  
+**职责**：从 TuShare 双通道采集 A 股数据，清洗后存入本地 Parquet/DuckDB  
+**输入**：TuShare API（10000 网关主 + 5000 官方兜底）  
 **输出**：L1 八张原始表（`raw_daily`, `raw_daily_basic`, `raw_limit_list` 等）+ L2 快照表（`market_snapshot`, `industry_snapshot`, `stock_gene_cache`）  
 **核心功能**：
 - 增量补采与全量拉取

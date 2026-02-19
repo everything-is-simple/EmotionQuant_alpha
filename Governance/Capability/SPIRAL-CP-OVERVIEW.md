@@ -92,6 +92,7 @@
 2. 证据冲突清障：已完成（S2c 正式证据统一为 release 车道，PASS/GO 口径一致）。
 3. 收口文档与同步：已完成（`s2c_semantics_traceability_matrix.md`、`s2c_algorithm_closeout.md` 已归档并同步）。
 4. 下一圈状态：S3 持续执行中；S4 已按 6A 收口完成（`quality_status=WARN`, `go_nogo=GO`）；下一圈先执行 S3ar（采集稳定性修复），再进入 S3b（收益归因验证闭环）。
+5. 债务执行编排参考：`docs/design/enhancements/debt-clearance-plan-v1.md`（辅助文档，不替代本主控入口）。
 
 ---
 
@@ -203,6 +204,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.3.11 | 2026-02-19 | 增补债务执行附录引用：登记 `debt-clearance-plan-v1.md` 为 S3ar->S3b->S6 清偿编排参考（不改变主控权威） |
 | v7.3.10 | 2026-02-19 | S3ar 口径从“多源已实装”修订为“当前双 TuShare 主备已实装 + AKShare/BaoStock 预留”；收口证据改为 `fetch_progress/fetch_retry_report/吞吐限速`，消除设计-实现漂移 |
 | v7.3.9 | 2026-02-19 | 新增 S3ar 微圈（多源兜底 + DuckDB 锁恢复）并将下一圈顺序调整为 `S3ar -> S3b` |
 | v7.3.8 | 2026-02-18 | S4 状态切换为 `completed`：完成跨日持仓生命周期与跌停次日重试回放证据，下一圈切换 S3b |

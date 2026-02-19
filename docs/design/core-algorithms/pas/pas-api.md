@@ -9,7 +9,7 @@
 ## 实现状态（仓库现状）
 
 - 当前仓库已落地 `src/algorithms/pas/pipeline.py`，并由 `eq recommend --mode mss_irs_pas --with-validation` 统一触发 PAS 计算。
-- 本文档为设计规格与实现对照基线，接口演进需与 CP-04 同步更新（对应原 Phase 04）。
+- 本文档为设计规格与实现对照基线，接口演进需与 CP-04 同步更新（历史线性编号 04，仅兼容说明）。
 
 ---
 

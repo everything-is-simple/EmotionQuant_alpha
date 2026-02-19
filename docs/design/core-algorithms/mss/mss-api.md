@@ -9,7 +9,7 @@
 ## 实现状态（仓库现状）
 
 - 当前仓库已落地 `src/algorithms/mss/engine.py`、`src/algorithms/mss/pipeline.py`、`src/algorithms/mss/probe.py`，并由 `eq mss`/`eq mss-probe` 提供统一入口。
-- 本文档为设计规格与实现对照基线，接口演进需与 CP-02 同步更新（对应原 Phase 02）。
+- 本文档为设计规格与实现对照基线，接口演进需与 CP-02 同步更新（历史线性编号 02，仅兼容说明）。
 
 ---
 

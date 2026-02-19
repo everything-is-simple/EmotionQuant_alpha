@@ -9,7 +9,7 @@
 ## 实现状态（仓库现状）
 
 - 当前仓库已落地 `src/integration/pipeline.py`，并由 `eq recommend --mode integrated --with-validation-bridge` 统一触发 Integration。
-- 本文档为设计规格与实现对照基线，接口演进需与 CP-05 同步更新（对应原 Phase 05）。
+- 本文档为设计规格与实现对照基线，接口演进需与 CP-05 同步更新（历史线性编号 05，仅兼容说明）。
 
 ---
 
