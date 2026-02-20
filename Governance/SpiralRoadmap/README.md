@@ -1,7 +1,7 @@
 # SpiralRoadmap 目录说明
 
 **状态**: Active  
-**更新时间**: 2026-02-18  
+**更新时间**: 2026-02-20  
 **定位**: Spiral 执行路线与依赖图目录（执行伴随文档，不替代上位 SoT）
 
 ---
@@ -37,6 +37,9 @@
     - `S4-EXECUTION-CARD.md`
     - `S4R-EXECUTION-CARD.md`
     - `S3B-EXECUTION-CARD.md`
+    - `S3C-EXECUTION-CARD.md`
+    - `S3D-EXECUTION-CARD.md`
+    - `S3E-EXECUTION-CARD.md`
     - `S4B-EXECUTION-CARD.md`
     - `S4BR-EXECUTION-CARD.md`
 - `S3AR-S3B-EXECUTABLE-TASKLIST.md`
@@ -81,6 +84,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.2 | 2026-02-20 | 阶段B执行卡索引新增 `S3C/S3D/S3E-EXECUTION-CARD.md`，与主控路线新增的核心实现深度圈保持一致 |
 | v2.1 | 2026-02-19 | 新增 `S3AR-S3B-EXECUTABLE-TASKLIST.md` 入口，用于 S3ar/S3b 四列表执行拆解（文件/命令/测试/产物） |
 | v2.0 | 2026-02-18 | 按 6A 工作流补齐阶段B全子圈执行卡索引：新增 `S3/S3R/S4/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md` |
 | v1.9 | 2026-02-16 | 同步 S2c 算法深化圈：S0-S2 口径升级为 S0-S2c，并纳入 `S2C-EXECUTION-CARD.md` 索引 |

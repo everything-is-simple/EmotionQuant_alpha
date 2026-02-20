@@ -9,7 +9,7 @@
 ## 1. 主链依赖
 
 ```text
-S0 -> S1 -> S2a -> S2b -> S2c -> S3a -> S3 -> S4 -> S3b -> S4b -> S5 -> S6 -> S7a
+S0 -> S1 -> S2a -> S2b -> S2c -> S3a -> S3 -> S4 -> S3ar -> S3b -> S3c -> S3d -> S3e -> S4b -> S5 -> S6 -> S7a
 ```
 
 约束：
@@ -19,8 +19,11 @@ S0 -> S1 -> S2a -> S2b -> S2c -> S3a -> S3 -> S4 -> S3b -> S4b -> S5 -> S6 -> S7
 3. S3/S4/S5 均消费 S2c 收口后的 `integrated_recommendation`。
 4. S2c->S3 迁移前，必须同时通过命名/治理一致性门禁（`--contracts --governance`）与 `validation_weight_plan` 桥接硬门禁。
 5. S3b 依赖 S4：偏差归因必须消费纸上交易结果，不允许只基于回测推断。
-6. S4b 依赖 S3b：极端防御阈值必须来自归因结论与压力回放，不允许拍脑袋设值。
-7. 各圈收口前必须执行契约行为回归：`tests/unit/scripts/test_contract_behavior_regression.py`。
+6. S3c 依赖 S3b：行业语义校准必须使用归因窗口作为审计窗口。
+7. S3d 依赖 S3c：MSS adaptive 校准必须基于 SW31 行业语义已收口的数据口径。
+8. S3e 依赖 S3d：Validation 生产校准必须消费 MSS adaptive 与真实收益序列口径。
+9. S4b 依赖 S3e：极端防御阈值必须来自归因结论 + Validation 生产校准 + 压力回放，不允许拍脑袋设值。
+10. 各圈收口前必须执行契约行为回归：`tests/unit/scripts/test_contract_behavior_regression.py`。
 
 ---
 
@@ -50,13 +53,16 @@ S6 -> S7a(ENH-11)
 ## 2.1 专项圈依赖（收益验证与极端防御）
 
 ```text
-S3 -> S4 -> S3b(归因验证) -> S4b(极端防御)
+S3 -> S4 -> S3ar -> S3b(归因验证) -> S3c(SW31校准) -> S3d(MSS adaptive) -> S3e(Validation生产校准) -> S4b(极端防御)
 ```
 
 | 专项圈 | 名称 | 挂载圈位 | 依赖 | 价值 |
 |---|---|---|---|---|
-| S3b | 收益归因验证 | S4 后 | S4 PASS | 高：确认收益来源（信号 vs 执行） |
-| S4b | 极端防御专项 | S3b 后 | S3b PASS | 高：降低连续跌停/流动性枯竭回撤 |
+| S3b | 收益归因验证 | S3ar 后 | S3ar PASS | 高：确认收益来源（信号 vs 执行） |
+| S3c | 行业语义校准 | S3b 后 | S3b PASS/WARN | 高：消除 `industry_code=ALL` 粒度偏差 |
+| S3d | MSS 自适应校准 | S3c 后 | S3c PASS/WARN | 高：完成 adaptive 阈值与真实收益 probe |
+| S3e | Validation 生产校准 | S3d 后 | S3d PASS/WARN | 高：完成 future_returns + 双窗口 WFA 生产口径 |
+| S4b | 极端防御专项 | S3e 后 | S3e PASS/WARN | 高：降低连续跌停/流动性枯竭回撤 |
 
 ---
 
@@ -95,6 +101,7 @@ S3 -> S4 -> S3b(归因验证) -> S4b(极端防御)
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.5 | 2026-02-20 | 主链新增 `S3c/S3d/S3e` 依赖段并补齐 `S3ar`；阶段B专项圈依赖升级为“归因 -> SW31 -> MSS adaptive -> Validation 生产校准 -> 极端防御” |
 | v1.4 | 2026-02-16 | 主链插入 S2c（S2b->S3a）；ENH-10 插入位改为 S2c 后；新增 `validation_weight_plan` 桥接硬门禁依赖；阶段A映射改为 S0-S2c |
 | v1.3 | 2026-02-15 | 新增“阶段映射依赖”小节，明确阶段A/B/C与圈序关系并链接阶段模板文档 |
 | v1.2 | 2026-02-15 | 主链更新为 `S0->...->S7a` 全执行序；新增 S3b/S4b 专项圈依赖；关键契约新增归因/极端防御证据与防跑偏行为回归门禁 |

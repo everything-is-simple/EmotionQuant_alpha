@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.3.13  
+**版本**: v7.4.0  
 **最后更新**: 2026-02-20  
 **适用对象**: 个人开发、个人使用
 
@@ -53,16 +53,21 @@
 > 说明：上表 CP 组合是父圈视图中的能力包覆盖范围，不等同于单圈 Slice 数。  
 > S2 涉及 CP-03/CP-04/CP-10/CP-05，执行时需拆分为 S2a/S2b/S2c 子圈，确保每子圈仍满足“1-3 个 Slice”约束。
 
-### 4.1 实战扩展与深化微圈（S2c 为算法收口必选圈）
+### 4.1 实战扩展与深化微圈（S2c 为算法收口必选圈；S3b/S3c/S3d/S3e/S4b 为阶段B专项圈）
 
 | Spiral | 主目标 | 对应增强 | 插入位置 | 最小闭环证据 |
 |---|---|---|---|---|
 | S2c | 核心算法深化闭环 | MSS/IRS/PAS/Validation/Integration 全语义桥接 | S2b 后、S3a 前 | `validation_weight_plan` 可解析 + Gate/权重桥接验证 + 算法语义回归 |
 | S3a | 数据采集增强闭环 | ENH-10（分批+断点续传+多线程） | S2c 后、S3 前 | `fetch_progress` + 吞吐对比 + 恢复演练记录 |
 | S3ar | 采集稳定性修复圈 | 双 TuShare 主备策略收口 + DuckDB 锁恢复门禁（AK/Bao 预留） | S4 后、S3b 前 | `fetch_progress` + `fetch_retry_report` + 吞吐/限速证据 + 幂等写入验证 |
+| S3b | 收益归因验证专项圈 | A/B/C 对照 + 实盘-回测偏差归因 | S3ar 后、S4b 前 | `ab_benchmark_report` + `live_backtest_deviation_report` + `attribution_summary` |
+| S3c | 行业语义校准专项圈 | SW31 行业映射落地 + IRS 全行业覆盖门禁 | S3b 后、S3d 前 | `industry_snapshot_sw31_sample` + `irs_allocation_coverage_report` + 行业映射稽核报告 |
+| S3d | MSS 自适应校准专项圈 | Adaptive 阈值 + 趋势抗抖 + Probe 真实收益口径 | S3c 后、S3e 前 | `mss_regime_thresholds_snapshot` + `mss_probe_return_series_report` + 自适应回退证据 |
+| S3e | Validation 生产校准专项圈 | 因子-未来收益对齐 + 双窗口 WFA + OOS/冲击成本/可成交性门禁 | S3d 后、S4b 前 | `validation_factor_report`(生产口径) + `validation_weight_report`(WFA 双窗口) + `validation_run_manifest` |
+| S4b | 极端防御专项圈 | 连续跌停/流动性枯竭防御参数校准 | S3e 后、S5 前 | `extreme_defense_report` + 压力回放日志 + 参数来源可追溯 |
 | S7a | 自动调度闭环 | ENH-11（每日自动下载+开机自启） | S6 后 | 调度安装记录 + 最近执行历史 + 交易日去重验证 |
 
-> 约束：S2c 是 S2->S3 迁移的必选算法收口圈；S3a/S3ar/S7a 不改变 CP 主路线语义，只交付执行层与运维层增强能力。
+> 约束：S2c 是 S2->S3 迁移的必选算法收口圈；S3a/S3ar/S7a 不改变 CP 主路线语义，只交付执行层与运维层增强能力；S3b/S3c/S3d/S3e/S4b 为阶段B专项圈，且 S4b 必须在 S3e 后执行，收口后才进入 S5。
 
 ### 4.2 当前执行状态快照（2026-02-20）
 
@@ -80,6 +85,11 @@
 | S3 | 回测闭环 | 🔄 in_progress | `Governance/specs/spiral-s3/final.md` |
 | S4 | 纸上交易闭环 | ✅ completed | `Governance/specs/spiral-s4/final.md` |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ completed | `Governance/specs/spiral-s3ar/final.md` |
+| S3b | 收益归因验证专项圈 | 🔄 in_progress | `Governance/specs/spiral-s3b/final.md` |
+| S3c | 行业语义校准专项圈（SW31 行业映射 + IRS 全覆盖门禁） | 📋 planned | 待创建 `Governance/specs/spiral-s3c/*` |
+| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 📋 planned | 待创建 `Governance/specs/spiral-s3d/*` |
+| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 📋 planned | 待创建 `Governance/specs/spiral-s3e/*` |
+| S4b | 极端防御专项圈 | 📋 planned | 待创建 `Governance/specs/spiral-s4b/*` |
 | S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
 | S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
 | S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
@@ -93,6 +103,12 @@
 3. 收口文档与同步：已完成（`s2c_semantics_traceability_matrix.md`、`s2c_algorithm_closeout.md` 已归档并同步）。
 4. 下一圈状态：S3 持续执行中；S4 与 S3ar 已按 6A 收口完成；当前圈位进入 S3b（收益归因验证闭环）。
 5. 债务执行编排参考：`docs/design/enhancements/debt-clearance-plan-v1.md`（辅助文档，不替代本主控入口）。
+
+### 4.4 核心设计 full 完成点（按实现深度口径）
+
+1. S2c 完成代表“核心算法最小语义闭环已成立”，不代表“核心设计 full 实现完成”。
+2. 核心设计 full 实现完成点定义为：`S3c + S3d + S3e` 全部收口完成，且 S4b 使用其产物完成参数校准后，才可声明“核心算法与核心设计完全对齐”。
+3. 在此之前，阶段推进可继续，但必须保持“已闭环”与“待完整实现”双状态并行披露，禁止用阶段完成替代核心实现完成。
 
 ---
 
@@ -185,6 +201,7 @@
 4. `final_gate=FAIL` 必须阻断执行链；`PASS/WARN` 才允许进入后续圈，并保留降级证据。
 5. `contract_version="nc-v1"` 与 `risk_reward_ratio >= 1.0` 执行边界在算法链路中一致生效。
 6. 契约行为回归、治理一致性、算法语义回归测试通过，并有可复核产物。
+7. S3c/S3d/S3e 三个“实现深度专项圈”全部完成，并形成 SW31、MSS adaptive、Validation 生产口径三条证据链。
 
 边界声明：
 
@@ -204,6 +221,8 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.4.0 | 2026-02-20 | 新增核心实现深度专项圈 `S3c/S3d/S3e`（行业语义校准、MSS 自适应校准、Validation 生产校准）；明确“核心设计 full 完成点”与 S4b 前置依赖 |
+| v7.3.14 | 2026-02-20 | 主控快照与阶段B专项圈对齐：补齐 S3b/S4b 在 4.1/4.2 的显式定义与状态；明确 S3b/S4b 收口为 S5 前置约束 |
 | v7.3.13 | 2026-02-20 | S3ar 状态切换为 `completed`：补齐主/兜底 token check、独立限速压测与窗口采集证据并完成五件套同步；当前圈位切换到 S3b |
 | v7.3.12 | 2026-02-20 | S3ar 同步 Slice-1~3 进展：data unit 环境隔离完成、DuckDB 锁恢复审计字段落地、`trade_date` 幂等写入合同测试补齐；S3ar 状态维持 `in_progress`，待实网压测证据收口 |
 | v7.3.11 | 2026-02-19 | 增补债务执行附录引用：登记 `debt-clearance-plan-v1.md` 为 S3ar->S3b->S6 清偿编排参考（不改变主控权威） |

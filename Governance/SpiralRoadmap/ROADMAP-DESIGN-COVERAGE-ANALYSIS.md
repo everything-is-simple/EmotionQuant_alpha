@@ -1,18 +1,17 @@
-# 路线图与设计文档覆盖分析
+# 路线图与核心设计覆盖分析（实现深度版）
 
 **状态**: Active  
-**更新时间**: 2026-02-17  
-**文档角色**: 路线图完整性审计报告（修订）
+**更新时间**: 2026-02-20  
+**文档角色**: 路线图完整性审计报告（覆盖率 + 实现深度双口径）
 
 ---
 
 ## 0. 分析目标
 
-验证以下三份路线图是否完整覆盖核心设计文档：
+本报告不再只回答“路线是否覆盖了设计目录”，而是同时回答两件事：
 
-- `Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
-- `Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
-- `Governance/SpiralRoadmap/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`
+1. 路线是否有对应圈位（Coverage）
+2. 对应圈位是否已在代码层实现到设计口径（Implementation Depth）
 
 覆盖对象：
 
@@ -22,159 +21,81 @@
 
 ---
 
-## 1. 设计基线盘点
+## 1. 总结结论（先给结论）
 
-### 1.1 核心算法（`docs/design/core-algorithms/`）
-
-共 5 个模块（20 份设计文档）：
-
-- MSS
-- IRS
-- PAS
-- Validation
-- Integration
-
-### 1.2 核心基础设施（`docs/design/core-infrastructure/`）
-
-共 5 个模块（22 份设计文档）：
-
-- Data Layer（4）
-- Backtest（6，含选型与测试用例）
-- Trading（4）
-- GUI（4）
-- Analysis（4）
-
-### 1.3 外挂增强（`docs/design/enhancements/`）
-
-正式文档（4 份）：
-
-- `eq-improvement-plan-core-frozen.md`（唯一执行基线）
-- `enhancement-selection-analysis_claude-opus-max_20260210.md`（选型论证输入）
-- `scheduler-orchestration-design.md`
-- `monitoring-alerting-design.md`
-
-ENH 外挂（11 项）：
-
-- ENH-01 统一运行入口 CLI
-- ENH-02 数据预检与限流
-- ENH-03 失败产物协议
-- ENH-04 适配层契约测试
-- ENH-05 金丝雀数据包
-- ENH-06 A/B/C 对照看板
-- ENH-07 L4 产物标准化
-- ENH-08 设计冻结检查
-- ENH-09 Qlib 适配层
-- ENH-10 数据采集增强
-- ENH-11 定时调度器
+1. **目录覆盖率仍为 100%**：S0-S7a 路线对设计模块与 ENH 项均有落位。
+2. **实现深度不是 100%**：存在“最小闭环已完成，但核心设计完整实现未完成”的缺口。
+3. 缺口集中在阶段B，已在主控路线新增 `S3c/S3d/S3e` 三个专项圈进行闭环：
+   - `S3c`：行业语义校准（SW31 映射）
+   - `S3d`：MSS 自适应校准（adaptive + 真实收益 probe）
+   - `S3e`：Validation 生产校准（future_returns + 双窗口 WFA）
+4. 只有 `S3c + S3d + S3e + S4b` 全部收口后，才能声明“核心设计 full 实现完成”。
 
 ---
 
-## 2. 路线图覆盖分析
+## 2. 已完成能力（保持不回退）
 
-### 2.1 阶段 A（S0-S2c）
+以下能力按“最小闭环”已成立并有代码/测试证据：
 
-| Spiral | 主目标 | 覆盖模块 | 覆盖 ENH | 覆盖状态 |
+- S1a/S1b：MSS 打分与消费链闭环
+- S2a/S2b/S2c：IRS/PAS/Validation/Integration 最小闭环与桥接门禁闭环
+- S3a/S3ar：采集增强与稳定性修复闭环
+- S3/S4：回测与纸上交易主链已可运行并具备收口证据
+
+说明：上述结论仅表示“可运行、可测试、可追溯”成立，不自动推导为“设计细项全部完成”。
+
+---
+
+## 3. 设计缺口矩阵（核心）
+
+| 缺口ID | 设计要求（SoT） | 当前实现现状 | 影响 | 路线处置圈 |
 |---|---|---|---|---|
-| S0a | 统一入口与配置注入 | Data Layer（入口/配置） | ENH-01 | ✅ |
-| S0b | L1 采集入库闭环 | Data Layer（L1） | ENH-02、ENH-03、ENH-04(Data) | ✅ |
-| S0c | L2 快照与失败链路闭环 | Data Layer（L2） | ENH-05、ENH-08（骨架） | ✅ |
-| S1a | MSS 最小评分可跑 | MSS | ENH-04(MSS) | ✅ |
-| S1b | MSS 消费验证闭环 | MSS（消费验证） | - | ✅ |
-| S2a | IRS + PAS + Validation 最小闭环 | IRS + PAS + Validation | ENH-04(IRS/PAS/Validation) | ✅ |
-| S2b | MSS+IRS+PAS 集成推荐闭环 | Integration | ENH-04(Integration) | ✅ |
-| S2c | 核心算法深化闭环 | Validation + Integration（权重桥接） | - | ✅ |
-| S2r | 质量门失败修复子圈 | 阶段A修复 | - | ✅ |
+| GAP-ALGO-01 | `industry_snapshot` 应按 SW31 聚合，IRS 需 31 行业全覆盖映射 | `src/data/l2_pipeline.py` 当前输出 `industry_code=ALL` 单条聚合；IRS 实际输入粒度不足 | 行业轮动解释力与配置建议完整性不足 | S3c |
+| GAP-ALGO-02 | MSS 周期阈值默认 `adaptive`（T30/T45/T60/T75），趋势判定 `EMA+slope+trend_band` | `src/algorithms/mss/engine.py` 仍使用固定阈值 `30/45/60/75` 与三点单调趋势 | 极端行情下周期判定稳健性不足 | S3d |
+| GAP-ALGO-03 | MSS probe 应基于真实收益序列验证，不得用代理替代 | `src/algorithms/mss/probe.py` 当前用 `mss_temperature` 前后差构造 `forward_5d` 代理 | `top_bottom_spread_5d` 可交易解释力不足 | S3d |
+| GAP-ALGO-04 | Validation 因子验证需 `factor_series × future_returns` 对齐；权重验证需双窗口 WFA + OOS/成本/可成交性指标 | `src/algorithms/validation/pipeline.py` 仍以当日启发式与代理指标为主，未完成生产口径对齐 | 回测-实盘解释一致性不足，权重替换稳健性不足 | S3e |
+| GAP-INFRA-01 | A股细撮合规则需覆盖连续跌停/流动性枯竭等极端场景参数化 | S4 基础链路已完成，细粒度压力参数仍待专项校准 | 极端市况回撤控制存在偏差风险 | S4b |
 
-阶段 A 结论：核心算法 5/5 + Data Layer 全部覆盖。
+关联债务条目：
 
-### 2.2 阶段 B（S3a-S4b）
-
-| Spiral | 主目标 | 覆盖模块 | 覆盖 ENH | 覆盖状态 |
-|---|---|---|---|---|
-| S3a | 采集增强闭环 | Data Layer（执行层增强） | ENH-10 | ✅ |
-| S3 | 回测闭环 | Backtest | ENH-04(Backtest)、ENH-06、ENH-09 | ✅ |
-| S3r | 回测修复子圈 | Backtest（修复） | - | ✅ |
-| S4 | 纸上交易闭环 | Trading | ENH-04(Trading)、ENH-03 | ✅ |
-| S4r | 纸上交易修复子圈 | Trading（修复） | - | ✅ |
-| S3b | 收益归因验证闭环 | Analysis | - | ✅ |
-| S4b | 极端防御专项闭环 | Trading（压力场景） | - | ✅ |
-| S4br | 极端防御修复子圈 | Trading（修复） | - | ✅ |
-
-阶段 B 结论：Backtest/Trading/Analysis 完整覆盖。
-
-### 2.3 阶段 C（S5-S7a）
-
-| Spiral | 主目标 | 覆盖模块 | 覆盖 ENH | 覆盖状态 |
-|---|---|---|---|---|
-| S5 | 展示闭环 | GUI + Analysis（日报导出） | ENH-01、ENH-07 | ✅ |
-| S5r | 展示修复子圈 | GUI + Analysis（修复） | - | ✅ |
-| S6 | 稳定化闭环 | 全链路（Data/Backtest/Trading/Analysis/GUI） | ENH-08（全量） | ✅ |
-| S6r | 稳定化修复子圈 | 全链路（修复） | - | ✅ |
-| S7a | 自动调度闭环 | Data Layer（调度层）+ Trading（运行态守护） | ENH-11 | ✅ |
-| S7ar | 调度修复子圈 | Data Layer + Trading（修复） | - | ✅ |
-
-阶段 C 结论：GUI/Analysis/稳定化/调度完整覆盖。
+- `TD-S0-006`（SW31 映射）
+- `TD-S1-007`（MSS adaptive）
+- `TD-S1-008`（probe 真实收益口径）
+- `TD-S0-002`（Validation 生产级统计校准）
+- `TD-S0-004`（极端撮合细则）
 
 ---
 
-## 3. 覆盖矩阵汇总
+## 4. 路线修订结果（阶段B）
 
-### 3.1 核心算法覆盖
+阶段B由原 `S3b -> S4b` 修订为：
 
-| 模块 | 覆盖 Spiral | 覆盖率 |
-|---|---|---|
-| MSS | S1a + S1b | 100% |
-| IRS | S2a | 100% |
-| PAS | S2a | 100% |
-| Validation | S2a + S2c | 100% |
-| Integration | S2b + S2c | 100% |
+```text
+S3b -> S3c -> S3d -> S3e -> S4b
+```
 
-### 3.2 核心基础设施覆盖
+新增圈位职责：
 
-| 模块 | 覆盖 Spiral | 覆盖率 |
-|---|---|---|
-| Data Layer | S0a + S0b + S0c + S3a | 100% |
-| Backtest | S3 + S3r | 100% |
-| Trading | S4 + S4r + S4b + S4br | 100% |
-| Analysis | S3b + S5 | 100% |
-| GUI | S5 + S5r | 100% |
-
-### 3.3 ENH 覆盖
-
-| ENH | 覆盖 Spiral | 覆盖状态 |
-|---|---|---|
-| ENH-01 | S0a + S5 | ✅ |
-| ENH-02 | S0b | ✅ |
-| ENH-03 | S0b + S4 | ✅ |
-| ENH-04 | S0b/S1a/S2a/S2b/S3/S4 | ✅ |
-| ENH-05 | S0c | ✅ |
-| ENH-06 | S3 | ✅ |
-| ENH-07 | S5 | ✅ |
-| ENH-08 | S0c（骨架）+ S6（全量） | ✅ |
-| ENH-09 | S3 | ✅ |
-| ENH-10 | S3a | ✅ |
-| ENH-11 | S7a | ✅ |
+1. `S3c`（行业语义校准）
+   - 收口目标：SW31 行业映射 + IRS 31 行业覆盖门禁
+2. `S3d`（MSS 自适应校准）
+   - 收口目标：adaptive 阈值 + 趋势抗抖 + probe 真实收益
+3. `S3e`（Validation 生产校准）
+   - 收口目标：future_returns 对齐 + 双窗口 WFA + OOS 成本与可成交性指标
 
 ---
 
-## 4. 结论
+## 5. 判定规则更新
 
-✅ 三份路线图对以下设计范围已实现完整覆盖：
+原判定（已废弃）：
 
-- 核心算法（5/5，20/20）
-- 核心基础设施（5/5，22/22）
-- 外挂增强（ENH 11/11，正式文档 4/4）
+- “路线覆盖 100% => 当前无覆盖性缺口”
 
-当前无覆盖性缺口；主要风险点为文档一致性维护。
+新判定（现行）：
 
----
-
-## 5. 风险与建议
-
-1. 当 `docs/design/core-infrastructure/` 或 `docs/design/enhancements/` 新增正式文档时，必须同步补充路线图落位。
-2. 严格执行修复子圈触发条件（`gate = FAIL` 必须先修复后推进）。
-3. 严格执行阶段门禁：S2c -> S3a/S3，S4b -> S5。
-4. 保持 ENH-10 前置、ENH-11 后置的排期策略，避免运维能力打断主线收口。
+1. 目录覆盖 100% 仅表示“路线有落位”。
+2. 只有当缺口矩阵中的 `GAP-*` 被对应圈位收口，并通过 `run/test/artifact/review/sync` 五件套验证后，才可判定“实现深度完成”。
+3. 对核心算法（MSS/IRS/PAS/Validation/Integration），`S2c` 表示“最小语义闭环”；`S3c/S3d/S3e` 完成后才可声明“full 实现完成”。
 
 ---
 
@@ -182,5 +103,7 @@ ENH 外挂（11 项）：
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.2 | 2026-02-20 | 将报告从“纯覆盖率口径”升级为“覆盖率 + 实现深度”双口径；新增缺口矩阵与 `S3c/S3d/S3e` 修订结论，撤销“当前无覆盖性缺口”结论 |
 | v1.1 | 2026-02-17 | 去重重复章节；修正 ENH-05 落位为 S0c；统一阶段覆盖矩阵口径 |
 | v1.0 | 2026-02-17 | 首版：路线图与核心设计覆盖分析（100%） |
+

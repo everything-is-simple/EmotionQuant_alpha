@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-20  
-**当前版本**: v4.18（S3ar 已按 6A 收口，进入 S3b）  
+**当前版本**: v4.20（主控状态表对齐：新增 S3c/S3d/S3e 核心实现深度圈）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3 执行中，S4 与 S3ar 已收口完成：当前进入 S3b 收益归因验证闭环**
+**S3 与 S3b 执行中，S4 与 S3ar 已收口完成：当前推进 S3b，并排入 S3c/S3d/S3e 核心实现深度闭环**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -137,17 +137,24 @@
 | S3 | 回测闭环 | 🔄 进行中 | 已扩展多交易日回放并落地板块化涨跌停阈值 |
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
-| S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4 完成 |
+| S3b | 收益归因验证专项圈 | 🔄 进行中 | 已落地 `eq analysis` 与三类归因产物，待窗口级收口 |
+| S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 📋 未开始 | 依赖 S3b 收口，修复 `industry_snapshot=ALL` 粒度缺口 |
+| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 📋 未开始 | 依赖 S3c 收口，修复 MSS 固定阈值与 probe 代理收益缺口 |
+| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 📋 未开始 | 依赖 S3d 收口，修复生产级统计校准缺口 |
+| S4b | 极端防御专项圈 | 📋 未开始 | 依赖 S3e 收口结论输入防御参数 |
+| S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4b 完成 |
 | S6 | 稳定化闭环 | 📋 未开始 | 重跑一致性与债务清偿 |
 | S7a | ENH-11 自动调度闭环 | 📋 未开始 | 依赖 S6 完成 |
 
 ---
 
-## 下一步（S3b）
+## 下一步（S3b -> S3c/S3d/S3e）
 
 1. 固定窗口 `20260210-20260213` 执行 S3b 三条命令：`ab-benchmark`、`live-backtest deviation`、`attribution-summary`。
 2. 产出并审计 S3b 五件套：`ab_benchmark_report.md`、`live_backtest_deviation_report.md`、`attribution_summary.json`、`consumption.md`、`gate_report.md`。
-3. 完成 S3b 目标测试与 `contracts/governance` 门禁后，输出收益来源结论并准备推进 S4b。
+3. 完成 S3b 目标测试与 `contracts/governance` 门禁后，输出收益来源结论并推进 S3c（SW31 行业语义校准）。
+4. S3c 收口后推进 S3d（MSS adaptive + probe 真实收益），修复 MSS 设计深度缺口。
+5. S3d 收口后推进 S3e（Validation 生产校准），再进入 S4b（极端防御）。
 
 ---
 
@@ -156,6 +163,7 @@
 1. S0c 行业快照为“全市场聚合”最小实现，尚未接入 SW 行业粒度聚合。
 2. 真实采集链路已接入，仍需持续观测长窗口吞吐与限频稳定性。
 3. 若 `validation_weight_plan` 桥接链路缺失或不可审计，必须阻断 S2c->S3a/S3/S4 迁移。
+4. 在 S3c/S3d/S3e 完成前，不得以“阶段B已推进”替代“核心算法 full 实现完成”结论。
 
 ---
 
@@ -163,6 +171,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-20 | v4.20 | 主控路线对齐：进度看板新增 `S3c/S3d/S3e`，并将 `S4b` 依赖从 `S3b` 修订为 `S3e`；下一步改为 `S3b->S3c->S3d->S3e` |
+| 2026-02-20 | v4.19 | 修订主控一致性：进度看板显式补齐 S3b/S4b，且将 S5 前置依赖从 S4 修正为 S4b，消除阶段B/阶段C圈序漂移 |
 | 2026-02-20 | v4.18 | S3ar 收口完成：补齐主/兜底 token check 与独立限速压测实网证据，更新 review/final 与最小同步 5 项，状态切换为 `completed`，下一圈进入 S3b |
 | 2026-02-20 | v4.17 | S3ar Slice-1~3 完成：data unit 环境隔离、DuckDB 锁恢复审计字段落地、`trade_date` 幂等覆盖写入与合同测试补齐 |
 | 2026-02-19 | v4.16 | S3b 最小执行入口落地：新增 `eq analysis`、`src/analysis/pipeline.py` 与 3 条 analysis 合同测试；阶段B由“仅文档可执行”升级为“命令/测试可执行” |

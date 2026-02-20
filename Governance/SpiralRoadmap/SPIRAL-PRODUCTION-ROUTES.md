@@ -1,7 +1,7 @@
 # EmotionQuant 实战螺旋路线手册（S0-S7a）
 
 **状态**: Active  
-**更新时间**: 2026-02-16  
+**更新时间**: 2026-02-20  
 **用途**: 给出可直接执行的多路线方案，避免“提案遗忘”。
 
 ---
@@ -33,10 +33,13 @@
 | 6 | S4 | 纸上交易闭环 | 4d |
 | 7 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复） | 1-2d |
 | 8 | S3b | 收益归因验证（A/B/C + 实盘-回测偏差） | 2d |
-| 9 | S4b | 极端防御专项（连续跌停/流动性枯竭） | 2d |
-| 10 | S5 | GUI 与日报导出闭环 | 3d |
-| 11 | S6 | 稳定化与一致性重跑 | 3d |
-| 12 | S7a | ENH-11 自动调度与开机自启 | 1.5d |
+| 9 | S3c | 行业语义校准（SW31 映射 + IRS 全覆盖门禁） | 2d |
+| 10 | S3d | MSS 自适应校准（adaptive 阈值 + probe 真实收益） | 2d |
+| 11 | S3e | Validation 生产校准（future_returns + 双窗口 WFA） | 2d |
+| 12 | S4b | 极端防御专项（连续跌停/流动性枯竭） | 2d |
+| 13 | S5 | GUI 与日报导出闭环 | 3d |
+| 14 | S6 | 稳定化与一致性重跑 | 3d |
+| 15 | S7a | ENH-11 自动调度与开机自启 | 1.5d |
 
 适用场景：你要尽快进入“可跑、可测、可复盘、可日更”的实战节奏。
 
@@ -54,10 +57,13 @@
 | 6 | S4 | 纸上交易闭环 | 4d |
 | 7 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复） | 1-2d |
 | 8 | S3b | 收益归因验证（A/B/C + 实盘-回测偏差） | 2d |
-| 9 | S4b | 极端防御专项（连续跌停/流动性枯竭） | 2d |
-| 10 | S6 | 稳定化提前执行（先稳后展） | 3d |
-| 11 | S5 | 展示闭环 | 3d |
-| 12 | S7a | ENH-11 自动调度 | 1.5d |
+| 9 | S3c | 行业语义校准（SW31 映射 + IRS 全覆盖门禁） | 2d |
+| 10 | S3d | MSS 自适应校准（adaptive 阈值 + probe 真实收益） | 2d |
+| 11 | S3e | Validation 生产校准（future_returns + 双窗口 WFA） | 2d |
+| 12 | S4b | 极端防御专项（连续跌停/流动性枯竭） | 2d |
+| 13 | S6 | 稳定化提前执行（先稳后展） | 3d |
+| 14 | S5 | 展示闭环 | 3d |
+| 15 | S7a | ENH-11 自动调度 | 1.5d |
 
 适用场景：你更看重“误触发风险最小化”，接受稍慢上线。
 
@@ -74,9 +80,11 @@
 | 5 | S3a | ENH-10 | 2.5d |
 | 6 | S3+S4 | 回测与纸上交易并行推进 | 6d |
 | 7 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复） | 1-2d |
-| 8 | S3b+S4b | 归因验证与极端防御并行推进 | 3-4d |
-| 9 | S5+S6 | 展示与稳定化 | 5d |
-| 10 | S7a | ENH-11 | 1.5d |
+| 8 | S3b | 归因验证 | 2d |
+| 9 | S3c+S3d | 行业语义 + MSS 自适应并圈校准 | 3-4d |
+| 10 | S3e | Validation 生产校准 | 2d |
+| 11 | S4b+S5 | 极端防御与展示并圈推进 | 4-5d |
+| 12 | S6+S7a | 稳定化与自动调度 | 4d |
 
 适用场景：你明确要快速迭代并愿意承担并圈复杂度。
 
@@ -93,6 +101,9 @@
 7. `contracts`：S2/S3/S4/S5 必须保证 `contract_version=nc-v1` 兼容口径与 RR 执行门槛一致（`risk_reward_ratio >= 1.0`）。
 8. `anti-drift`：每圈收口前必须通过 `python -m scripts.quality.local_quality_check --contracts --governance` 与 `tests/unit/scripts/test_contract_behavior_regression.py`，防止实现篡改设计语义。
 9. `bridge-hard-gate`：S2 出口与 S3 入口必须通过 `selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 桥接校验，缺失即阻断推进。
+10. `sw31-gate`：S3c 收口必须满足 `industry_snapshot` 当日 31 行业覆盖（禁止 `industry_code=ALL` 单条聚合替代）。
+11. `mss-adaptive-gate`：S3d 收口必须满足 `threshold_mode=adaptive`（含冷启动回退）与 probe 真实收益口径。
+12. `validation-oos-gate`：S3e 收口必须满足 `factor_series × future_returns` 对齐、双窗口 WFA 投票与 OOS/冲击成本/可成交性指标齐备。
 
 ---
 
@@ -142,6 +153,49 @@
   - `live_backtest_deviation_report.md`
   - `attribution_summary.json`
 
+### S3c（行业语义校准）必交付
+
+- 命令：
+  - `eq run --date {trade_date} --stage l2 --strict-sw31`
+  - `eq irs --date {trade_date} --require-sw31`
+- 门禁：
+  - `industry_snapshot` 当日必须为 31 条申万一级行业记录。
+  - `allocation_advice` 必须覆盖 31 行业（无空档）。
+  - 禁止 `industry_code=ALL` 作为主流程行业输入。
+- 产物：
+  - `industry_snapshot_sw31_sample.parquet`
+  - `irs_allocation_coverage_report.md`
+  - `sw_mapping_audit.md`
+
+### S3d（MSS 自适应校准）必交付
+
+- 命令：
+  - `eq mss --date {trade_date} --threshold-mode adaptive`
+  - `eq mss-probe --start {start} --end {end} --return-series-source future_returns`
+- 门禁：
+  - 周期阈值必须支持 `T30/T45/T60/T75` 分位阈值，且历史样本不足时回退固定阈值。
+  - 趋势判定必须采用 `EMA + slope + trend_band` 抗抖口径。
+  - Probe 的 `top_bottom_spread_5d` 必须基于真实收益序列（非温度差代理）。
+- 产物：
+  - `mss_regime_thresholds_snapshot.json`
+  - `mss_probe_return_series_report.md`
+  - `mss_adaptive_regression.md`
+
+### S3e（Validation 生产校准）必交付
+
+- 命令：
+  - `eq validation --trade-date {trade_date} --threshold-mode regime --wfa dual-window`
+  - `eq validation --trade-date {trade_date} --export-run-manifest`
+- 门禁：
+  - 因子验证必须满足 `factor_series` 与 `future_returns` 按 `trade_date, stock_code` 对齐。
+  - 权重验证必须包含双窗口投票与 `oos_return/max_drawdown/sharpe/turnover/impact_cost_bps/tradability_pass_ratio`。
+  - `selected_weight_plan` 必须来自可审计投票结果，不得使用启发式硬替代。
+- 产物：
+  - `validation_factor_report_sample.parquet`
+  - `validation_weight_report_sample.parquet`
+  - `validation_run_manifest_sample.json`
+  - `validation_oos_calibration_report.md`
+
 ### S4b（极端防御专项）必交付
 
 - 命令：
@@ -150,7 +204,7 @@
 - 门禁：
   - 必须验证组合级应急降杠杆触发链可执行。
   - 必须验证连续不可成交场景下的次日重试与仓位封顶逻辑。
-  - 必须输出防御参数来源（来自 S3b 归因，而非人工拍值）。
+  - 必须输出防御参数来源（来自 S3b 归因 + S3e Validation 生产校准，而非人工拍值）。
 - 产物：
   - `extreme_defense_report.md`
   - `deleveraging_policy_snapshot.json`
@@ -178,6 +232,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.6 | 2026-02-20 | 三路线新增核心实现深度圈 `S3c/S3d/S3e`，并将 `S4b` 前置依赖升级为“归因 + 算法生产校准双来源”；统一新增 `sw31/mss-adaptive/validation-oos` 三道门禁 |
 | v1.5 | 2026-02-19 | 修订三路线时序：统一插入 S3ar（双 TuShare 主备 + 锁恢复）作为 S3b 前置门禁，避免 `S4->S3b` 口径漂移 |
 | v1.4 | 2026-02-16 | 三路线统一插入 S2c（S2b->S3a）；新增 `validation_weight_plan` 桥接硬门禁；路线B时序对齐阶段B合同（S3a 在 S3 前） |
 | v1.3 | 2026-02-15 | 适用原则新增阶段模板联动规则，要求路线执行同步遵守阶段A/B/C门禁与产物定义 |

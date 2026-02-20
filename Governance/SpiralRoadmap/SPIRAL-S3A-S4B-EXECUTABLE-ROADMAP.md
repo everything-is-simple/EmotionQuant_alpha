@@ -1,8 +1,8 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.0）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.1）
 
 **状态**: Active  
-**更新时间**: 2026-02-19  
-**适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、极端防御）  
+**更新时间**: 2026-02-20  
+**适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、行业语义校准、MSS 自适应校准、Validation 生产校准、极端防御）  
 **文档角色**: S3a-S4b 执行合同（不是上位 SoT 替代）
 
 ---
@@ -30,8 +30,9 @@
 2. `eq` 统一入口已完成阶段B关键命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade/analysis`；`stress` 仍待后续圈补齐。
 3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路，`src/analysis` 已落地 S3b 最小执行入口。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
-5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S3AR/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md`。
+5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S3AR/S4R/S3B/S3C/S3D/S3E/S4B/S4BR-EXECUTION-CARD.md`。
 6. 现实新增阻断：采集阶段出现过 DuckDB 文件锁导致批次失败；当前已落地双 TuShare 主备（10000 网关主 + 5000 官方兜底），AKShare/BaoStock 仅为后续底牌预留，需先完成 S3ar 稳定性收口再推进 S3b。
+7. 核心算法“实现深度”缺口仍存在：`industry_snapshot` 仍是 `ALL` 聚合、MSS 周期仍固定阈值、MSS probe 仍用温度差代理收益、Validation 尚未切到 `factor_series × future_returns` 与双窗口生产口径；因此在 S4b 前新增 S3c/S3d/S3e 三圈作为硬前置。
 
 执行口径采用双层：
 
@@ -121,8 +122,11 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 | S4 | 纸上交易闭环 | CP-07, CP-09 | 4d | S3 PASS/WARN | S3b 或 S4r |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | CP-01, CP-09 | 1-2d | S4 完成 | S3b |
 | S4r | 纸上交易修复子圈 | CP-07, CP-09 | 1-2d | S4 FAIL | 回 S4 |
-| S3b | 收益归因验证闭环 | CP-09, CP-10 | 2d | S4 PASS/WARN | S4b |
-| S4b | 极端防御专项闭环 | CP-07, CP-09 | 2d | S3b PASS/WARN | S5 或 S4br |
+| S3b | 收益归因验证闭环 | CP-09, CP-10 | 2d | S4 PASS/WARN | S3c |
+| S3c | 行业语义校准闭环（SW31 + IRS 全覆盖） | CP-01, CP-03 | 2d | S3b PASS/WARN | S3d |
+| S3d | MSS 自适应校准闭环（adaptive + probe 真实收益） | CP-02, CP-01 | 2d | S3c PASS/WARN | S3e |
+| S3e | Validation 生产校准闭环（future_returns + 双窗口 WFA） | CP-10, CP-06, CP-09 | 2d | S3d PASS/WARN | S4b |
+| S4b | 极端防御专项闭环 | CP-07, CP-09 | 2d | S3e PASS/WARN | S5 或 S4br |
 | S4br | 极端防御修复子圈 | CP-07, CP-09 | 1-2d | S4b FAIL | 回 S4b |
 
 说明：默认 7 天 cadence 不变；上述微圈是 7 天内可组合执行单元。
@@ -151,7 +155,7 @@ flowchart LR
 
 ---
 
-## 5. 各圈执行合同（v0.1）
+## 5. 各圈执行合同（v0.2）
 
 ### S3a
 
@@ -261,9 +265,54 @@ flowchart LR
   - A/B/C 对照结果齐备（情绪主线/基线/对照）。
   - `signal_deviation/execution_deviation/cost_deviation` 三分解齐备。
   - 必须形成“收益来源结论”（信号主导或执行主导）。
-  - Go/No-Go：默认 `PASS` 才允许推进 S4b；若为 `WARN`，必须在 `review.md` 给出风险说明与限期修复，不得直接进入 S5。
+  - Go/No-Go：默认 `PASS` 才允许推进 S3c；若为 `WARN`，必须在 `review.md` 给出风险说明与限期修复，不得直接推进后续校准圈。
 - 产物：`ab_benchmark_report.md`, `live_backtest_deviation_report.md`, `attribution_summary.json`
-- 消费：S4b 记录“极端防御参数来自归因结论”。
+- 消费：S3c 记录“行业语义校准所用窗口与收益归因结论已固化”。
+
+### S3c
+
+- 主目标：行业语义校准闭环（SW31 行业映射 + IRS 全行业覆盖门禁）。
+- `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/test_snapshot_contract.py -q`
+- `target command`：
+  - `eq run --date {trade_date} --stage l2 --strict-sw31`
+  - `eq irs --date {trade_date} --require-sw31`
+- `target test`（本圈必须补齐并执行）：`tests/unit/data/test_industry_snapshot_sw31_contract.py tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py`
+- 门禁：
+  - `industry_snapshot` 当日记录数必须为 31，且不得出现 `industry_code=ALL`。
+  - `industry_snapshot` 必须包含 IRS 依赖字段：`market_amount_total/style_bucket` 与质量字段。
+  - `allocation_advice` 必须覆盖 31 行业，无空档。
+- 产物：`industry_snapshot_sw31_sample.parquet`, `irs_allocation_coverage_report.md`, `sw_mapping_audit.md`
+- 消费：S3d 记录“MSS 自适应阈值所需市场/行业输入口径已校准”。
+
+### S3d
+
+- 主目标：MSS 自适应校准闭环（adaptive 分位阈值 + 趋势抗抖 + probe 真实收益口径）。
+- `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/algorithms/mss/test_mss_full_semantics_contract.py -q`
+- `target command`：
+  - `eq mss --date {trade_date} --threshold-mode adaptive`
+  - `eq mss-probe --start {start} --end {end} --return-series-source future_returns`
+- `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/mss/test_mss_adaptive_threshold_contract.py tests/unit/algorithms/mss/test_mss_probe_return_series_contract.py`
+- 门禁：
+  - 周期阈值必须支持 `T30/T45/T60/T75`，历史样本不足时自动回退固定阈值。
+  - 趋势判定必须采用 `EMA + slope + trend_band`，并保留异常兜底语义。
+  - `top_bottom_spread_5d` 必须基于真实收益序列，不得用温度差代理。
+- 产物：`mss_regime_thresholds_snapshot.json`, `mss_probe_return_series_report.md`, `mss_adaptive_regression.md`
+- 消费：S3e 记录“Validation 使用的 MSS 侧输入与 regime 口径已校准”。
+
+### S3e
+
+- 主目标：Validation 生产校准闭环（`factor_series × future_returns` + 双窗口 Walk-Forward + OOS 成本与可成交性门禁）。
+- `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/algorithms/validation/test_factor_validation_metrics_contract.py -q`
+- `target command`：
+  - `eq validation --trade-date {trade_date} --threshold-mode regime --wfa dual-window`
+  - `eq validation --trade-date {trade_date} --export-run-manifest`
+- `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/validation/test_factor_future_returns_alignment_contract.py tests/unit/algorithms/validation/test_weight_validation_dual_window_contract.py tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py`
+- 门禁：
+  - 因子验证必须满足 `factor_series` 与 `future_returns` 按 `trade_date, stock_code` 对齐，禁止未来函数。
+  - 权重验证必须包含双窗口投票与 `oos_return/max_drawdown/sharpe/turnover/impact_cost_bps/tradability_pass_ratio` 指标。
+  - `selected_weight_plan` 必须由投票结果可审计地产生，不得以启发式硬替代。
+- 产物：`validation_factor_report_sample.parquet`, `validation_weight_report_sample.parquet`, `validation_run_manifest_sample.json`, `validation_oos_calibration_report.md`
+- 消费：S4b 记录“极端防御参数来自 S3b 归因 + S3e 生产校准的联合证据”。
 
 ### S4b
 
@@ -277,7 +326,7 @@ flowchart LR
 - 门禁：
   - 组合级应急降杠杆触发链可执行且可重放。
   - 连续不可成交场景下次日重试与仓位封顶逻辑可验证。
-  - 防御参数来源可追溯到 S3b 归因结论（禁止人工拍值硬编码）。
+  - 防御参数来源可追溯到 `S3b 归因结论 + S3e Validation 生产校准`（禁止人工拍值硬编码）。
   - `status in (PASS, WARN)`。
 - 产物：`extreme_defense_report.md`, `deleveraging_policy_snapshot.json`, `stress_trade_replay.csv`
 - 消费：S5 记录“GUI/日报消费极端防御基线参数”。
@@ -315,6 +364,7 @@ flowchart LR
 4. S3/S4/S4b FAIL 必须先进入对应修复子圈（S3r/S4r/S4br），不得跳过推进。
 5. `contracts` 检查未通过时，状态必须标记 `blocked`，不得推进到 S5。
 6. 若定位到阶段A输入契约异常（含 `validation_weight_plan` 桥接缺失），必须回退阶段A（S2c）修复并重验后再返回阶段B。
+7. S3c/S3d/S3e 任一圈 `gate=FAIL` 时，不得推进 S4b；必须在当前圈完成修复与重验后再推进。
 
 ---
 
@@ -327,7 +377,8 @@ flowchart LR
 3. 继续推进 S3（回测）板块化涨跌停阈值与执行细节完善。
 4. S4 已收口完成（跨日持仓与跌停次日重试证据闭环）。
 5. 先执行 S3ar（采集稳定性修复圈），完成后进入 S3b（归因）。
-6. S3b 默认需 `PASS` 才推进 S4b（极端防御）；`WARN` 需风险签字与限期修复。
+6. S3b 完成后依次执行 S3c（SW31）-> S3d（MSS adaptive）-> S3e（Validation 生产校准）。
+7. 仅当 S3e `PASS/WARN` 且风险说明齐备时，才允许进入 S4b（极端防御）。
 
 启动命令：
 
@@ -355,7 +406,7 @@ flowchart LR
 
 ## 9. 与后续阶段衔接
 
-- S4b PASS/WARN 后默认进入阶段C起点 `S5`。
+- S4b PASS/WARN（且其参数来源已完成 S3b+S3e 双证据审计）后默认进入阶段C起点 `S5`。
 - 阶段级门禁与回退规则统一遵循：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`。
 - 多路线执行顺序见：`Governance/SpiralRoadmap/SPIRAL-PRODUCTION-ROUTES.md`。
 
@@ -365,6 +416,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.1 | 2026-02-20 | 阶段B新增核心实现深度圈 `S3c/S3d/S3e`：SW31 行业映射校准、MSS adaptive 校准、Validation 生产校准；`S4b` 前置依赖升级为 `S3e PASS/WARN` |
 | v1.0 | 2026-02-19 | S3b 最小执行入口落地：`eq analysis` + `src/analysis/pipeline.py` + `tests/unit/analysis/*`；As-Is 从“analysis 待补齐”修订为“analysis 已可执行” |
 | v0.9 | 2026-02-19 | 修订 S3ar 执行口径为“双 TuShare 主备已实现 + AKShare/BaoStock 预留”；同步 target test 与产物清单到当前代码实现，消除设计-实现漂移 |
 | v0.8 | 2026-02-19 | 新增 S3ar（采集稳定性修复圈）：将多源兜底与 DuckDB 锁恢复纳入阶段B强门禁；并将 S3b->S4b 推进口径硬化为“默认 PASS 推进” |
