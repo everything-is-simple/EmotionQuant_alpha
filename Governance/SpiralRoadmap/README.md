@@ -42,6 +42,15 @@
     - `S3E-EXECUTION-CARD.md`
     - `S4B-EXECUTION-CARD.md`
     - `S4BR-EXECUTION-CARD.md`
+- `S5-EXECUTION-CARD.md` ~ `S7AR-EXECUTION-CARD.md`
+  - 阶段C（S5-S7a）全子圈一页执行卡（run/test/artifact/review/sync）
+  - 包含：
+    - `S5-EXECUTION-CARD.md`
+    - `S5R-EXECUTION-CARD.md`
+    - `S6-EXECUTION-CARD.md`
+    - `S6R-EXECUTION-CARD.md`
+    - `S7A-EXECUTION-CARD.md`
+    - `S7AR-EXECUTION-CARD.md`
 - `S3AR-S3B-EXECUTABLE-TASKLIST.md`
   - S3ar/S3b 四列表任务单（文件/命令/测试/产物），用于把债务清偿计划落到可执行粒度
 - `SPIRAL-PRODUCTION-ROUTES.md`
@@ -84,6 +93,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.3 | 2026-02-20 | 按 6A 工作流补齐阶段C执行卡索引：新增 `S5/S5R/S6/S6R/S7A/S7AR-EXECUTION-CARD.md` |
 | v2.2 | 2026-02-20 | 阶段B执行卡索引新增 `S3C/S3D/S3E-EXECUTION-CARD.md`，与主控路线新增的核心实现深度圈保持一致 |
 | v2.1 | 2026-02-19 | 新增 `S3AR-S3B-EXECUTABLE-TASKLIST.md` 入口，用于 S3ar/S3b 四列表执行拆解（文件/命令/测试/产物） |
 | v2.0 | 2026-02-18 | 按 6A 工作流补齐阶段B全子圈执行卡索引：新增 `S3/S3R/S4/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md` |

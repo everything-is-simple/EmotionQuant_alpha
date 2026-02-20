@@ -1,7 +1,7 @@
-# EmotionQuant S5-S7a 真螺旋执行路线图（执行版 v0.3）
+# EmotionQuant S5-S7a 真螺旋执行路线图（执行版 v0.4）
 
 **状态**: Active  
-**更新时间**: 2026-02-17  
+**更新时间**: 2026-02-20  
 **适用范围**: S5-S7a（阶段C：展示闭环、稳定化闭环、自动调度闭环）  
 **文档角色**: S5-S7a 执行合同（不是上位 SoT 替代）
 
@@ -31,6 +31,7 @@
 3. `src/gui`、全链路重跑一致性守卫、调度安装与运行态可观测能力仍需在阶段C补齐。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
 5. 阶段C推进前，必须保证阶段B输出可消费：`backtest_results`、`trade_records`、`ab_benchmark_report`、`extreme_defense_report`。
+6. 阶段C执行卡已补齐并挂接：`S5/S5R/S6/S6R/S7A/S7AR-EXECUTION-CARD.md`。
 
 执行口径采用双层：
 
@@ -143,10 +144,11 @@ flowchart LR
 
 ---
 
-## 5. 各圈执行合同（v0.1）
+## 5. 各圈执行合同（v0.2）
 
 ### S5
 
+- 执行卡：`Governance/SpiralRoadmap/S5-EXECUTION-CARD.md`
 - 主目标：GUI 可启动、只读展示、日报可导出。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_integration_contract.py -q`
 - `target command`：
@@ -163,6 +165,7 @@ flowchart LR
 
 ### S5r（条件触发）
 
+- 执行卡：`Governance/SpiralRoadmap/S5R-EXECUTION-CARD.md`
 - 触发：S5 `gate = FAIL`
 - 主目标：修复展示闭环阻断项并重验。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/gui tests/unit/analysis -q`
@@ -176,6 +179,7 @@ flowchart LR
 
 ### S6
 
+- 执行卡：`Governance/SpiralRoadmap/S6-EXECUTION-CARD.md`
 - 主目标：全链路重跑一致性通过，并完成阶段债务清偿记录。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration -q`
 - `target command`：`eq run-all --start {start} --end {end}`
@@ -190,6 +194,7 @@ flowchart LR
 
 ### S6r（条件触发）
 
+- 执行卡：`Governance/SpiralRoadmap/S6R-EXECUTION-CARD.md`
 - 触发：S6 `gate = FAIL`
 - 主目标：只修不扩，恢复稳定化门禁通过。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration tests/unit/scripts -q`
@@ -203,6 +208,7 @@ flowchart LR
 
 ### S7a
 
+- 执行卡：`Governance/SpiralRoadmap/S7A-EXECUTION-CARD.md`
 - 主目标：每日自动调度可安装、可观测、可去重。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：
@@ -221,6 +227,7 @@ flowchart LR
 
 ### S7ar（条件触发）
 
+- 执行卡：`Governance/SpiralRoadmap/S7AR-EXECUTION-CARD.md`
 - 触发：S7a `gate = FAIL`
 - 主目标：修复调度阻断项并重验。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/pipeline -q`
@@ -299,6 +306,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v0.4 | 2026-02-20 | 按 6A 工作流补齐阶段C执行卡并在各圈执行合同挂接链接：`S5/S5R/S6/S6R/S7A/S7AR-EXECUTION-CARD.md` |
 | v0.3 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确阶段C中 ENH-01/07/08/11 的落位与可追溯关系 |
 | v0.2 | 2026-02-16 | 阶段A前置口径从 S0-S2 升级为 S0-S2c，补充“算法收口 + 桥接硬门禁”前置约束 |
 | v0.1 | 2026-02-16 | 首版：定义阶段C（S5-S7a）微圈执行合同、修复子圈与推进门禁，统一 run/test/artifact/review/sync 收口口径 |
