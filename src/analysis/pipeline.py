@@ -348,6 +348,8 @@ def run_analysis(
                     add_error("P0", "deviation", "trade_records_missing")
                 elif not _table_exists(connection, "backtest_trade_records"):
                     add_error("P0", "deviation", "backtest_trade_records_missing")
+                elif not _table_exists(connection, "integrated_recommendation"):
+                    add_error("P0", "deviation", "integrated_recommendation_missing")
                 else:
                     live_frame = connection.execute(
                         "SELECT tr.stock_code, tr.price AS filled_price, tr.amount, tr.total_fee, "
@@ -634,4 +636,3 @@ def run_analysis(
         go_nogo=go_nogo,
         has_error=bool(errors),
     )
-
