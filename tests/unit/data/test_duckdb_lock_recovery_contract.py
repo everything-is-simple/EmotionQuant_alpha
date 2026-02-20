@@ -91,3 +91,35 @@ def test_l1_collection_emits_lock_recovery_audit_fields(
     assert lock_item["lock_holder_pid"] == "5678"
     assert lock_item["retry_attempts"] == "3"
     assert lock_item["wait_seconds_total"] == "0.600"
+
+
+def test_repository_trade_date_writes_are_idempotent(tmp_path: Path) -> None:
+    config = _build_config(tmp_path, ".env.s3ar.idempotent")
+    repository = _DummyRepository(config=config)
+    first_batch = [
+        {"trade_date": "20260220", "stock_code": "000001", "value": 1.0},
+        {"trade_date": "20260220", "stock_code": "000002", "value": 2.0},
+    ]
+    second_batch = [
+        {"trade_date": "20260220", "stock_code": "000001", "value": 1.5},
+    ]
+
+    assert repository.save_to_database(first_batch) == 2
+    assert repository.save_to_database(first_batch) == 2
+
+    with duckdb.connect(str(repository.database_path), read_only=True) as connection:
+        row_count = connection.execute(
+            "SELECT COUNT(*) FROM raw_dummy_lock WHERE trade_date = '20260220'"
+        ).fetchone()[0]
+    assert int(row_count) == 2
+
+    assert repository.save_to_database(second_batch) == 1
+    with duckdb.connect(str(repository.database_path), read_only=True) as connection:
+        row_count_after_replace = connection.execute(
+            "SELECT COUNT(*) FROM raw_dummy_lock WHERE trade_date = '20260220'"
+        ).fetchone()[0]
+        value = connection.execute(
+            "SELECT value FROM raw_dummy_lock WHERE trade_date = '20260220' AND stock_code = '000001' LIMIT 1"
+        ).fetchone()[0]
+    assert int(row_count_after_replace) == 1
+    assert float(value) == pytest.approx(1.5, abs=1e-12)

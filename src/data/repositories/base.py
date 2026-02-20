@@ -86,6 +86,27 @@ class BaseRepository:
             return ""
         return str(match.group(1))
 
+    def _table_has_column(
+        self, connection: duckdb.DuckDBPyConnection, *, table_name: str, column_name: str
+    ) -> bool:
+        row = connection.execute(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+            [table_name, column_name],
+        ).fetchone()
+        return bool(row and int(row[0]) > 0)
+
+    def _replace_trade_date_partition(self, connection: duckdb.DuckDBPyConnection) -> None:
+        if not self._table_has_column(connection, table_name=self.table_name, column_name="trade_date"):
+            return
+        incoming_columns = {str(item[0]) for item in connection.execute("DESCRIBE incoming_df").fetchall()}
+        if "trade_date" not in incoming_columns:
+            return
+        connection.execute(
+            f"DELETE FROM {self.table_name} "
+            "WHERE CAST(trade_date AS VARCHAR) IN ("
+            "SELECT DISTINCT CAST(trade_date AS VARCHAR) FROM incoming_df WHERE trade_date IS NOT NULL)"
+        )
+
     def save_to_database(self, data: Any) -> int:
         self._assert_table_name()
         records = self._normalize_records(data)
@@ -110,6 +131,7 @@ class BaseRepository:
                         "AS SELECT * FROM incoming_df WHERE 1=0"
                     )
                     self._sync_table_schema(connection)
+                    self._replace_trade_date_partition(connection)
                     connection.execute(f"INSERT INTO {self.table_name} BY NAME SELECT * FROM incoming_df")
                     connection.unregister("incoming_df")
                 return int(len(frame))
