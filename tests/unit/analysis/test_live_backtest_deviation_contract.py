@@ -26,6 +26,8 @@ def test_live_backtest_deviation_generates_report_and_table(tmp_path: Path) -> N
     assert result.has_error is False
     assert result.quality_status in {"PASS", "WARN"}
     assert result.go_nogo == "GO"
+    assert result.error_manifest_path.name == "error_manifest.json"
+    assert result.error_manifest_path.exists()
     assert result.live_backtest_deviation_report_path.exists()
     report_text = result.live_backtest_deviation_report_path.read_text(encoding="utf-8")
     assert "signal_deviation" in report_text
@@ -57,6 +59,7 @@ def test_live_backtest_deviation_missing_integrated_table_returns_nogo(tmp_path:
     assert result.has_error is True
     assert result.quality_status == "FAIL"
     assert result.go_nogo == "NO_GO"
+    assert result.error_manifest_path.name == "error_manifest.json"
     assert result.gate_report_path.exists()
     assert result.error_manifest_path.exists()
 

@@ -205,7 +205,7 @@ def run_analysis(
     attribution_path = artifacts_dir / "attribution_summary.json"
     consumption_path = artifacts_dir / "consumption.md"
     gate_report_path = artifacts_dir / "gate_report.md"
-    error_manifest_path = artifacts_dir / "error_manifest_sample.json"
+    error_manifest_path = artifacts_dir / "error_manifest.json"
 
     errors: list[dict[str, str]] = []
     warnings: list[str] = []
@@ -586,18 +586,6 @@ def run_analysis(
             "errors": errors,
         },
     )
-    if errors:
-        error_manifest_path = artifacts_dir / "error_manifest.json"
-        _write_json(
-            error_manifest_path,
-            {
-                "trade_date": trade_date or anchor_date,
-                "error_count": len(errors),
-                "warning_count": len(warnings),
-                "warnings": warnings,
-                "errors": errors,
-            },
-        )
 
     if db_path.exists() and not performance_metrics_frame.empty:
         _persist_metric_date_table(
