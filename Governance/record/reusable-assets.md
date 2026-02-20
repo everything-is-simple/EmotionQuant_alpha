@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-19  
-**版本**: v2.20  
+**最后更新**: 2026-02-20  
+**版本**: v2.21  
 **范围**: S0-S6
 
 ---
@@ -65,6 +65,7 @@
 | S-QA-005 | 设计溯源检查脚本 | `scripts/quality/design_traceability_check.py` | A | 检查 MSS/IRS/PAS/Validation/Integration 等核心模块 `DESIGN_TRACE` 标记，降低设计-实现漂移 |
 | S-QA-006 | S2c release 证据同步脚本 | `scripts/quality/sync_s2c_release_artifacts.py` | S | 同步前强校验 PASS/GO 与样例行数，防止调试证据污染正式收口 |
 | A-QA-007 | TuShare L1 吞吐压测脚本 | `scripts/data/benchmark_tushare_l1_rate.py` | A | 统一输出 calls/min、成功率、延迟分位与错误类型，作为主备通道实测证据 |
+| A-QA-008 | Unit 环境隔离夹具（pipeline/data） | `tests/unit/pipeline/conftest.py` + `tests/unit/data/conftest.py` | A | 切断宿主 `.env` 与 `TUSHARE_*` 对 unit 测试污染，恢复门禁稳定性 |
 | A-CODE-005 | 统一 CLI 入口骨架 | `src/pipeline/main.py` + `main.py` | A | 统一入口、参数路由、配置注入 |
 | A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
 | A-CODE-007 | L2 快照与 canary 最小闭环骨架 | `src/data/l2_pipeline.py` + `src/data/models/snapshots.py` | A | S0c 快照生成、质量字段门禁、错误分级 |
@@ -95,6 +96,8 @@
 | A-TEST-032 | S3 T+1/涨跌停执行细节测试 | `tests/unit/backtest/test_backtest_t1_limit_rules.py` | A | 保证多日回放与 A 股执行约束行为稳定 |
 | A-CODE-033 | S4 paper trade 消费链与门禁实现 | `src/trading/pipeline.py` + `src/pipeline/main.py` | A | 复用 S3 consumption/gate 证据链，输出订单/持仓/风控样例产物 |
 | A-TEST-034 | S4 交易链路合同测试集 | `tests/unit/trading/support.py` + `tests/unit/trading/test_order_pipeline_contract.py` + `tests/unit/trading/test_position_lifecycle_contract.py` + `tests/unit/trading/test_risk_guard_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_trade_runs_paper_mode` | A | 保证 S4 订单、持仓生命周期与风控守卫契约稳定；收口样例证据见 `artifacts/spiral-s4/20260222/manual_test_summary.md` |
+| A-CODE-035 | DuckDB 锁恢复与 `trade_date` 幂等覆盖写入基座 | `src/data/repositories/base.py` + `src/data/l1_pipeline.py` | A | 在 L1 写入链路统一提供锁重试、PID 审计、等待时长统计与覆盖写入能力 |
+| A-TEST-036 | S3ar 锁恢复/幂等写入合同测试 | `tests/unit/data/test_duckdb_lock_recovery_contract.py` | A | 校验“锁冲突可恢复/耗尽可审计/同 trade_date 不重复写入”三类契约 |
 
 ---
 
@@ -115,6 +118,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-20 | v2.21 | 新增 unit 环境隔离夹具资产（A-QA-008）与 S3ar 锁恢复/幂等写入代码测试资产（A-CODE-035、A-TEST-036） |
 | 2026-02-19 | v2.20 | 新增 TuShare 主备通道策略文档资产（S-DES-007）与吞吐压测脚本资产（A-QA-007）；将 AK/Bao 空缺调整为 S3ar-next 预留 |
 | 2026-02-19 | v2.19 | 新增 S3ar 资产登记：`Governance/specs/spiral-s3ar/*` 与 `S3AR-EXECUTION-CARD.md`；补充“多源兜底与锁恢复”空缺项 |
 | 2026-02-18 | v2.18 | 更新 S4 测试资产说明：补充收口样例证据入口（`artifacts/spiral-s4/20260222/manual_test_summary.md`） |

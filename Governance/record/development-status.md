@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-19  
-**当前版本**: v4.16（S3b 最小执行入口已落地：`eq analysis` + 合同测试）  
+**最后更新**: 2026-02-20  
+**当前版本**: v4.17（S3ar Slice-1~3 已完成：环境隔离 + 锁恢复审计 + 幂等写入校验）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -18,6 +18,19 @@
 - S2a（IRS + PAS + Validation 最小闭环）: 已完成并补齐 6A 证据链。
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
+
+---
+
+## 本次同步（2026-02-20，S3ar Slice-1~3）
+
+1. Slice-1：新增 `tests/unit/data/conftest.py`，隔离 `TUSHARE_*` 与路径类宿主环境变量，恢复 data unit 稳定性。
+2. Slice-2：在 `src/data/repositories/base.py` 落地 DuckDB 锁恢复（重试等待 + PID 提取 + 耗尽异常）；`src/data/l1_pipeline.py` 新增 `lock_holder_pid/retry_attempts/wait_seconds_total` 审计字段输出。
+3. Slice-3：在 L1 落地 `trade_date` 维度覆盖写入（先删后插），补齐幂等写入合同测试 `tests/unit/data/test_duckdb_lock_recovery_contract.py`。
+4. 关键门禁通过：
+   - `pytest -q tests/unit/data/test_duckdb_lock_recovery_contract.py`
+   - `pytest -q tests/unit/data/test_fetch_retry_contract.py tests/unit/data/test_fetcher_contract.py tests/unit/config/test_config_defaults.py`
+   - `python -m scripts.quality.local_quality_check --contracts --governance`
+5. S3ar 状态维持 `in_progress`：仍待真实窗口压测与实网 run/artifact 证据补齐后收口。
 
 ---
 
@@ -143,6 +156,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-20 | v4.17 | S3ar Slice-1~3 完成：data unit 环境隔离、DuckDB 锁恢复审计字段落地、`trade_date` 幂等覆盖写入与合同测试补齐 |
 | 2026-02-19 | v4.16 | S3b 最小执行入口落地：新增 `eq analysis`、`src/analysis/pipeline.py` 与 3 条 analysis 合同测试；阶段B由“仅文档可执行”升级为“命令/测试可执行” |
 | 2026-02-19 | v4.15 | S3ar 口径修订为“双 TuShare 主备 + 独立限速 + 锁恢复”，并将 AKShare/BaoStock 调整为最后底牌预留（当前圈不实装） |
 | 2026-02-19 | v4.14 | 调整下一圈顺序为 `S3ar -> S3b`：新增采集稳定性修复圈（多源兜底 + DuckDB 锁恢复）作为归因前置门禁 |
