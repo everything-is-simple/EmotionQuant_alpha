@@ -15,6 +15,7 @@ from src.data.repositories.index_classify import IndexClassifyRepository
 from src.data.repositories.index_daily import IndexDailyRepository
 from src.data.repositories.index_member import IndexMemberRepository
 from src.data.repositories.limit_list import LimitListRepository
+from src.data.repositories.base import DuckDBLockRecoveryError
 from src.data.repositories.stock_basic import StockBasicRepository
 from src.data.repositories.trade_calendars import TradeCalendarsRepository
 
@@ -211,6 +212,18 @@ def run_l1_collection(
                     marker_text = str(marker).strip().lower()
                     trade_cal_is_open = marker_text in {"1", "true", "y", "yes"}
                     break
+        except DuckDBLockRecoveryError as exc:
+            raw_counts[dataset] = 0
+            errors.append(
+                {
+                    "dataset": dataset,
+                    "error_type": "duckdb_lock_recovery_exhausted",
+                    "message": exc.last_error_message,
+                    "lock_holder_pid": exc.lock_holder_pid or "unknown",
+                    "retry_attempts": str(exc.retry_attempts),
+                    "wait_seconds_total": f"{exc.wait_seconds_total:.3f}",
+                }
+            )
         except Exception as exc:  # pragma: no cover - covered via contract test
             raw_counts[dataset] = 0
             errors.append(
