@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-20  
-**版本**: v2.21  
+**版本**: v2.22  
 **范围**: S0-S6
 
 ---
@@ -65,6 +65,7 @@
 | S-QA-005 | 设计溯源检查脚本 | `scripts/quality/design_traceability_check.py` | A | 检查 MSS/IRS/PAS/Validation/Integration 等核心模块 `DESIGN_TRACE` 标记，降低设计-实现漂移 |
 | S-QA-006 | S2c release 证据同步脚本 | `scripts/quality/sync_s2c_release_artifacts.py` | S | 同步前强校验 PASS/GO 与样例行数，防止调试证据污染正式收口 |
 | A-QA-007 | TuShare L1 吞吐压测脚本 | `scripts/data/benchmark_tushare_l1_rate.py` | A | 统一输出 calls/min、成功率、延迟分位与错误类型，作为主备通道实测证据 |
+| A-QA-009 | S3ar 实网验真证据样例集 | `artifacts/token-checks/tushare_l1_token_check_20260220-*.json` + `artifacts/token-checks/tushare_l1_rate_benchmark_20260220-*.json` + `artifacts/spiral-s3a/20260213/*` | A | 作为后续圈复跑时的证据口径对照样本（主备可用性、限速、窗口采集） |
 | A-QA-008 | Unit 环境隔离夹具（pipeline/data） | `tests/unit/pipeline/conftest.py` + `tests/unit/data/conftest.py` | A | 切断宿主 `.env` 与 `TUSHARE_*` 对 unit 测试污染，恢复门禁稳定性 |
 | A-CODE-005 | 统一 CLI 入口骨架 | `src/pipeline/main.py` + `main.py` | A | 统一入口、参数路由、配置注入 |
 | A-CODE-006 | L1 采集最小闭环骨架 | `src/data/fetcher.py` + `src/data/l1_pipeline.py` + `src/data/repositories/*` | A | S0b 数据采集、落库、产物输出 |
@@ -110,7 +111,7 @@
 5. MSS 自适应分位阈值基线生成器（目标 S3）
 6. Probe 真实收益口径桥接器（目标 S3）
 7. IRS/PAS 评分校准器（目标 S3）
-8. 采集多源底牌适配器（AKShare/BaoStock）与锁恢复门禁增强测试资产（目标 S3ar-next）
+8. 采集多源底牌适配器（AKShare/BaoStock）与 `eq` 入口环境自检脚本资产（目标 S3ar-next/S3b）
 
 ---
 
@@ -118,6 +119,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-20 | v2.22 | 新增 S3ar 实网验真证据样例集资产（A-QA-009），用于主备可用性/限速/窗口采集证据复用对照 |
 | 2026-02-20 | v2.21 | 新增 unit 环境隔离夹具资产（A-QA-008）与 S3ar 锁恢复/幂等写入代码测试资产（A-CODE-035、A-TEST-036） |
 | 2026-02-19 | v2.20 | 新增 TuShare 主备通道策略文档资产（S-DES-007）与吞吐压测脚本资产（A-QA-007）；将 AK/Bao 空缺调整为 S3ar-next 预留 |
 | 2026-02-19 | v2.19 | 新增 S3ar 资产登记：`Governance/specs/spiral-s3ar/*` 与 `S3AR-EXECUTION-CARD.md`；补充“多源兜底与锁恢复”空缺项 |

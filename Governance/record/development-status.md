@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-20  
-**当前版本**: v4.17（S3ar Slice-1~3 已完成：环境隔离 + 锁恢复审计 + 幂等写入校验）  
+**当前版本**: v4.18（S3ar 已按 6A 收口，进入 S3b）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3 执行中，S4 已收口完成：下一圈先执行 S3ar（采集稳定性修复），再进入 S3b 收益归因验证闭环**
+**S3 执行中，S4 与 S3ar 已收口完成：当前进入 S3b 收益归因验证闭环**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -30,7 +30,15 @@
    - `pytest -q tests/unit/data/test_duckdb_lock_recovery_contract.py`
    - `pytest -q tests/unit/data/test_fetch_retry_contract.py tests/unit/data/test_fetcher_contract.py tests/unit/config/test_config_defaults.py`
    - `python -m scripts.quality.local_quality_check --contracts --governance`
-5. S3ar 状态维持 `in_progress`：仍待真实窗口压测与实网 run/artifact 证据补齐后收口。
+5. S3ar 状态由 `in_progress` 切换为 `completed`：实网窗口 run/artifact 证据已补齐并完成 A6 同步。
+
+## 本次同步（2026-02-20，S3ar 收口）
+
+1. 完成实网 run 证据补齐：主/兜底 token check 与双通道限速压测产物归档至 `artifacts/token-checks/`。
+2. 完成实网采集窗口证据补齐：`artifacts/spiral-s3a/20260213/fetch_progress.json`、`fetch_retry_report.md`、`throughput_benchmark.md`。
+3. 更新并收口 `Governance/specs/spiral-s3ar/review.md` 与 `Governance/specs/spiral-s3ar/final.md`，状态切换为 `completed`。
+4. 完成最小同步 5 项：`final/development-status/debts/reusable-assets/SPIRAL-CP-OVERVIEW`。
+5. 下一圈切换到 S3b：固定窗口 `20260210-20260213` 执行 `ab-benchmark`、`deviation`、`attribution-summary` 三条分析链路。
 
 ---
 
@@ -128,19 +136,18 @@
 | S3a | ENH-10 数据采集增强闭环 | ✅ 已完成 | 已接入真实 TuShare 客户端，实测吞吐与失败恢复证据齐备 |
 | S3 | 回测闭环 | 🔄 进行中 | 已扩展多交易日回放并落地板块化涨跌停阈值 |
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
-| S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | 🔄 进行中 | 修复历史回填阻断项，确保归因窗口数据可复现 |
+| S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4 完成 |
 | S6 | 稳定化闭环 | 📋 未开始 | 重跑一致性与债务清偿 |
 | S7a | ENH-11 自动调度闭环 | 📋 未开始 | 依赖 S6 完成 |
 
 ---
 
-## 下一步（S3ar -> S3b）
+## 下一步（S3b）
 
-1. 先完成 S3ar：落地双 TuShare 主备链路（10000 网关主 + 5000 官方兜底）、独立限速口径与 DuckDB 锁恢复门禁。
-2. 在 S3ar 收口文档中登记 AKShare/BaoStock 为最后底牌预留（不在当前圈实装）。
-3. 验证历史窗口可稳定落袋后，启动 S3b：完成 A/B/C 对照与实盘-回测偏差三分解（signal/execution/cost）。
-4. 形成收益来源结论并驱动 S4b 参数；继续补齐更细撮合规则（一字板/流动性枯竭）并沉淀可回放证据。
+1. 固定窗口 `20260210-20260213` 执行 S3b 三条命令：`ab-benchmark`、`live-backtest deviation`、`attribution-summary`。
+2. 产出并审计 S3b 五件套：`ab_benchmark_report.md`、`live_backtest_deviation_report.md`、`attribution_summary.json`、`consumption.md`、`gate_report.md`。
+3. 完成 S3b 目标测试与 `contracts/governance` 门禁后，输出收益来源结论并准备推进 S4b。
 
 ---
 
@@ -156,6 +163,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-20 | v4.18 | S3ar 收口完成：补齐主/兜底 token check 与独立限速压测实网证据，更新 review/final 与最小同步 5 项，状态切换为 `completed`，下一圈进入 S3b |
 | 2026-02-20 | v4.17 | S3ar Slice-1~3 完成：data unit 环境隔离、DuckDB 锁恢复审计字段落地、`trade_date` 幂等覆盖写入与合同测试补齐 |
 | 2026-02-19 | v4.16 | S3b 最小执行入口落地：新增 `eq analysis`、`src/analysis/pipeline.py` 与 3 条 analysis 合同测试；阶段B由“仅文档可执行”升级为“命令/测试可执行” |
 | 2026-02-19 | v4.15 | S3ar 口径修订为“双 TuShare 主备 + 独立限速 + 锁恢复”，并将 AKShare/BaoStock 调整为最后底牌预留（当前圈不实装） |

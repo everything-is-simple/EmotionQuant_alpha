@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.3.12  
+**版本**: v7.3.13  
 **最后更新**: 2026-02-20  
 **适用对象**: 个人开发、个人使用
 
@@ -79,7 +79,7 @@
 | S3a | ENH-10 数据采集增强闭环 | ✅ completed | `Governance/specs/spiral-s3a/final.md` |
 | S3 | 回测闭环 | 🔄 in_progress | `Governance/specs/spiral-s3/final.md` |
 | S4 | 纸上交易闭环 | ✅ completed | `Governance/specs/spiral-s4/final.md` |
-| S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | 🔄 in_progress | `Governance/specs/spiral-s3ar/final.md` |
+| S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ completed | `Governance/specs/spiral-s3ar/final.md` |
 | S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
 | S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
 | S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
@@ -91,7 +91,7 @@
 1. 桥接硬门禁与语义回归：已完成（Integration + Validation 合同测试通过）。
 2. 证据冲突清障：已完成（S2c 正式证据统一为 release 车道，PASS/GO 口径一致）。
 3. 收口文档与同步：已完成（`s2c_semantics_traceability_matrix.md`、`s2c_algorithm_closeout.md` 已归档并同步）。
-4. 下一圈状态：S3 持续执行中；S4 已按 6A 收口完成（`quality_status=WARN`, `go_nogo=GO`）；下一圈先执行 S3ar（采集稳定性修复），再进入 S3b（收益归因验证闭环）。
+4. 下一圈状态：S3 持续执行中；S4 与 S3ar 已按 6A 收口完成；当前圈位进入 S3b（收益归因验证闭环）。
 5. 债务执行编排参考：`docs/design/enhancements/debt-clearance-plan-v1.md`（辅助文档，不替代本主控入口）。
 
 ---
@@ -204,6 +204,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.3.13 | 2026-02-20 | S3ar 状态切换为 `completed`：补齐主/兜底 token check、独立限速压测与窗口采集证据并完成五件套同步；当前圈位切换到 S3b |
 | v7.3.12 | 2026-02-20 | S3ar 同步 Slice-1~3 进展：data unit 环境隔离完成、DuckDB 锁恢复审计字段落地、`trade_date` 幂等写入合同测试补齐；S3ar 状态维持 `in_progress`，待实网压测证据收口 |
 | v7.3.11 | 2026-02-19 | 增补债务执行附录引用：登记 `debt-clearance-plan-v1.md` 为 S3ar->S3b->S6 清偿编排参考（不改变主控权威） |
 | v7.3.10 | 2026-02-19 | S3ar 口径从“多源已实装”修订为“当前双 TuShare 主备已实装 + AKShare/BaoStock 预留”；收口证据改为 `fetch_progress/fetch_retry_report/吞吐限速`，消除设计-实现漂移 |
