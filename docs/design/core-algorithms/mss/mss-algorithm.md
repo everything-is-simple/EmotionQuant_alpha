@@ -212,7 +212,8 @@ extreme_direction_bias = clip(
 原始值（continuous）：
 
 ```text
-volatility_factor_raw = 0.5×pct_chg_std + 0.5×amount_volatility
+amount_volatility_ratio = amount_volatility / (amount_volatility + 1_000_000)
+volatility_factor_raw = 0.5×pct_chg_std + 0.5×amount_volatility_ratio
 volatility_factor     = zscore_normalize(volatility_factor_raw, mean, std)
 ```
 

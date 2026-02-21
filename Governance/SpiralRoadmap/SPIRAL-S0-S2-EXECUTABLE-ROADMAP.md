@@ -1,7 +1,7 @@
-# EmotionQuant S0-S2c 真螺旋执行路线图（执行版 v1.0）
+# EmotionQuant S0-S2c 真螺旋执行路线图（执行版 v1.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-17  
+**更新时间**: 2026-02-21  
 **适用范围**: S0-S2c（数据层到核心算法深化闭环）  
 **文档角色**: S0-S2c 执行合同（不是上位 SoT 替代）
 
@@ -24,11 +24,11 @@
 
 ---
 
-## 1. 现实基线快照（As-Is, 2026-02-14）
+## 1. 现实基线快照（As-Is, 2026-02-21）
 
-1. `eq` 命令入口尚未落地（`pyproject.toml` 未定义 `project.scripts.eq`）。
-2. `python -m src.pipeline.main` 当前未实现业务逻辑（仅抛出 `NotImplementedError`）。
-3. 已存在且可复用的单测主路径：`tests/unit/config/*`、`tests/unit/data/models/*`、`tests/unit/data/test_quality_gate.py`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_naming_contracts_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
+1. `eq` 统一入口已落地：`src/pipeline/main.py` 已覆盖 `run/mss/mss-probe/recommend/fetch/backtest/trade/analysis` 子命令。
+2. `python -m src.pipeline.main` 已可执行业务路径（不再是 `NotImplementedError`）。
+3. S0/S1 合同测试已落地：`tests/unit/pipeline/test_cli_entrypoint.py`、`tests/unit/algorithms/mss/test_mss_contract.py`、`tests/unit/algorithms/mss/test_mss_probe_contract.py`、`tests/unit/integration/test_mss_integration_contract.py`。
 4. 本地质量门禁脚本可执行：`python -m scripts.quality.local_quality_check --contracts --governance`（必要）与 `--scan`（可选补充）。
 5. CI 质量门禁已存在：`.github/workflows/quality-gates.yml`。
 
@@ -124,7 +124,13 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 说明：默认 7 天 cadence 不变；上述微圈是 7 天内可组合执行单元。
 
-### 4.1 ENH 显式映射（新增）
+### 4.1 S1 阶段任务边界（新增）
+
+- S1 阶段完整任务仅包含两圈：`S1a`（MSS 评分产出）+ `S1b`（MSS 消费验证）。
+- `S1A-EXECUTION-CARD.md` 与 `S1B-EXECUTION-CARD.md` 是 S1 阶段的完整执行卡，不包含 S0 任务。
+- S1 的责任边界是“可消费的 MSS 产出与消费证据”，不是实盘交易闭环；实盘责任由 S2+（Integration/Backtest/Trading）承担。
+
+### 4.2 ENH 显式映射（新增）
 
 为提高 S0-S2c 的 ENH 可追溯性，补充以下“ENH -> Spiral”显式映射：
 
@@ -356,8 +362,9 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
-| v1.0 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确 S0-S2c 阶段 ENH-01/02/03/04/05/08 的落位与可追溯关系 |
+| v1.2 | 2026-02-21 | 修复 S1 对齐：明确 S1 阶段边界（S1a+S1b）；更新 As-Is 快照为当前实现状态；S1b 产物目录统一为 `{start}_{end}` |
 | v1.1 | 2026-02-21 | S0 执行合同升级为实战口径：S0b/S0c 增补 `system_config/data_quality_report/data_readiness_gate` 持久化门禁；S0c 默认命令切为 `--strict-sw31` 并新增 `flat_threshold` 契约测试 |
+| v1.0 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确 S0-S2c 阶段 ENH-01/02/03/04/05/08 的落位与可追溯关系 |
 | v0.9 | 2026-02-16 | 新增 S2c（S2b->S3a）核心算法深化圈；把 `validation_weight_plan` 桥接升级为 S2 出口硬门禁；同步阶段A推进规则 |
 | v0.8 | 2026-02-15 | 执行卡体系补齐：新增 S0b/S0c/S1a/S1b/S2a/S2b/S2r 一页执行卡并在各圈合同挂接引用 |
 | v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |

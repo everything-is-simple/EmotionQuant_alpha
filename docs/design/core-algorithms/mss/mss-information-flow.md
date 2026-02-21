@@ -141,7 +141,8 @@
 4. continuity_factor_raw = 0.5×((continuous_limit_up_2d + 2×continuous_limit_up_3d_plus)/max(limit_up_count,1))
                         + 0.5×(continuous_new_high_2d_plus/max(new_100d_high_count,1))
 5. extreme_factor_raw = (high_open_low_close_count/total) + (low_open_high_close_count/total)
-6. volatility_factor_raw = 0.5×pct_chg_std + 0.5×amount_volatility
+6. amount_volatility_ratio = amount_volatility / (amount_volatility + 1_000_000)
+   volatility_factor_raw = 0.5×pct_chg_std + 0.5×amount_volatility_ratio
 
 依赖组件：MssFactorCalculator
 ```

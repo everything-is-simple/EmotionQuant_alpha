@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import duckdb
 import pytest
 
 from src.algorithms.mss.pipeline import run_mss_scoring
+from src.algorithms.mss.probe import run_mss_probe
 from src.config.config import Config
 from src.data.fetcher import TuShareFetcher
 from src.data.l1_pipeline import run_l1_collection
@@ -88,3 +90,35 @@ def test_s1b_mss_probe_command_generates_probe_report(
     report = report_path.read_text(encoding="utf-8")
     assert "top_bottom_spread_5d" in report
     assert "conclusion" in report
+
+
+def test_s1b_mss_probe_blocks_on_contract_version_mismatch(tmp_path: Path) -> None:
+    config, _ = _build_config(tmp_path)
+    trade_dates = [
+        "20260210",
+        "20260211",
+        "20260212",
+        "20260213",
+        "20260214",
+        "20260215",
+        "20260216",
+        "20260217",
+    ]
+    _prepare_mss_history(config, trade_dates)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE mss_panorama SET contract_version = 'legacy-v0' WHERE trade_date = ?",
+            [trade_dates[-1]],
+        )
+
+    result = run_mss_probe(
+        start_date=trade_dates[0],
+        end_date=trade_dates[-1],
+        config=config,
+    )
+    assert result.has_error is True
+    manifest = json.loads(result.error_manifest_path.read_text(encoding="utf-8"))
+    messages = [str(item.get("message", "")) for item in manifest.get("errors", [])]
+    assert any("contract_version_mismatch" in message for message in messages)

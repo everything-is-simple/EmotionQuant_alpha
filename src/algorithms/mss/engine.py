@@ -7,9 +7,11 @@ from typing import Mapping, Sequence
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§3 因子公式, §4 温度公式, §5 周期状态机)
+# - Governance/SpiralRoadmap/S1A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 # - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§3 MSS)
 DESIGN_TRACE = {
     "mss_algorithm": "docs/design/core-algorithms/mss/mss-algorithm.md",
+    "s1a_execution_card": "Governance/SpiralRoadmap/S1A-EXECUTION-CARD.md",
     "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
 }
 
@@ -27,6 +29,8 @@ VALID_CYCLES = {
 
 Z_SCORE_CENTER = 50.0
 Z_SCORE_SCALE = 15.0
+ADAPTIVE_LOOKBACK = 252
+ADAPTIVE_MIN_SAMPLES = 120
 
 DEFAULT_FACTOR_BASELINES: dict[str, tuple[float, float]] = {
     "market_coefficient": (0.50, 0.20),
@@ -85,6 +89,52 @@ def _zscore_normalize(raw_value: float, mean: float, std: float) -> float:
 def _amount_volatility_ratio(amount_volatility: float) -> float:
     value = max(0.0, amount_volatility)
     return value / (value + 1_000_000.0)
+
+
+def _quantile(values: Sequence[float], q: float) -> float:
+    if not values:
+        return 0.0
+    normalized_values: list[float] = []
+    for item in values:
+        try:
+            parsed = float(item)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(parsed):
+            normalized_values.append(parsed)
+    sorted_values = sorted(normalized_values)
+    if not sorted_values:
+        return 0.0
+    if len(sorted_values) == 1:
+        return float(sorted_values[0])
+    pos = (len(sorted_values) - 1) * q
+    lower = int(math.floor(pos))
+    upper = int(math.ceil(pos))
+    if lower == upper:
+        return float(sorted_values[lower])
+    weight = pos - lower
+    return float(sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * weight)
+
+
+def _resolve_cycle_thresholds(temperature_history: Sequence[float]) -> dict[str, float]:
+    history: list[float] = []
+    for item in temperature_history[-ADAPTIVE_LOOKBACK:]:
+        try:
+            parsed = float(item)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(parsed):
+            history.append(parsed)
+    if len(history) < ADAPTIVE_MIN_SAMPLES:
+        return {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
+
+    t30 = _quantile(history, 0.30)
+    t45 = _quantile(history, 0.45)
+    t60 = _quantile(history, 0.60)
+    t75 = _quantile(history, 0.75)
+    if not (t30 <= t45 <= t60 <= t75):
+        return {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
+    return {"t30": t30, "t45": t45, "t60": t60, "t75": t75}
 
 
 @dataclass(frozen=True)
@@ -211,29 +261,53 @@ def detect_trend(temperature_history: Sequence[float]) -> str:
     return "sideways"
 
 
-def detect_cycle(temperature: float, trend: str) -> str:
+def detect_cycle(
+    temperature: float,
+    trend: str,
+    thresholds: Mapping[str, float] | None = None,
+) -> str:
     if trend not in VALID_TRENDS:
         return "unknown"
 
-    if temperature >= 75.0:
+    default_thresholds = {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
+    resolved = dict(default_thresholds)
+    if thresholds is not None:
+        try:
+            candidate = {
+                "t30": float(thresholds.get("t30", 30.0)),
+                "t45": float(thresholds.get("t45", 45.0)),
+                "t60": float(thresholds.get("t60", 60.0)),
+                "t75": float(thresholds.get("t75", 75.0)),
+            }
+            if candidate["t30"] <= candidate["t45"] <= candidate["t60"] <= candidate["t75"]:
+                resolved = candidate
+        except (TypeError, ValueError):
+            resolved = default_thresholds
+
+    t30 = resolved["t30"]
+    t45 = resolved["t45"]
+    t60 = resolved["t60"]
+    t75 = resolved["t75"]
+
+    if temperature >= t75:
         return "climax"
 
     if trend == "up":
-        if temperature < 30.0:
+        if temperature < t30:
             return "emergence"
-        if temperature < 45.0:
+        if temperature < t45:
             return "fermentation"
-        if temperature < 60.0:
+        if temperature < t60:
             return "acceleration"
         return "divergence"
 
     if trend == "sideways":
-        if temperature >= 60.0:
+        if temperature >= t60:
             return "divergence"
         return "recession"
 
     if trend == "down":
-        if temperature >= 60.0:
+        if temperature >= t60:
             return "diffusion"
         return "recession"
 
@@ -361,7 +435,11 @@ def calculate_mss_score(
 
     history = [float(value) for value in (temperature_history or [])]
     trend = detect_trend([*history, temperature])
-    cycle = detect_cycle(temperature, trend)
+    cycle = detect_cycle(
+        temperature,
+        trend,
+        thresholds=_resolve_cycle_thresholds(history),
+    )
     if cycle not in VALID_CYCLES:
         cycle = "unknown"
 

@@ -30,6 +30,10 @@ REQUIRED_TRACE_MARKERS: dict[str, list[str]] = {
         "DESIGN_TRACE",
         "docs/design/core-algorithms/mss/mss-algorithm.md",
     ],
+    "src/algorithms/mss/probe.py": [
+        "DESIGN_TRACE",
+        "Governance/SpiralRoadmap/S1B-EXECUTION-CARD.md",
+    ],
     "src/algorithms/validation/pipeline.py": [
         "DESIGN_TRACE",
         "docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md",

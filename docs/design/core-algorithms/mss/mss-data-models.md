@@ -127,9 +127,9 @@ class MssPanorama:
     
     # 辅助信息
     neutrality: float            # 中性度 0-1（越接近1越中性，越接近0信号越极端）
-    trend_quality: str           # 趋势质量 normal/cold_start/degraded
-    rank: int                    # 历史排名
-    percentile: float            # 百分位排名 0-100
+    trend_quality: str           # 趋势质量 normal/cold_start/degraded（S3d 增强项，当前实现可选）
+    rank: int                    # 历史排名（S3d 增强项，当前实现可选）
+    percentile: float            # 百分位排名 0-100（S3d 增强项，当前实现可选）
 ```
 
 ### 3.2 周期枚举

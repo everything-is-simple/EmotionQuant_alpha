@@ -13,9 +13,13 @@ from src.config.config import Config
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§3, §4, §5)
+# - Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§5 S1a)
+# - Governance/SpiralRoadmap/S1A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 # - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§3 MSS)
 DESIGN_TRACE = {
     "mss_algorithm": "docs/design/core-algorithms/mss/mss-algorithm.md",
+    "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
+    "s1a_execution_card": "Governance/SpiralRoadmap/S1A-EXECUTION-CARD.md",
     "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
 }
 
@@ -220,7 +224,7 @@ def run_mss_scoring(
             if _table_exists(connection, "mss_panorama"):
                 history_rows = connection.execute(
                     "SELECT mss_temperature FROM mss_panorama WHERE trade_date < ? "
-                    "ORDER BY trade_date DESC LIMIT 20",
+                    "ORDER BY trade_date DESC LIMIT 252",
                     [trade_date],
                 ).fetchall()
                 history = [float(item[0]) for item in reversed(history_rows)]
