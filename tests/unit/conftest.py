@@ -30,6 +30,6 @@ _ISOLATED_ENV_KEYS = (
 
 
 @pytest.fixture(autouse=True)
-def isolate_data_unit_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def isolate_unit_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in _ISOLATED_ENV_KEYS:
         monkeypatch.delenv(key, raising=False)

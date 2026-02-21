@@ -2,7 +2,7 @@
 
 **Spiral**: S0c  
 **状态**: completed  
-**收口日期**: 2026-02-15  
+**收口日期**: 2026-02-21  
 **CP Slice**: CP-01（1/1）
 
 ## 1. 6A 清单
@@ -43,3 +43,22 @@
 ## 5. 跨文档联动
 
 - 结论: 未触发跨文档强制联动（未发生契约破坏性变更）。
+
+## 6. S0c-R1 加固收口（2026-02-21）
+
+- A4 结果: PASS
+  - run: `--to-l2 --strict-sw31` 可复跑通过（`industry_snapshot_count=31`）。
+  - test: S0c 目标测试 + 新增契约测试共 `18 passed`。
+  - gate: `python -m scripts.quality.local_quality_check --contracts --governance` PASS。
+- A5 结果: PASS
+  - 新增证据: `l2_quality_gate_report.md`、`sw_mapping_audit.md`、`industry_snapshot_sw31_sample.parquet`。
+  - 新增测试文件:
+    - `tests/unit/data/test_data_readiness_persistence_contract.py`
+    - `tests/unit/data/test_flat_threshold_config_contract.py`
+- A6 结果: PASS
+  - 已完成最小同步 5 项更新：
+    - `Governance/specs/spiral-s0c/final.md`
+    - `Governance/record/development-status.md`
+    - `Governance/record/debts.md`
+    - `Governance/record/reusable-assets.md`
+    - `Governance/Capability/SPIRAL-CP-OVERVIEW.md`

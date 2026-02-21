@@ -152,7 +152,7 @@ flowchart LR
 
 ---
 
-## 5. 各圈执行合同（v0.4）
+## 5. 各圈执行合同（v1.1）
 
 ### S0a
 
@@ -166,35 +166,40 @@ flowchart LR
 - 门禁：
   - `eq` 命令可调用。
   - 路径读取全部来自 `Config.from_env()`。
+  - 配置快照必须包含 `flat_threshold/min_coverage_ratio/stale_hard_limit_days`。
 - 产物：`cli_contract.md`, `config_effective_values.json`
 - 消费：S0b 记录“通过统一入口触发采集”。
 
 ### S0b
 
-- 主目标：L1 原始数据采集与入库闭环。
+- 主目标：L1 原始数据采集、入库与就绪门禁闭环。
 - 执行卡：`Governance/SpiralRoadmap/S0B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_model_contract_alignment.py -q`
 - `target command`：`eq run --date {trade_date} --source tushare --l1-only`
-- `target test`（本圈必须补齐并执行）：`tests/unit/data/test_fetcher_contract.py tests/unit/data/test_l1_repository_contract.py`
+- `target test`（本圈必须补齐并执行）：`tests/unit/data/test_fetcher_contract.py tests/unit/data/test_l1_repository_contract.py tests/unit/data/test_data_readiness_persistence_contract.py`
 - 门禁：
   - `raw_daily` 当日记录数 `> 0`。
   - `raw_trade_cal` 含 `{trade_date}`。
   - 失败输出 `error_manifest.json`。
-- 产物：`raw_counts.json`, `fetch_retry_report.md`, `error_manifest_sample.json`
+  - `system_config/data_quality_report/data_readiness_gate` 必须落库。
+- 产物：`raw_counts.json`, `fetch_retry_report.md`, `error_manifest_sample.json`, `l1_quality_gate_report.md`
 - 消费：S0c 记录“L1 -> L2 读取链路”。
 
 ### S0c
 
-- 主目标：L2 快照与错误分级闭环。
+- 主目标：L2 快照、SW31 语义与错误分级闭环。
 - 执行卡：`Governance/SpiralRoadmap/S0C-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_snapshots.py -q`
-- `target command`：`eq run --date {trade_date} --source tushare --to-l2`
-- `target test`（本圈必须补齐并执行）：`tests/unit/data/test_snapshot_contract.py tests/unit/data/test_s0_canary.py`
+- `target command`：`eq run --date {trade_date} --source tushare --to-l2 --strict-sw31`
+- `target test`（本圈必须补齐并执行）：`tests/unit/data/test_snapshot_contract.py tests/unit/data/test_s0_canary.py tests/unit/data/test_industry_snapshot_sw31_contract.py tests/unit/data/test_data_readiness_persistence_contract.py tests/unit/data/test_flat_threshold_config_contract.py`
 - 门禁：
   - `market_snapshot` 当日存在。
+  - `industry_snapshot` 当日必须是 SW31 31 行业（禁止 `industry_code=ALL`）。
   - 字段含 `data_quality/stale_days/source_trade_date`。
+  - `flat_count` 必须遵循 `flat_threshold`（来自 `system_config`）。
+  - `data_readiness_gate.status in (ready,degraded)`，`blocked` 必须阻断后续圈。
   - 失败流程包含 `error_level`。
-- 产物：`market_snapshot_sample.parquet`, `industry_snapshot_sample.parquet`, `s0_canary_report.md`
+- 产物：`market_snapshot_sample.parquet`, `industry_snapshot_sample.parquet`, `s0_canary_report.md`, `sw_mapping_audit.md`, `l2_quality_gate_report.md`
 - 消费：S1a 记录“L2 作为 MSS 输入”。
 
 ### S1a
@@ -352,6 +357,7 @@ flowchart LR
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
 | v1.0 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确 S0-S2c 阶段 ENH-01/02/03/04/05/08 的落位与可追溯关系 |
+| v1.1 | 2026-02-21 | S0 执行合同升级为实战口径：S0b/S0c 增补 `system_config/data_quality_report/data_readiness_gate` 持久化门禁；S0c 默认命令切为 `--strict-sw31` 并新增 `flat_threshold` 契约测试 |
 | v0.9 | 2026-02-16 | 新增 S2c（S2b->S3a）核心算法深化圈；把 `validation_weight_plan` 桥接升级为 S2 出口硬门禁；同步阶段A推进规则 |
 | v0.8 | 2026-02-15 | 执行卡体系补齐：新增 S0b/S0c/S1a/S1b/S2a/S2b/S2r 一页执行卡并在各圈合同挂接引用 |
 | v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |

@@ -18,6 +18,12 @@ from src.data.repositories.limit_list import LimitListRepository
 from src.data.repositories.base import DuckDBLockRecoveryError
 from src.data.repositories.stock_basic import StockBasicRepository
 from src.data.repositories.trade_calendars import TradeCalendarsRepository
+from src.data.quality_gate import STATUS_BLOCKED, evaluate_data_quality_gate
+from src.data.quality_store import (
+    decision_to_json,
+    init_quality_context,
+    persist_quality_outputs,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +60,46 @@ def _write_fetch_retry_report(path: Path, attempts: list[FetchAttempt]) -> None:
             if item.error:
                 detail = f"{detail} error={item.error}"
             lines.append(detail)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_l1_quality_gate_report(
+    path: Path,
+    *,
+    decision_payload: dict[str, Any],
+    report_rows: list[dict[str, Any]],
+) -> None:
+    lines = [
+        "# L1 Quality Gate Report",
+        "",
+        f"- trade_date: {decision_payload.get('trade_date', '')}",
+        f"- status: {decision_payload.get('status', '')}",
+        f"- is_ready: {str(bool(decision_payload.get('is_ready', False))).lower()}",
+        f"- coverage_ratio: {float(decision_payload.get('coverage_ratio', 0.0)):.4f}",
+        f"- max_stale_days: {int(decision_payload.get('max_stale_days', 0) or 0)}",
+        f"- cross_day_consistent: {str(bool(decision_payload.get('cross_day_consistent', False))).lower()}",
+        "",
+        "## Issues",
+    ]
+    issues = decision_payload.get("issues", [])
+    if isinstance(issues, list) and issues:
+        lines.extend([f"- {str(item)}" for item in issues])
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Warnings"])
+    warnings = decision_payload.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        lines.extend([f"- {str(item)}" for item in warnings])
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Checks"])
+    for row in report_rows:
+        lines.append(
+            f"- {row.get('check_item', '')}: status={row.get('status', '')} "
+            f"expected={row.get('expected_value', '')} actual={row.get('actual_value', '')} "
+            f"action={row.get('action', '')}"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -171,6 +217,10 @@ def run_l1_collection(
     trade_cal_is_open: bool | None = None
 
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    thresholds = init_quality_context(database_path, config=config)
+    min_coverage_ratio = float(thresholds["min_coverage_ratio"])
+    stale_hard_limit_days = int(thresholds["stale_hard_limit_days"])
+
     for dataset, repository in repositories.items():
         snapshot_trade_date = _resolve_snapshot_trade_date(dataset, trade_date)
         should_fetch = True
@@ -248,6 +298,103 @@ def run_l1_collection(
                 "message": issue,
             }
         )
+
+    if trade_cal_is_open is False:
+        required_datasets = ("raw_trade_cal",)
+        optional_datasets = ("raw_daily", "raw_index_daily", "raw_daily_basic", "raw_limit_list")
+    else:
+        required_datasets = ("raw_daily", "raw_trade_cal", "raw_index_daily")
+        optional_datasets = ("raw_daily_basic", "raw_limit_list")
+    source_trade_dates = {
+        dataset: str(fetch_plan.get(dataset, {}).get("snapshot_trade_date", trade_date))
+        for dataset in required_datasets
+    }
+    required_covered = {
+        dataset: raw_counts.get(dataset, 0) > 0
+        for dataset in required_datasets
+    }
+    coverage_ratio = float(sum(1 for covered in required_covered.values() if covered)) / max(
+        float(len(required_datasets)),
+        1.0,
+    )
+    quality_by_dataset = {
+        dataset: ("normal" if covered else "stale")
+        for dataset, covered in required_covered.items()
+    }
+    stale_days_by_dataset = {
+        dataset: (0 if covered else 1)
+        for dataset, covered in required_covered.items()
+    }
+    for dataset in optional_datasets:
+        optional_covered = raw_counts.get(dataset, 0) > 0
+        quality_by_dataset[dataset] = "normal" if optional_covered else "cold_start"
+        stale_days_by_dataset[dataset] = 0
+
+    decision = evaluate_data_quality_gate(
+        trade_date=trade_date,
+        coverage_ratio=coverage_ratio,
+        source_trade_dates=source_trade_dates,
+        quality_by_dataset=quality_by_dataset,
+        stale_days_by_dataset=stale_days_by_dataset,
+        min_coverage=min_coverage_ratio,
+        stale_hard_limit=stale_hard_limit_days,
+    )
+    if decision.status == STATUS_BLOCKED and not any(
+        item.get("error_type") == "readiness_gate_blocked" for item in errors
+    ):
+        errors.append(
+            {
+                "dataset": "gate",
+                "error_type": "readiness_gate_blocked",
+                "message": ";".join(decision.issues) if decision.issues else "data_readiness_blocked",
+            }
+        )
+
+    report_rows: list[dict[str, Any]] = []
+    for dataset in ("raw_daily", "raw_trade_cal", "raw_index_daily", "raw_daily_basic", "raw_limit_list"):
+        actual_count = int(raw_counts.get(dataset, 0))
+        expected_value = ">0" if dataset in required_datasets else ">=0"
+        if dataset in required_datasets:
+            status = "PASS" if actual_count > 0 else "FAIL"
+            action = "continue" if actual_count > 0 else "block"
+        else:
+            status = "PASS" if actual_count > 0 else "WARN"
+            action = "continue" if actual_count > 0 else "fallback"
+        report_rows.append(
+            {
+                "check_item": f"l1_{dataset}_count",
+                "expected_value": expected_value,
+                "actual_value": str(actual_count),
+                "deviation": 0.0 if status != "FAIL" else 1.0,
+                "status": status,
+                "gate_status": decision.status,
+                "affected_layers": "L1",
+                "action": action,
+            }
+        )
+    report_rows.append(
+        {
+            "check_item": "l1_readiness_gate",
+            "expected_value": "ready/degraded",
+            "actual_value": decision.status,
+            "deviation": max(0.0, min_coverage_ratio - coverage_ratio),
+            "status": "PASS" if decision.status == "ready" else ("WARN" if decision.status == "degraded" else "FAIL"),
+            "gate_status": decision.status,
+            "affected_layers": "L1",
+            "action": "continue" if decision.is_ready else "block",
+        }
+    )
+    persist_quality_outputs(
+        database_path,
+        decision=decision,
+        report_rows=report_rows,
+        config=config,
+    )
+    _write_l1_quality_gate_report(
+        artifacts_dir / "l1_quality_gate_report.md",
+        decision_payload=decision_to_json(decision),
+        report_rows=report_rows,
+    )
 
     raw_counts_payload = {
         "trade_date": trade_date,

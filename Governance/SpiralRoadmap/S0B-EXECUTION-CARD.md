@@ -1,7 +1,7 @@
-# S0b 执行卡（v0.1）
+# S0b 执行卡（v0.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S0b（L1 采集入库）
 
@@ -12,6 +12,7 @@
 - 打通 L1 原始数据采集与入库闭环。
 - 保障 `raw_daily` 与 `raw_trade_cal` 当日可复核。
 - 失败链路产出 `error_manifest.json`。
+- 落地数据门禁元数据持久化：`system_config`、`data_quality_report`、`data_readiness_gate`。
 
 ---
 
@@ -28,6 +29,7 @@ eq run --date {trade_date} --source tushare --l1-only
 ```bash
 pytest tests/unit/data/test_fetcher_contract.py -q
 pytest tests/unit/data/test_l1_repository_contract.py -q
+pytest tests/unit/data/test_data_readiness_persistence_contract.py -q
 ```
 
 ---
@@ -37,6 +39,7 @@ pytest tests/unit/data/test_l1_repository_contract.py -q
 - `artifacts/spiral-s0b/{trade_date}/raw_counts.json`
 - `artifacts/spiral-s0b/{trade_date}/fetch_retry_report.md`
 - `artifacts/spiral-s0b/{trade_date}/error_manifest_sample.json`
+- `artifacts/spiral-s0b/{trade_date}/l1_quality_gate_report.md`
 
 ---
 
@@ -46,6 +49,8 @@ pytest tests/unit/data/test_l1_repository_contract.py -q
 - 必填结论：
   - `raw_daily` 是否 `> 0`
   - `raw_trade_cal` 是否包含 `{trade_date}`
+  - `data_readiness_gate` 是否落库且状态可复核（ready/degraded/blocked）
+  - `data_quality_report` 是否记录覆盖率与动作（continue/block/fallback）
   - 失败链路是否输出 `error_manifest`
 
 ---
@@ -63,6 +68,7 @@ pytest tests/unit/data/test_l1_repository_contract.py -q
 ## 7. 失败回退
 
 - 若 `raw_daily` 为空或交易日缺失：状态置 `blocked`，仅修复 S0b，不推进 S0c。
+- 若 `data_readiness_gate.status=blocked`：状态置 `blocked`，仅修复 S0b，不推进 S0c。
 - 若契约/治理检查失败：必须先修复并补齐回归证据，再重跑 S0b 验收。
 
 ---

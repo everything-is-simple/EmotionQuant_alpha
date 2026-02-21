@@ -1,0 +1,46 @@
+# SW31 Mapping Audit
+
+- trade_date: 20260215
+- strict_sw31: true
+- uses_sw31: true
+- reason: ok
+- classify_snapshot_trade_date: 20260201
+- member_snapshot_trade_date: 20260201
+- mapped_stock_count: 1
+- unmapped_stock_count: 0
+- mapping_coverage: 1.0000
+- industry_count: 31
+- zero_stock_industries: 30
+
+## Industry Codes
+- 000001
+- 000002
+- 000003
+- 000004
+- 000005
+- 000006
+- 000007
+- 000008
+- 000009
+- 000010
+- 000011
+- 000012
+- 000013
+- 000014
+- 000015
+- 000016
+- 000017
+- 000018
+- 000019
+- 000020
+- 000021
+- 000022
+- 000023
+- 000024
+- 000025
+- 000026
+- 000027
+- 000028
+- 000029
+- 000030
+- 000031

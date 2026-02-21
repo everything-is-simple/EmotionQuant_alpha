@@ -32,24 +32,44 @@ class FetchError(RuntimeError):
 class SimulatedTuShareClient:
     """Deterministic offline TuShare-like client for S0b contract tests."""
 
+    @staticmethod
+    def _sw31_pairs() -> list[tuple[str, str]]:
+        return [
+            (f"801{idx + 100:03d}.SI", f"{idx + 1:06d}")
+            for idx in range(31)
+        ]
+
+    @staticmethod
+    def _stock_codes() -> list[str]:
+        return [f"{idx + 1:06d}" for idx in range(31)]
+
     def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         if api_name == "daily":
             trade_date = str(params.get("trade_date", ""))
             if not trade_date:
                 raise ValueError("daily requires trade_date")
-            return [
-                {
-                    "ts_code": "000001.SZ",
-                    "stock_code": "000001",
-                    "trade_date": trade_date,
-                    "open": 10.0,
-                    "high": 10.4,
-                    "low": 9.8,
-                    "close": 10.2,
-                    "vol": 1200000,
-                    "amount": 12240000.0,
-                }
-            ]
+            rows: list[dict[str, Any]] = []
+            for idx, stock_code in enumerate(self._stock_codes()):
+                open_price = 10.0
+                close_price = 10.2
+                high_price = max(open_price, close_price) * 1.01
+                low_price = min(open_price, close_price) * 0.99
+                vol = 500000 + idx * 100
+                amount = close_price * vol
+                rows.append(
+                    {
+                        "ts_code": f"{stock_code}.SZ",
+                        "stock_code": stock_code,
+                        "trade_date": trade_date,
+                        "open": round(open_price, 4),
+                        "high": round(high_price, 4),
+                        "low": round(low_price, 4),
+                        "close": round(close_price, 4),
+                        "vol": vol,
+                        "amount": round(amount, 2),
+                    }
+                )
+            return rows
 
         if api_name == "trade_cal":
             trade_date = str(params.get("start_date") or params.get("end_date") or "")
@@ -67,31 +87,37 @@ class SimulatedTuShareClient:
             trade_date = str(params.get("trade_date", ""))
             if not trade_date:
                 raise ValueError("limit_list requires trade_date")
-            return [
-                {
-                    "ts_code": "000001.SZ",
-                    "stock_code": "000001",
-                    "trade_date": trade_date,
-                    "limit_type": "U",
-                    "fd_amount": 3560000.0,
-                }
-            ]
+            rows: list[dict[str, Any]] = []
+            for idx, stock_code in enumerate(self._stock_codes()):
+                rows.append(
+                    {
+                        "ts_code": f"{stock_code}.SZ",
+                        "stock_code": stock_code,
+                        "trade_date": trade_date,
+                        "limit_type": "U",
+                        "fd_amount": float(3_560_000.0),
+                    }
+                )
+            return rows
 
         if api_name == "daily_basic":
             trade_date = str(params.get("trade_date", ""))
             if not trade_date:
                 raise ValueError("daily_basic requires trade_date")
-            return [
-                {
-                    "ts_code": "000001.SZ",
-                    "stock_code": "000001",
-                    "trade_date": trade_date,
-                    "turnover_rate": 1.25,
-                    "pe_ttm": 12.8,
-                    "pb": 1.35,
-                    "total_mv": 123000000000.0,
-                }
-            ]
+            rows: list[dict[str, Any]] = []
+            for idx, stock_code in enumerate(self._stock_codes()):
+                rows.append(
+                    {
+                        "ts_code": f"{stock_code}.SZ",
+                        "stock_code": stock_code,
+                        "trade_date": trade_date,
+                        "turnover_rate": 1.25,
+                        "pe_ttm": 12.8,
+                        "pb": 1.35,
+                        "total_mv": float(123_000_000_000.0 + idx * 10_000_000.0),
+                    }
+                )
+            return rows
 
         if api_name == "index_daily":
             trade_date = str(params.get("trade_date", ""))
@@ -117,33 +143,39 @@ class SimulatedTuShareClient:
             )
             return [
                 {
-                    "index_code": "801010.SI",
-                    "con_code": "000001.SZ",
+                    "index_code": index_code,
+                    "con_code": f"{stock_code}.SZ",
                     "in_date": "20100101",
                     "out_date": None,
                     "trade_date": trade_date,
                 }
+                for (index_code, _), stock_code in zip(
+                    self._sw31_pairs(), self._stock_codes(), strict=False
+                )
             ]
 
         if api_name == "index_classify":
             return [
                 {
-                    "index_code": "801010.SI",
-                    "industry_name": "农林牧渔",
+                    "index_code": index_code,
+                    "industry_code": industry_code,
+                    "industry_name": f"行业{idx + 1}",
                     "level": "L1",
                     "src": "SW2021",
                 }
+                for idx, (index_code, industry_code) in enumerate(self._sw31_pairs())
             ]
 
         if api_name == "stock_basic":
             return [
                 {
-                    "ts_code": "000001.SZ",
-                    "stock_code": "000001",
-                    "name": "平安银行",
+                    "ts_code": f"{stock_code}.SZ",
+                    "stock_code": stock_code,
+                    "name": f"模拟股票{idx + 1}",
                     "list_status": "L",
                     "exchange": "SZSE",
                 }
+                for idx, stock_code in enumerate(self._stock_codes())
             ]
 
         raise ValueError(f"unsupported api_name: {api_name}")

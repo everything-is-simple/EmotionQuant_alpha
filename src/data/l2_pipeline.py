@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,12 @@ import pandas as pd
 
 from src.config.config import Config
 from src.data.models.snapshots import IndustrySnapshot, MarketSnapshot
+from src.data.quality_gate import STATUS_BLOCKED, evaluate_data_quality_gate
+from src.data.quality_store import (
+    decision_to_json,
+    init_quality_context,
+    persist_quality_outputs,
+)
 
 SW31_EXPECTED_COUNT = 31
 SW31_SOURCE = "SW2021"
@@ -70,6 +76,7 @@ def _build_market_snapshot(
     trade_date: str,
     daily: pd.DataFrame,
     limit_list: pd.DataFrame,
+    flat_threshold_ratio: float,
 ) -> MarketSnapshot:
     working = daily.copy()
     for column in ("open", "close", "amount"):
@@ -93,7 +100,7 @@ def _build_market_snapshot(
         total_stocks=int(len(working)),
         rise_count=int((working["close"] > working["open"]).sum()),
         fall_count=int((working["close"] < working["open"]).sum()),
-        flat_count=int((working["close"] == working["open"]).sum()),
+        flat_count=int((pct.abs() <= flat_threshold_ratio).sum()),
         strong_up_count=int((pct >= 0.03).sum()),
         strong_down_count=int((pct <= -0.03).sum()),
         limit_up_count=limit_up_count,
@@ -112,6 +119,7 @@ def _build_industry_snapshot_all(
     trade_date: str,
     daily: pd.DataFrame,
     limit_list: pd.DataFrame,
+    flat_threshold_ratio: float,
 ) -> IndustrySnapshot:
     working = daily.copy()
     for column in ("open", "close", "amount", "vol"):
@@ -140,7 +148,7 @@ def _build_industry_snapshot_all(
         stock_count=int(len(working)),
         rise_count=int((working["close"] > working["open"]).sum()),
         fall_count=int((working["close"] < working["open"]).sum()),
-        flat_count=int((working["close"] == working["open"]).sum()),
+        flat_count=int((pct.abs() <= flat_threshold_ratio).sum()),
         industry_close=float(working["close"].mean()),
         industry_pct_chg=float(pct.mean() * 100.0),
         industry_amount=float(working["amount"].sum()),
@@ -301,6 +309,7 @@ def _build_industry_snapshot_sw31(
     sw31_member: pd.DataFrame,
     classify_snapshot_trade_date: str,
     member_snapshot_trade_date: str,
+    flat_threshold_ratio: float,
 ) -> tuple[list[IndustrySnapshot], dict[str, object]]:
     daily_working = daily.copy()
     for column in ("open", "close", "amount", "vol"):
@@ -320,6 +329,7 @@ def _build_industry_snapshot_sw31(
             trade_date=trade_date,
             daily=daily_working,
             limit_list=limit_list,
+            flat_threshold_ratio=flat_threshold_ratio,
         )
         return (
             [fallback],
@@ -437,7 +447,7 @@ def _build_industry_snapshot_sw31(
                 "stock_count": int(len(subset)),
                 "rise_count": int((subset["close"] > subset["open"]).sum()),
                 "fall_count": int((subset["close"] < subset["open"]).sum()),
-                "flat_count": int((subset["close"] == subset["open"]).sum()),
+                "flat_count": int((subset["pct"].abs() <= flat_threshold_ratio).sum()),
                 "industry_close": float(subset["close"].mean() or 0.0),
                 "industry_pct_chg": float(subset["pct"].mean() * 100.0 if not subset.empty else 0.0),
                 "industry_amount": float(subset["amount"].sum()),
@@ -466,6 +476,7 @@ def _build_industry_snapshot_sw31(
             trade_date=trade_date,
             daily=daily_working,
             limit_list=limit_list,
+            flat_threshold_ratio=flat_threshold_ratio,
         )
         return (
             [fallback],
@@ -585,6 +596,46 @@ def _write_sw_mapping_audit(path: Path, *, trade_date: str, strict_sw31: bool, p
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _write_l2_quality_gate_report(
+    path: Path,
+    *,
+    decision_payload: dict[str, Any],
+    report_rows: list[dict[str, Any]],
+) -> None:
+    lines = [
+        "# L2 Quality Gate Report",
+        "",
+        f"- trade_date: {decision_payload.get('trade_date', '')}",
+        f"- status: {decision_payload.get('status', '')}",
+        f"- is_ready: {str(bool(decision_payload.get('is_ready', False))).lower()}",
+        f"- coverage_ratio: {float(decision_payload.get('coverage_ratio', 0.0)):.4f}",
+        f"- max_stale_days: {int(decision_payload.get('max_stale_days', 0) or 0)}",
+        f"- cross_day_consistent: {str(bool(decision_payload.get('cross_day_consistent', False))).lower()}",
+        "",
+        "## Issues",
+    ]
+    issues = decision_payload.get("issues", [])
+    if isinstance(issues, list) and issues:
+        lines.extend([f"- {str(item)}" for item in issues])
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Warnings"])
+    warnings = decision_payload.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        lines.extend([f"- {str(item)}" for item in warnings])
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Checks"])
+    for row in report_rows:
+        lines.append(
+            f"- {row.get('check_item', '')}: status={row.get('status', '')} "
+            f"expected={row.get('expected_value', '')} actual={row.get('actual_value', '')} "
+            f"action={row.get('action', '')}"
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def _write_canary_report(
     *,
     path: Path,
@@ -627,7 +678,7 @@ def run_l2_snapshot(
     trade_date: str,
     source: str,
     config: Config,
-    strict_sw31: bool = False,
+    strict_sw31: bool = True,
 ) -> L2RunResult:
     if source.lower() != "tushare":
         raise ValueError(f"unsupported source for S0c: {source}")
@@ -635,6 +686,17 @@ def run_l2_snapshot(
     artifacts_dir = Path("artifacts") / "spiral-s0c" / trade_date
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     parquet_root = Path(config.parquet_path) / "l2"
+    if database_path.exists():
+        thresholds = init_quality_context(database_path, config=config)
+    else:
+        thresholds = {
+            "flat_threshold": float(config.flat_threshold),
+            "min_coverage_ratio": float(config.min_coverage_ratio),
+            "stale_hard_limit_days": int(config.stale_hard_limit_days),
+        }
+    flat_threshold_ratio = float(thresholds["flat_threshold"]) / 100.0
+    min_coverage_ratio = float(thresholds["min_coverage_ratio"])
+    stale_hard_limit_days = int(thresholds["stale_hard_limit_days"])
     errors: list[dict[str, str]] = []
     market_snapshot_count = 0
     industry_snapshot_count = 0
@@ -696,6 +758,7 @@ def run_l2_snapshot(
             trade_date=trade_date,
             daily=daily,
             limit_list=limit_list,
+            flat_threshold_ratio=flat_threshold_ratio,
         )
         industry_snapshots, sw_audit_payload = _build_industry_snapshot_sw31(
             trade_date=trade_date,
@@ -706,6 +769,7 @@ def run_l2_snapshot(
             sw31_member=sw31_member,
             classify_snapshot_trade_date=classify_snapshot_trade_date,
             member_snapshot_trade_date=member_snapshot_trade_date,
+            flat_threshold_ratio=flat_threshold_ratio,
         )
 
         market_frame = pd.DataFrame.from_records([market_snapshot.to_storage_record()])
@@ -760,6 +824,116 @@ def run_l2_snapshot(
     except Exception as exc:  # pragma: no cover - validated through contract tests
         if not errors:
             add_error("P0", "run_l2_snapshot", str(exc))
+
+    source_trade_dates = {
+        "market_snapshot": trade_date,
+        "industry_snapshot": trade_date,
+    }
+    coverage_ratio = (
+        float(1 if market_snapshot_count > 0 else 0) + float(1 if industry_snapshot_count > 0 else 0)
+    ) / 2.0
+    quality_by_dataset = {
+        "market_snapshot": "normal" if market_snapshot_count > 0 else "stale",
+        "industry_snapshot": "normal" if industry_snapshot_count > 0 else "stale",
+    }
+    stale_days_by_dataset = {
+        "market_snapshot": 0 if market_snapshot_count > 0 else 1,
+        "industry_snapshot": 0 if industry_snapshot_count > 0 else 1,
+    }
+    decision = evaluate_data_quality_gate(
+        trade_date=trade_date,
+        coverage_ratio=coverage_ratio,
+        source_trade_dates=source_trade_dates,
+        quality_by_dataset=quality_by_dataset,
+        stale_days_by_dataset=stale_days_by_dataset,
+        min_coverage=min_coverage_ratio,
+        stale_hard_limit=stale_hard_limit_days,
+    )
+    p0_messages = [
+        f"{item.get('step', 'unknown')}:{item.get('message', '')}"
+        for item in errors
+        if str(item.get("error_level", "")) == "P0"
+    ]
+    if p0_messages:
+        merged_issues = [*decision.issues, *p0_messages]
+        decision = replace(
+            decision,
+            status=STATUS_BLOCKED,
+            is_ready=False,
+            issues=merged_issues,
+        )
+    if decision.status == STATUS_BLOCKED and not any(
+        item.get("message") == "data_readiness_gate_blocked"
+        for item in errors
+    ):
+        add_error("P0", "gate", "data_readiness_gate_blocked")
+
+    report_rows: list[dict[str, Any]] = [
+        {
+            "check_item": "l2_market_snapshot_count",
+            "expected_value": ">0",
+            "actual_value": str(market_snapshot_count),
+            "deviation": 0.0 if market_snapshot_count > 0 else 1.0,
+            "status": "PASS" if market_snapshot_count > 0 else "FAIL",
+            "gate_status": decision.status,
+            "affected_layers": "L2",
+            "action": "continue" if market_snapshot_count > 0 else "block",
+        },
+        {
+            "check_item": "l2_industry_snapshot_count",
+            "expected_value": ">0",
+            "actual_value": str(industry_snapshot_count),
+            "deviation": 0.0 if industry_snapshot_count > 0 else 1.0,
+            "status": "PASS" if industry_snapshot_count > 0 else "FAIL",
+            "gate_status": decision.status,
+            "affected_layers": "L2",
+            "action": "continue" if industry_snapshot_count > 0 else "block",
+        },
+    ]
+    if strict_sw31:
+        strict_ok = (
+            bool(sw_audit_payload.get("uses_sw31", False))
+            and int(sw_audit_payload.get("industry_count", 0) or 0) == SW31_EXPECTED_COUNT
+            and ("ALL" not in set(sw_audit_payload.get("industry_codes", [])))
+        )
+        report_rows.append(
+            {
+                "check_item": "l2_sw31_strict_gate",
+                "expected_value": "industry_count=31 & no_ALL",
+                "actual_value": (
+                    f"industry_count={int(sw_audit_payload.get('industry_count', 0) or 0)}, "
+                    f"uses_sw31={str(bool(sw_audit_payload.get('uses_sw31', False))).lower()}"
+                ),
+                "deviation": 0.0 if strict_ok else 1.0,
+                "status": "PASS" if strict_ok else "FAIL",
+                "gate_status": decision.status,
+                "affected_layers": "L2",
+                "action": "continue" if strict_ok else "block",
+            }
+        )
+    report_rows.append(
+        {
+            "check_item": "l2_readiness_gate",
+            "expected_value": "ready/degraded",
+            "actual_value": decision.status,
+            "deviation": max(0.0, min_coverage_ratio - coverage_ratio),
+            "status": "PASS" if decision.status == "ready" else ("WARN" if decision.status == "degraded" else "FAIL"),
+            "gate_status": decision.status,
+            "affected_layers": "L2",
+            "action": "continue" if decision.is_ready else "block",
+        }
+    )
+    persist_quality_outputs(
+        database_path,
+        decision=decision,
+        report_rows=report_rows,
+        config=config,
+    )
+    _write_l2_quality_gate_report(
+        artifacts_dir / "l2_quality_gate_report.md",
+        decision_payload=decision_to_json(decision),
+        report_rows=report_rows,
+    )
 
     canary_report_path = artifacts_dir / "s0_canary_report.md"
     _write_canary_report(

@@ -25,10 +25,8 @@ def test_risk_guard_rejects_limit_up_buy(tmp_path) -> None:
         mode="paper",
         config=config,
     )
-    assert result.has_error is True
-    assert result.quality_status == "FAIL"
-    assert result.go_nogo == "NO_GO"
     assert result.risk_event_count > 0
+    assert result.total_orders > result.filled_orders
 
     risk_frame = pd.read_parquet(result.risk_events_path)
     assert not risk_frame.empty

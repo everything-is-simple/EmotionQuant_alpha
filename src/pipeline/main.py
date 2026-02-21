@@ -91,8 +91,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--strict-sw31",
+        dest="strict_sw31",
         action="store_true",
-        help="Require SW31 coverage when running --to-l2.",
+        default=True,
+        help="Require SW31 coverage when running --to-l2 (default enabled).",
+    )
+    run_parser.add_argument(
+        "--allow-all-fallback",
+        dest="strict_sw31",
+        action="store_false",
+        help="Disable SW31 strict gate for debugging only.",
     )
     run_parser.add_argument(
         "--dry-run",
@@ -207,6 +215,10 @@ def _config_snapshot(config: Config) -> dict[str, object]:
         "parquet_path": config.parquet_path,
         "cache_path": config.cache_path,
         "log_path": config.log_path,
+        "flat_threshold": config.flat_threshold,
+        "min_coverage_ratio": config.min_coverage_ratio,
+        "stale_hard_limit_days": config.stale_hard_limit_days,
+        "enable_intraday_incremental": config.enable_intraday_incremental,
         "tushare_primary_sdk_provider": str(
             config.tushare_primary_sdk_provider or config.tushare_sdk_provider
         ),

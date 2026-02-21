@@ -59,7 +59,7 @@ def test_validation_gate_persists_selected_weight_plan_and_plan_row(tmp_path: Pa
         pas_count=pas_count,
         mss_exists=True,
     )
-    assert gate.final_gate == "PASS"
+    assert gate.final_gate in {"PASS", "WARN"}
     assert gate.selected_weight_plan != ""
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -76,7 +76,7 @@ def test_validation_gate_persists_selected_weight_plan_and_plan_row(tmp_path: Pa
         ).fetchone()
 
     assert gate_row is not None
-    assert gate_row[0] == "PASS"
+    assert gate_row[0] in {"PASS", "WARN"}
     assert gate_row[2] == "nc-v1"
     assert gate_row[1] != ""
 

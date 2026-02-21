@@ -1,7 +1,7 @@
-# S0a 执行卡（v0.1）
+# S0a 执行卡（v0.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S0a（入口与配置）
 
@@ -12,6 +12,7 @@
 - 落地统一入口 `eq`。
 - 落地 `src.pipeline.main` 最小 CLI。
 - 确保配置读取仅通过 `Config.from_env()` 注入。
+- 确保数据门禁关键配置可在入口层可见（`flat_threshold/min_coverage_ratio/stale_hard_limit_days`）。
 
 ---
 
@@ -30,6 +31,7 @@ eq --env-file .env --print-config run --date 20260215 --dry-run
 ```bash
 pytest tests/unit/pipeline/test_cli_entrypoint.py -q
 pytest tests/unit/config/test_config_defaults.py -q
+pytest tests/unit/config/test_env_docs_alignment.py -q
 ```
 
 ---
@@ -49,6 +51,7 @@ pytest tests/unit/config/test_config_defaults.py -q
 - 必填结论：
   - 入口命令是否可复现
   - 配置注入是否仅走 `Config.from_env()`
+  - 门禁关键配置是否可见（`flat_threshold/min_coverage_ratio/stale_hard_limit_days`）
   - 是否存在硬编码路径
 
 ---

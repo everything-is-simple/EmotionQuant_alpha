@@ -129,6 +129,10 @@ if BaseSettings:
 
         log_level: str = "INFO"
         environment: str = "development"
+        flat_threshold: float = 0.5
+        min_coverage_ratio: float = 0.95
+        stale_hard_limit_days: int = 3
+        enable_intraday_incremental: bool = False
         streamlit_port: int = 8501
         trading_max_industry_rank: int = 5
         trading_min_irs_score: float = 50.0
@@ -236,6 +240,10 @@ else:
 
         log_level: str = "INFO"
         environment: str = "development"
+        flat_threshold: float = 0.5
+        min_coverage_ratio: float = 0.95
+        stale_hard_limit_days: int = 3
+        enable_intraday_incremental: bool = False
         streamlit_port: int = 8501
         trading_max_industry_rank: int = 5
         trading_min_irs_score: float = 50.0
@@ -326,6 +334,14 @@ else:
                 log_path=storage["log_path"],
                 log_level=os.getenv("LOG_LEVEL", "INFO"),
                 environment=os.getenv("ENVIRONMENT", "development"),
+                flat_threshold=float(os.getenv("FLAT_THRESHOLD", "0.5")),
+                min_coverage_ratio=float(os.getenv("MIN_COVERAGE_RATIO", "0.95")),
+                stale_hard_limit_days=int(os.getenv("STALE_HARD_LIMIT_DAYS", "3")),
+                enable_intraday_incremental=os.getenv(
+                    "ENABLE_INTRADAY_INCREMENTAL",
+                    "false",
+                ).strip().lower()
+                in {"1", "true", "y", "yes"},
                 streamlit_port=int(os.getenv("STREAMLIT_PORT", "8501")),
                 trading_max_industry_rank=int(
                     os.getenv("TRADING_MAX_INDUSTRY_RANK", "5")

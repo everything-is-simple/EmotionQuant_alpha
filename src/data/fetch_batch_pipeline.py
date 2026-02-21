@@ -561,8 +561,11 @@ def run_fetch_batch(
         if stop_after_batches is not None and processed >= max(0, int(stop_after_batches)):
             break
         batch_id = int(window.batch_id)
-        if batch_id in completed_ids or batch_id in failed_ids:
+        if batch_id in completed_ids:
             continue
+        if batch_id in failed_ids:
+            failed_ids.discard(batch_id)
+            failed_batch_errors.pop(str(batch_id), None)
 
         if batch_id in fail_once and batch_id not in injected_ids:
             failed_ids.add(batch_id)

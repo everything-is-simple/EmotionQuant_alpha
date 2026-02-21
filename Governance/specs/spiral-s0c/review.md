@@ -2,7 +2,7 @@
 
 **Spiral**: S0c  
 **状态**: completed  
-**复盘日期**: 2026-02-15
+**复盘日期**: 2026-02-21
 
 ## 1. A3 交付结果
 
@@ -58,3 +58,36 @@
 ## 6. 跨文档联动
 
 - 本圈未引入命名契约破坏性变更，不触发 `docs/naming-contracts.schema.json` 与 CP 文档强制联动。
+
+## 7. S0c-R1 收口补记（2026-02-21）
+
+### A3 交付补充
+
+- 修复 S0c 门禁语义漂移：在 DuckDB 文件缺失场景恢复 `duckdb_not_found` 错误语义，同时保留 `data_readiness_gate` 持久化。
+- 升级离线模拟 SW31 数据：`index_classify/index_member` 提供 31 行业映射，支持 `strict_sw31` 默认门禁回归。
+- 新增合同测试：
+  - `tests/unit/data/test_data_readiness_persistence_contract.py`
+  - `tests/unit/data/test_flat_threshold_config_contract.py`
+
+### A4 验证补充
+
+- run:
+  - `$env:TUSHARE_TOKEN=''; $env:TUSHARE_PRIMARY_TOKEN=''; $env:TUSHARE_FALLBACK_TOKEN=''; python -m src.pipeline.main --env-file artifacts/spiral-s0c/20260215/.env.s0c.hardening run --date 20260215 --source tushare --l1-only`
+  - `$env:TUSHARE_TOKEN=''; $env:TUSHARE_PRIMARY_TOKEN=''; $env:TUSHARE_FALLBACK_TOKEN=''; python -m src.pipeline.main --env-file artifacts/spiral-s0c/20260215/.env.s0c.hardening run --date 20260215 --source tushare --to-l2 --strict-sw31`
+  - 结果: PASS（`industry_snapshot_count=31`，`status=ok`）
+- test:
+  - `pytest -q tests/unit/data/test_s0_canary.py tests/unit/data/test_snapshot_contract.py tests/unit/data/test_industry_snapshot_sw31_contract.py tests/unit/data/test_data_readiness_persistence_contract.py tests/unit/data/test_flat_threshold_config_contract.py tests/unit/data/test_quality_gate.py tests/unit/data/test_fetcher_contract.py`
+  - 结果: PASS（18 passed）
+- contracts/governance:
+  - `python -m scripts.quality.local_quality_check --contracts --governance`
+  - 结果: PASS（contracts/behavior/traceability/governance 全通过）
+
+### A5 证据链补充
+
+- `Governance/specs/spiral-s0c/l2_quality_gate_report.md`
+- `Governance/specs/spiral-s0c/sw_mapping_audit.md`
+- `Governance/specs/spiral-s0c/industry_snapshot_sw31_sample.parquet`
+
+### 复盘结论
+
+- S0c v0.2 门禁与测试契约已收敛；`strict_sw31 + data_readiness + flat_threshold` 三项已形成可复核证据链。
