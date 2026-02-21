@@ -1,9 +1,17 @@
 # S2a 执行卡（v0.2）
 
-**状态**: Active  
+**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S2a（IRS + PAS + Validation）
+
+---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：本卡任务已完成，IRS/PAS/Validation 三模块按核心设计落地并可联动执行。
+- 证据锚点：`src/algorithms/irs/pipeline.py`、`src/algorithms/pas/pipeline.py`、`src/algorithms/validation/pipeline.py`、`tests/unit/algorithms/irs/test_irs_contract.py`、`tests/unit/algorithms/pas/test_pas_contract.py`、`tests/unit/integration/test_validation_gate_contract.py`、`tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py`。
+- 关键确认：Validation 执行字段与 `contract_version=nc-v1` 约束已稳定输出。
 
 ---
 
@@ -77,3 +85,5 @@ pytest tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py -q
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - Validation 设计：`docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md`
+
+

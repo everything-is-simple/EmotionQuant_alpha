@@ -1,9 +1,17 @@
 # S2c 执行卡（v0.4）
 
-**状态**: Active  
+**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2c）  
 **微圈**: S2c（核心算法深化：完整语义实现 + 权重桥接硬门禁）
+
+---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：本卡“核心算法深化”任务已完成，MSS/IRS/PAS/Validation/Integration 全链路达到完整语义实现。
+- 证据锚点：`src/algorithms/mss/engine.py`、`src/algorithms/irs/pipeline.py`、`src/algorithms/pas/pipeline.py`、`src/algorithms/validation/pipeline.py`、`src/integration/pipeline.py`、`tests/unit/integration/test_algorithm_semantics_regression.py`。
+- 关键确认：`validation_weight_plan` 桥接硬门禁、Integration 四模式与推荐硬约束、MSS `rank/percentile` 落库均已落实。
 
 ---
 
@@ -139,3 +147,5 @@ pytest tests/unit/integration/test_integration_contract.py -q
 | v0.3 | 2026-02-17 | 新增 `evidence_lane` 收口口径：正式证据固定 `release` 车道，`debug` 目录仅用于调试/演练 |
 | v0.2 | 2026-02-16 | 明确 S2c 为“核心算法完整实现 + 桥接硬门禁”双目标；新增 MSS/IRS/PAS/Validation/Integration 模块级补齐任务、测试与产物清单 |
 | v0.1 | 2026-02-16 | 首版：定义 S2c 执行卡（权重桥接 + 语义收口） |
+
+

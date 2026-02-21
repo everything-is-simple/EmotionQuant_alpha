@@ -1,9 +1,27 @@
 # EmotionQuant S0-S2r 真螺旋执行路线图（执行版 v1.3）
 
-**状态**: Active  
+**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
 **更新时间**: 2026-02-21  
 **适用范围**: S0-S2r（数据层到核心算法深化与修复闭环）  
 **文档角色**: S0-S2r 执行合同（不是上位 SoT 替代）
+
+---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：`S0-S2r` 路线图覆盖项已完成设计到代码的完整转化，满足“完整版、可实战”口径。
+- 核心算法与关键语义已落地：
+  - Integration 四模式：`top_down/bottom_up/dual_verify/complementary`（`src/integration/pipeline.py`、`src/pipeline/main.py`）
+  - 推荐硬约束：每日最多 `20`、单行业最多 `5`（`src/integration/pipeline.py`）
+  - MSS 历史排序字段：`mss_rank/mss_percentile` 正式落库（`src/algorithms/mss/engine.py`、`src/algorithms/mss/pipeline.py`）
+- 复核测试与门禁：
+  - `python -m scripts.quality.local_quality_check --contracts --governance`（通过）
+  - `pytest tests/unit/integration/test_integration_contract.py -q`（通过）
+  - `pytest tests/unit/integration/test_quality_gate_contract.py -q`（通过）
+  - `pytest tests/unit/integration/test_validation_gate_contract.py -q`（通过）
+  - `pytest tests/unit/algorithms/mss/test_mss_full_semantics_contract.py -q`（通过）
+  - `pytest tests/unit/integration/test_algorithm_semantics_regression.py -q`（通过）
+- 维护规则：若任一契约/语义回归失败，必须将状态回退为 `blocked` 并进入对应修复微圈（含 `S2r`）。
 
 ---
 
@@ -394,3 +412,5 @@ flowchart LR
 | v0.3 | 2026-02-13 | 升级为实战口径：纳入 PAS（CP-04）、补 A 股规则门禁、修复基线可执行描述、补充与 S3a 衔接 |
 | v0.2 | 2026-02-13 | 修复可执行性断点：补 SoT 定位、引入 baseline/target 双命令口径、补 CP Slice、统一参数占位符、重写微圈合同 |
 | v0.1 | 2026-02-13 | 初稿 |
+
+

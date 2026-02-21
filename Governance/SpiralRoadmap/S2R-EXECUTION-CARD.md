@@ -1,9 +1,17 @@
 # S2r 执行卡（v0.2）
 
-**状态**: Active  
+**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S2r（质量门失败修复子圈）
+
+---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：本卡任务已完成，S2 失败修复子圈具备可执行与可追溯能力。
+- 证据锚点：`src/pipeline/recommend.py`、`src/pipeline/main.py`、`tests/unit/integration/test_quality_gate_contract.py`。
+- 关键确认：`--repair s2r` 已可运行，修复产物 `s2r_patch_note/s2r_delta_report` 与 `integration_mode`、桥接链路均可审计。
 
 ---
 
@@ -75,3 +83,5 @@ pytest tests/unit/integration/test_quality_gate_contract.py -q
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - Integration 设计：`docs/design/core-algorithms/integration/integration-algorithm.md`
+
+

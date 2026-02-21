@@ -1,9 +1,17 @@
 # S0c 执行卡（v0.3）
 
-**状态**: Active  
+**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S0c（L2 快照与错误分级）
+
+---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：本卡任务已完成，L2 快照、SW31 严格门禁与错误分级满足实战口径。
+- 证据锚点：`src/data/l2_pipeline.py`、`tests/unit/data/test_snapshot_contract.py`、`tests/unit/data/test_industry_snapshot_sw31_contract.py`、`tests/unit/data/test_flat_threshold_config_contract.py`。
+- 关键确认：`flat_threshold` 与 SW31 规则执行一致，S2 所需行业映射链路可审计。
 
 ---
 
@@ -86,3 +94,5 @@ pytest tests/unit/data/test_flat_threshold_config_contract.py -q
 
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
+
+

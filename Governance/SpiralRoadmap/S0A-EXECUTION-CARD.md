@@ -1,9 +1,17 @@
 # S0a 执行卡（v0.3）
 
-**状态**: Active  
+**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S0a（入口与配置）
+
+---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：本卡任务已完成，入口与配置契约满足完整版并可支持实战链路。
+- 证据锚点：`src/pipeline/main.py`、`src/config/config.py`、`tests/unit/pipeline/test_cli_entrypoint.py`、`tests/unit/config/test_config_defaults.py`、`tests/unit/config/test_env_docs_alignment.py`。
+- 关键确认：`recommend` 子命令已支持 `--integration-mode` 与 `--repair s2r`，可承载 S2 完整语义执行。
 
 ---
 
@@ -79,3 +87,5 @@ pytest tests/unit/config/test_env_docs_alignment.py -q
 
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
+
+

@@ -1,9 +1,17 @@
 # S0b 执行卡（v0.3）
 
-**状态**: Active  
+**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S0b（L1 采集入库）
+
+---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：本卡任务已完成，L1 入库与数据门禁持久化满足实战可审计要求。
+- 证据锚点：`src/data/l1_pipeline.py`、`src/data/quality_store.py`、`tests/unit/data/test_fetcher_contract.py`、`tests/unit/data/test_l1_repository_contract.py`、`tests/unit/data/test_data_readiness_persistence_contract.py`。
+- 关键确认：`system_config/data_quality_report/data_readiness_gate` 已稳定落库并可被后续微圈消费。
 
 ---
 
@@ -79,3 +87,5 @@ pytest tests/unit/data/test_data_readiness_persistence_contract.py -q
 
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
+
+
