@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**当前版本**: v4.24（S3d/S3e 阻断修复：Validation 入口与 MSS 参数契约落地）  
+**当前版本**: v4.25（S3b 入口兼容收口：`eq` 非仓库目录可直接执行）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -19,6 +19,15 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-21，S3b 入口兼容收口）
+
+1. 修复 `eq` 入口包发现配置：`pyproject.toml` 从 `where=["src"]` 调整为 `where=["."] + include=["src*"]`，确保安装后可定位 `src` 顶层包。
+2. 新增打包契约测试：`tests/unit/config/test_dependency_manifest.py` 增补 `eq` 入口与 `setuptools` 包发现断言，防止回归到 `ModuleNotFoundError: src`。
+3. 实测验证通过：从非仓库目录执行 `G:\EmotionQuant-alpha\.venv\Scripts\eq.cmd --help` 成功。
+4. 债务口径同步：清偿 `TD-S3B-016`，S3b 执行卡命令“可直接复跑”一致性风险解除。
 
 ---
 
@@ -215,6 +224,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v4.25 | S3b 入口兼容收口：修复 `pyproject` 包发现配置并补齐契约测试，仓库外目录执行 `eq --help` 成功，清偿 TD-S3B-016 |
 | 2026-02-21 | v4.24 | S3d/S3e 阻断修复：落地 `eq validation` 与 MSS CLI 参数契约，补齐 5 条目标合同测试，执行卡切换为 Active |
 | 2026-02-21 | v4.23 | S3 审计对齐：落地 `backtest --repair s3r`，修正 S3c 命令口径，补齐 `spiral-s3r/s3c/s3d/s3e` specs 骨架并同步执行卡状态 |
 | 2026-02-21 | v4.22 | 补齐 `spiral-s2r` specs 档案并重审 `spiral-s2b/s2c` 规格口径，完成 S0-S2r 路线图/执行卡/specs/record 四层一致性复核 |

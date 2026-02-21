@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**版本**: v1.28  
+**版本**: v1.29  
 **范围**: S0-S6
 
 ---
@@ -24,7 +24,6 @@
 | TD-S0-002 | Validation 虽已补齐因子/权重验证语义，但生产级真实收益口径与统计校准仍待完成 | P2 | 影响 S3 回测与实盘前解释力一致性 | S3e | ⏳ 待处理 |
 | TD-S0-004 | S3 已完成多交易日回放、T+1 与板块化涨跌停阈值（10%/20%/5%），但更细撮合规则（一字板/流动性枯竭）仍待完善 | P1 | 若不补齐，A 股规则一致性仍可能偏差 | S3-S4 | 🔄 处理中 |
 | TD-S0-005 | 仓库内仍有部分 `Phase` 历史措辞（设计参考文档） | P2 | 容易带回线性心智 | S0-S2 | ⏳ 待处理 |
-| TD-S3B-016 | `eq` 可执行入口在部分环境存在包路径兼容问题（`ModuleNotFoundError: src`），当前需以 `python -m src.pipeline.main` 兜底 | P1 | 影响执行卡命令“可直接复跑”一致性，可能拖慢 S3b run 证据生成 | S3b | 🔄 处理中 |
 | TD-S3A-015 | AKShare/BaoStock 最后底牌适配未实装（当前仅双 TuShare 主备） | P2 | 极端情况下对 TuShare 双通道仍存在单生态依赖 | S3ar-next | ⏳ 待处理 |
 | TD-GOV-012 | `DESIGN_TRACE` 已扩展到 S3 Backtest 与 S4 Trading 核心模块，但仍未覆盖全仓核心代码 | P2 | 仍可能存在“实现无设计溯源标记”的盲区 | S3-S4 | 🔄 处理中 |
 
@@ -41,6 +40,7 @@
 | TD-S3-017 | S3d/S3e 执行卡目标命令尚未完全落地（缺 `eq validation` 子命令与 MSS adaptive/probe 参数契约） | 2026-02-21 | 已落地 `eq validation` 与 MSS `--threshold-mode/--return-series-source`，并补齐 5 条目标合同测试 |
 | TD-S1-007 | MSS 当前采用固定阈值（30/45/60/75），未实现自适应分位阈值 | 2026-02-21 | MSS CLI 已支持 `threshold-mode`，并产出阈值快照与回退证据 |
 | TD-S1-008 | S1b 探针当前以 `mss_temperature` 前后变化代替收益序列，统计解释力有限 | 2026-02-21 | MSS probe 已支持 `return_series_source=future_returns` 并形成门禁与消费产物 |
+| TD-S3B-016 | `eq` 可执行入口在部分环境存在包路径兼容问题（`ModuleNotFoundError: src`） | 2026-02-21 | 已修复 `pyproject.toml` 打包发现规则为 `where='.' + include='src*'`；仓库外目录执行 `G:\\EmotionQuant-alpha\\.venv\\Scripts\\eq.cmd --help` 通过，不再依赖 `python -m src.pipeline.main` 兜底 |
 | TD-S2-010 | S2c 已接入 `validation_weight_plan` 桥接硬门禁，但候选权重生成与 Walk-Forward 选优尚未实现 | 2026-02-17 | 候选权重评估与 Walk-Forward 选优已落地，桥接与语义回归测试通过 |
 | TD-S3A-011 | ENH-10 已完成最小实现，但真实远端采集链路吞吐与异常恢复证据尚未补齐 | 2026-02-17 | S3a 已收口：真实 TuShare 客户端接入、实测吞吐报告落地、失败批次真实重跑恢复；全量测试与治理门禁通过 |
 | TD-S3A-014 | S3ar 锁恢复实现已落地（重试/PID/等待时长/幂等写入），但真实窗口压测与实网证据归档未完成 | 2026-02-20 | S3ar 已收口：主/兜底 token check、独立限速压测与窗口采集产物已归档，状态由 `in_progress` 切换为 `completed` |
@@ -68,6 +68,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v1.29 | 清偿 TD-S3B-016：修复 `eq` 入口打包路径兼容问题，仓库外目录直接执行 `eq` 命令通过 |
 | 2026-02-21 | v1.28 | 清偿 TD-S3-017 / TD-S1-007 / TD-S1-008：S3d/S3e CLI 阻断解除，MSS adaptive 与 future_returns probe 契约落地并通过合同测试 |
 | 2026-02-21 | v1.27 | S3 审计补录：新增 TD-S3-017（S3d/S3e CLI 契约缺口），明确其为核心算法 full 实现前置阻断项 |
 | 2026-02-21 | v1.26 | S0-S2r 一致性复核同步：核对路线图/执行卡/specs/record 与代码实现一致；无新增 P0/P1 债务 |
