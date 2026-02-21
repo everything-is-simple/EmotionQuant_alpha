@@ -1,7 +1,7 @@
-# S3e 执行卡（v0.1）
+# S3e 执行卡（v0.2）
 
-**状态**: Planned  
-**更新时间**: 2026-02-20  
+**状态**: Active（2026-02-21 已解除 CLI 阻断）  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3e（Validation 生产校准闭环）
 
@@ -9,9 +9,9 @@
 
 ## 0. 现状对齐（2026-02-21）
 
-- 本卡为计划圈，尚未进入执行态。
-- 进入执行前必须补齐独立入口：`eq validation` 子命令（含 `--threshold-mode/--wfa/--export-run-manifest`）。
-- 在 `eq validation` 与对应合同测试落地前，S3e 不得标记 `in_progress/completed`。
+- CLI 阻断已解除：`eq validation` 子命令（`--threshold-mode/--wfa/--export-run-manifest`）已落地。
+- 对应合同测试已补齐：`test_factor_future_returns_alignment_contract.py`、`test_weight_validation_dual_window_contract.py`、`test_validation_oos_metrics_contract.py`。
+- 当前进入执行态，待窗口级实证证据收口后再评估 Completed。
 
 ## 1. 目标
 

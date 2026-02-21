@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.4.2  
+**版本**: v7.4.3  
 **最后更新**: 2026-02-21  
 **适用对象**: 个人开发、个人使用
 
@@ -88,8 +88,8 @@
 | S3r | 回测修复子圈（条件触发） | 📋 planned | `Governance/specs/spiral-s3r/final.md` |
 | S3b | 收益归因验证专项圈 | 🔄 in_progress | `Governance/specs/spiral-s3b/final.md` |
 | S3c | 行业语义校准专项圈（SW31 行业映射 + IRS 全覆盖门禁） | 📋 planned | `Governance/specs/spiral-s3c/final.md` |
-| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 📋 planned | `Governance/specs/spiral-s3d/final.md` |
-| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 📋 planned | `Governance/specs/spiral-s3e/final.md` |
+| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 in_progress | `Governance/specs/spiral-s3d/final.md` |
+| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 in_progress | `Governance/specs/spiral-s3e/final.md` |
 | S4b | 极端防御专项圈 | 📋 planned | 待创建 `Governance/specs/spiral-s4b/*` |
 | S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
 | S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
@@ -222,6 +222,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.4.3 | 2026-02-21 | S3d/S3e 阻断修复同步：`eq validation` 与 MSS `threshold-mode/return-series-source` 契约落地；S3d/S3e 状态切换为 `in_progress` |
 | v7.4.2 | 2026-02-21 | S3 审计对齐：补齐 `spiral-s3r/s3c/s3d/s3e` specs 骨架入口；新增 S3r 状态行并同步 S3 计划圈证据路径 |
 | v7.4.1 | 2026-02-21 | S0c-R1 收口：补齐 SW31 严格门禁与 `data_readiness` 持久化契约，更新 S0 同步记录口径 |
 | v7.4.0 | 2026-02-20 | 新增核心实现深度专项圈 `S3c/S3d/S3e`（行业语义校准、MSS 自适应校准、Validation 生产校准）；明确“核心设计 full 完成点”与 S4b 前置依赖 |

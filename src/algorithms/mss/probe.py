@@ -6,6 +6,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+import duckdb
 import pandas as pd
 
 from src.config.config import Config
@@ -31,10 +32,12 @@ class MssProbeResult:
     start_date: str
     end_date: str
     artifacts_dir: Path
+    return_series_source: str
     has_error: bool
     error_manifest_path: Path
     probe_report_path: Path
     consumption_case_path: Path
+    gate_report_path: Path
     top_bottom_spread_5d: float
     conclusion: str
 
@@ -61,10 +64,7 @@ def _compute_top_bottom_spread_5d(frame: pd.DataFrame) -> tuple[float, str, int,
         return 0.0, "WARN_INSUFFICIENT_SAMPLE", 0, 0, 0
 
     work = frame.copy().reset_index(drop=True)
-    work["forward_5d"] = (
-        work["mss_temperature"].shift(-5) - work["mss_temperature"]
-    ) / work["mss_temperature"].abs().replace(0.0, 1.0)
-    valid = work.iloc[:-5].copy()
+    valid = work.dropna(subset=["forward_5d"]).copy()
     if valid.empty:
         return 0.0, "WARN_INSUFFICIENT_SAMPLE", 0, 0, 0
 
@@ -86,6 +86,41 @@ def _compute_top_bottom_spread_5d(frame: pd.DataFrame) -> tuple[float, str, int,
     return spread, conclusion, len(valid), len(top_bucket), len(bottom_bucket)
 
 
+def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+        [table_name],
+    ).fetchone()
+    return bool(row and int(row[0]) > 0)
+
+
+def _load_future_returns_5d(
+    *,
+    database_path: Path,
+    start_date: str,
+    end_date: str,
+) -> pd.DataFrame:
+    if not database_path.exists():
+        return pd.DataFrame(columns=["trade_date", "forward_5d"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        if not _table_exists(connection, "raw_index_daily"):
+            return pd.DataFrame(columns=["trade_date", "forward_5d"])
+        index_frame = connection.execute(
+            "SELECT CAST(trade_date AS VARCHAR) AS trade_date, AVG(close) AS market_close "
+            "FROM raw_index_daily "
+            "WHERE CAST(trade_date AS VARCHAR) >= ? AND CAST(trade_date AS VARCHAR) <= ? "
+            "GROUP BY trade_date ORDER BY trade_date",
+            [start_date, end_date],
+        ).df()
+    if index_frame.empty:
+        return pd.DataFrame(columns=["trade_date", "forward_5d"])
+    index_frame["market_close"] = pd.to_numeric(index_frame["market_close"], errors="coerce")
+    index_frame["forward_5d"] = (
+        index_frame["market_close"].shift(-5) - index_frame["market_close"]
+    ) / index_frame["market_close"].replace(0.0, pd.NA)
+    return index_frame[["trade_date", "forward_5d"]].dropna(subset=["forward_5d"]).reset_index(drop=True)
+
+
 def _write_probe_report(
     *,
     path: Path,
@@ -97,6 +132,7 @@ def _write_probe_report(
     bottom_bucket_count: int,
     spread: float,
     conclusion: str,
+    return_series_source: str,
 ) -> None:
     lines = [
         "# MSS Only Probe Report",
@@ -107,6 +143,7 @@ def _write_probe_report(
         f"- effective_samples_5d: {effective_samples_5d}",
         f"- top_bucket_count: {top_bucket_count}",
         f"- bottom_bucket_count: {bottom_bucket_count}",
+        f"- return_series_source: {return_series_source}",
         f"- top_bottom_spread_5d: {round(spread, 6)}",
         f"- conclusion: {conclusion}",
         "",
@@ -142,15 +179,47 @@ def _write_consumption_case(
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_gate_report(
+    *,
+    path: Path,
+    start_date: str,
+    end_date: str,
+    return_series_source: str,
+    conclusion: str,
+    has_error: bool,
+) -> None:
+    gate_result = "FAIL" if has_error else ("PASS" if conclusion == "PASS_POSITIVE_SPREAD" else "WARN")
+    lines = [
+        "# MSS Probe Gate Report",
+        "",
+        f"- start_date: {start_date}",
+        f"- end_date: {end_date}",
+        f"- return_series_source: {return_series_source}",
+        f"- conclusion: {conclusion}",
+        f"- gate_result: {gate_result}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def run_mss_probe(
     *,
     start_date: str,
     end_date: str,
     config: Config,
+    return_series_source: str = "temperature_delta",
+    artifacts_dir: Path | None = None,
 ) -> MssProbeResult:
     _validate_date_range(start_date, end_date)
+    source = str(return_series_source or "temperature_delta").strip().lower() or "temperature_delta"
+    if source not in {"temperature_delta", "future_returns"}:
+        raise ValueError(
+            "unsupported return_series_source: "
+            f"{return_series_source}; allowed=['future_returns', 'temperature_delta']"
+        )
 
-    artifacts_dir = Path("artifacts") / "spiral-s1b" / f"{start_date}_{end_date}"
+    resolved_artifacts_dir = artifacts_dir or (Path("artifacts") / "spiral-s1b" / f"{start_date}_{end_date}")
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     errors: list[dict[str, str]] = []
 
@@ -167,8 +236,11 @@ def run_mss_probe(
 
     spread = 0.0
     conclusion = "WARN_NOT_RUN"
-    probe_report_path = artifacts_dir / "mss_only_probe_report.md"
-    consumption_case_path = artifacts_dir / "mss_consumption_case.md"
+    probe_report_name = "mss_probe_return_series_report.md" if source == "future_returns" else "mss_only_probe_report.md"
+    consumption_name = "consumption.md" if source == "future_returns" else "mss_consumption_case.md"
+    probe_report_path = resolved_artifacts_dir / probe_report_name
+    consumption_case_path = resolved_artifacts_dir / consumption_name
+    gate_report_path = resolved_artifacts_dir / "gate_report.md"
 
     try:
         frame = load_mss_panorama_for_integration(
@@ -194,9 +266,22 @@ def run_mss_probe(
             )
             raise RuntimeError("contract_version_mismatch")
 
-        spread, conclusion, effective_samples_5d, top_count, bottom_count = _compute_top_bottom_spread_5d(
-            frame
-        )
+        work = frame.copy().reset_index(drop=True)
+        if source == "future_returns":
+            future_returns = _load_future_returns_5d(
+                database_path=database_path,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            if future_returns.empty:
+                add_error("P1", "future_returns", "future_returns_series_missing")
+            work = work.merge(future_returns, on="trade_date", how="left")
+        else:
+            work["forward_5d"] = (
+                work["mss_temperature"].shift(-5) - work["mss_temperature"]
+            ) / work["mss_temperature"].abs().replace(0.0, 1.0)
+
+        spread, conclusion, effective_samples_5d, top_count, bottom_count = _compute_top_bottom_spread_5d(work)
         _write_probe_report(
             path=probe_report_path,
             start_date=start_date,
@@ -207,6 +292,7 @@ def run_mss_probe(
             bottom_bucket_count=bottom_count,
             spread=spread,
             conclusion=conclusion,
+            return_series_source=source,
         )
         latest_row = frame.iloc[-1]
         _write_consumption_case(
@@ -214,10 +300,18 @@ def run_mss_probe(
             latest_row=latest_row,
             conclusion=conclusion,
         )
+        _write_gate_report(
+            path=gate_report_path,
+            start_date=start_date,
+            end_date=end_date,
+            return_series_source=source,
+            conclusion=conclusion,
+            has_error=bool(errors),
+        )
     except Exception as exc:  # pragma: no cover - guarded by contract tests
         if not errors:
             add_error("P0", "run_mss_probe", str(exc))
-        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        resolved_artifacts_dir.mkdir(parents=True, exist_ok=True)
         probe_report_path.write_text(
             "# MSS Only Probe Report\n\n- status: FAIL\n",
             encoding="utf-8",
@@ -226,17 +320,26 @@ def run_mss_probe(
             "# MSS Consumption Case\n\n- status: FAIL\n",
             encoding="utf-8",
         )
+        _write_gate_report(
+            path=gate_report_path,
+            start_date=start_date,
+            end_date=end_date,
+            return_series_source=source,
+            conclusion=conclusion,
+            has_error=True,
+        )
 
     error_manifest_payload = {
         "start_date": start_date,
         "end_date": end_date,
+        "return_series_source": source,
         "error_count": len(errors),
         "errors": errors,
     }
-    sample_manifest_path = artifacts_dir / "error_manifest_sample.json"
+    sample_manifest_path = resolved_artifacts_dir / "error_manifest_sample.json"
     _write_json(sample_manifest_path, error_manifest_payload)
     if errors:
-        manifest_path = artifacts_dir / "error_manifest.json"
+        manifest_path = resolved_artifacts_dir / "error_manifest.json"
         _write_json(manifest_path, error_manifest_payload)
     else:
         manifest_path = sample_manifest_path
@@ -244,11 +347,13 @@ def run_mss_probe(
     return MssProbeResult(
         start_date=start_date,
         end_date=end_date,
-        artifacts_dir=artifacts_dir,
+        artifacts_dir=resolved_artifacts_dir,
+        return_series_source=source,
         has_error=bool(errors),
         error_manifest_path=manifest_path,
         probe_report_path=probe_report_path,
         consumption_case_path=consumption_case_path,
+        gate_report_path=gate_report_path,
         top_bottom_spread_5d=spread,
         conclusion=conclusion,
     )

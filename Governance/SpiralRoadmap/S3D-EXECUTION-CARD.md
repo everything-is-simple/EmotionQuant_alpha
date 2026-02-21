@@ -1,7 +1,7 @@
-# S3d 执行卡（v0.1）
+# S3d 执行卡（v0.2）
 
-**状态**: Planned  
-**更新时间**: 2026-02-20  
+**状态**: Active（2026-02-21 已解除 CLI 阻断）  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3d（MSS 自适应校准闭环）
 
@@ -9,9 +9,9 @@
 
 ## 0. 现状对齐（2026-02-21）
 
-- 本卡为计划圈，尚未进入执行态。
-- 进入执行前必须先补齐 CLI 能力：`eq mss --threshold-mode` 与 `eq mss-probe --return-series-source` 参数契约。
-- 以上能力未落地前，S3d 不得标记 `in_progress/completed`。
+- CLI 阻断已解除：`eq mss --threshold-mode` 与 `eq mss-probe --return-series-source` 已落地。
+- 对应合同测试已补齐：`test_mss_adaptive_threshold_contract.py`、`test_mss_probe_return_series_contract.py`。
+- 当前进入执行态，待窗口级实证证据收口后再评估 Completed。
 
 ## 1. 目标
 

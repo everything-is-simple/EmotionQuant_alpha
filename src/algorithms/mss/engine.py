@@ -17,6 +17,7 @@ DESIGN_TRACE = {
 
 VALID_TRENDS = {"up", "down", "sideways"}
 VALID_TREND_QUALITIES = {"normal", "cold_start", "degraded"}
+VALID_THRESHOLD_MODES = {"fixed", "adaptive"}
 VALID_CYCLES = {
     "emergence",
     "fermentation",
@@ -32,6 +33,7 @@ Z_SCORE_CENTER = 50.0
 Z_SCORE_SCALE = 15.0
 ADAPTIVE_LOOKBACK = 252
 ADAPTIVE_MIN_SAMPLES = 120
+DEFAULT_CYCLE_THRESHOLDS = {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
 
 DEFAULT_FACTOR_BASELINES: dict[str, tuple[float, float]] = {
     "market_coefficient": (0.50, 0.20),
@@ -117,7 +119,7 @@ def _quantile(values: Sequence[float], q: float) -> float:
     return float(sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * weight)
 
 
-def _resolve_cycle_thresholds(temperature_history: Sequence[float]) -> dict[str, float]:
+def _resolve_adaptive_cycle_thresholds(temperature_history: Sequence[float]) -> dict[str, float]:
     history: list[float] = []
     for item in temperature_history[-ADAPTIVE_LOOKBACK:]:
         try:
@@ -127,15 +129,30 @@ def _resolve_cycle_thresholds(temperature_history: Sequence[float]) -> dict[str,
         if math.isfinite(parsed):
             history.append(parsed)
     if len(history) < ADAPTIVE_MIN_SAMPLES:
-        return {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
+        return dict(DEFAULT_CYCLE_THRESHOLDS)
 
     t30 = _quantile(history, 0.30)
     t45 = _quantile(history, 0.45)
     t60 = _quantile(history, 0.60)
     t75 = _quantile(history, 0.75)
     if not (t30 <= t45 <= t60 <= t75):
-        return {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
+        return dict(DEFAULT_CYCLE_THRESHOLDS)
     return {"t30": t30, "t45": t45, "t60": t60, "t75": t75}
+
+
+def resolve_cycle_thresholds(
+    temperature_history: Sequence[float],
+    *,
+    threshold_mode: str = "adaptive",
+) -> dict[str, float]:
+    normalized_mode = str(threshold_mode or "adaptive").strip().lower() or "adaptive"
+    if normalized_mode not in VALID_THRESHOLD_MODES:
+        raise ValueError(
+            f"unsupported threshold_mode: {threshold_mode}; allowed={sorted(VALID_THRESHOLD_MODES)}"
+        )
+    if normalized_mode == "fixed":
+        return dict(DEFAULT_CYCLE_THRESHOLDS)
+    return _resolve_adaptive_cycle_thresholds(temperature_history)
 
 
 @dataclass(frozen=True)
@@ -335,8 +352,7 @@ def detect_cycle(
     if trend not in VALID_TRENDS:
         return "unknown"
 
-    default_thresholds = {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
-    resolved = dict(default_thresholds)
+    resolved = dict(DEFAULT_CYCLE_THRESHOLDS)
     if thresholds is not None:
         try:
             candidate = {
@@ -348,7 +364,7 @@ def detect_cycle(
             if candidate["t30"] <= candidate["t45"] <= candidate["t60"] <= candidate["t75"]:
                 resolved = candidate
         except (TypeError, ValueError):
-            resolved = default_thresholds
+            resolved = dict(DEFAULT_CYCLE_THRESHOLDS)
 
     t30 = resolved["t30"]
     t45 = resolved["t45"]
@@ -419,6 +435,7 @@ def calculate_mss_score(
     snapshot: MssInputSnapshot,
     *,
     temperature_history: Sequence[float] | None = None,
+    threshold_mode: str = "adaptive",
 ) -> MssScoreResult:
     total_stocks = max(snapshot.total_stocks, 1)
 
@@ -525,7 +542,7 @@ def calculate_mss_score(
     cycle = detect_cycle(
         temperature,
         trend,
-        thresholds=_resolve_cycle_thresholds(history),
+        thresholds=resolve_cycle_thresholds(history, threshold_mode=threshold_mode),
     )
     if cycle not in VALID_CYCLES:
         cycle = "unknown"

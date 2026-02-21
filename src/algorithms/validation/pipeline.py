@@ -14,15 +14,19 @@ from src.config.config import Config
 # - docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md (§3 阈值, §4 输出与表结构, §5 Gate 语义)
 # - docs/design/core-algorithms/validation/factor-weight-validation-data-models.md (§3 ValidationConfig, §4 输出模型)
 # - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§3 Validation, §6 artifact)
+# - Governance/SpiralRoadmap/S3E-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 DESIGN_TRACE = {
     "validation_algorithm": "docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md",
     "validation_data_models": "docs/design/core-algorithms/validation/factor-weight-validation-data-models.md",
     "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+    "s3e_execution_card": "Governance/SpiralRoadmap/S3E-EXECUTION-CARD.md",
 }
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 DEFAULT_WEIGHT_PLAN_ID = "vp_balanced_v1"
 CANDIDATE_WEIGHT_PLAN_ID = "vp_candidate_v1"
+SUPPORTED_THRESHOLD_MODES = {"fixed", "regime"}
+SUPPORTED_WFA_MODES = {"single-window", "dual-window"}
 
 
 @dataclass(frozen=True)
@@ -55,10 +59,13 @@ class ValidationGateResult:
     weight_report_frame: pd.DataFrame
     weight_plan_frame: pd.DataFrame
     run_manifest_payload: dict[str, object]
+    threshold_mode: str
+    wfa_mode: str
     factor_report_sample_path: Path
     weight_report_sample_path: Path
     weight_plan_sample_path: Path
     run_manifest_sample_path: Path
+    oos_calibration_report_path: Path
 
 
 def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
@@ -174,6 +181,64 @@ def _clip(value: float, low: float, high: float) -> float:
     return float(max(low, min(high, value)))
 
 
+def _normalize_threshold_mode(mode: str) -> str:
+    normalized = str(mode or "fixed").strip().lower() or "fixed"
+    if normalized not in SUPPORTED_THRESHOLD_MODES:
+        raise ValueError(
+            f"unsupported threshold_mode: {mode}; allowed={sorted(SUPPORTED_THRESHOLD_MODES)}"
+        )
+    return normalized
+
+
+def _normalize_wfa_mode(mode: str) -> str:
+    normalized = str(mode or "single-window").strip().lower() or "single-window"
+    if normalized not in SUPPORTED_WFA_MODES:
+        raise ValueError(f"unsupported wfa mode: {mode}; allowed={sorted(SUPPORTED_WFA_MODES)}")
+    return normalized
+
+
+def _load_market_future_returns(
+    *,
+    database_path: Path,
+    trade_date: str,
+    lookback_days: int = 180,
+) -> pd.DataFrame:
+    if not database_path.exists():
+        return pd.DataFrame(columns=["trade_date", "mss_score", "future_return_5d"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        if not _table_exists(connection, "mss_panorama"):
+            return pd.DataFrame(columns=["trade_date", "mss_score", "future_return_5d"])
+        if not _table_exists(connection, "raw_daily"):
+            return pd.DataFrame(columns=["trade_date", "mss_score", "future_return_5d"])
+        frame = connection.execute(
+            "WITH market_close AS ("
+            "  SELECT CAST(trade_date AS VARCHAR) AS trade_date, AVG(close) AS market_close "
+            "  FROM raw_daily GROUP BY trade_date"
+            "), mss_daily AS ("
+            "  SELECT CAST(trade_date AS VARCHAR) AS trade_date, MAX(mss_score) AS mss_score "
+            "  FROM mss_panorama "
+            "  WHERE CAST(trade_date AS VARCHAR) <= ? "
+            "  GROUP BY trade_date "
+            "  ORDER BY trade_date DESC "
+            "  LIMIT ?"
+            ") "
+            "SELECT m.trade_date, m.mss_score, c.market_close "
+            "FROM mss_daily m "
+            "LEFT JOIN market_close c ON m.trade_date = c.trade_date "
+            "ORDER BY m.trade_date",
+            [trade_date, int(max(lookback_days, 10))],
+        ).df()
+    if frame.empty:
+        return pd.DataFrame(columns=["trade_date", "mss_score", "future_return_5d"])
+    work = frame.copy().reset_index(drop=True)
+    work["market_close"] = pd.to_numeric(work["market_close"], errors="coerce")
+    work["future_return_5d"] = (
+        work["market_close"].shift(-5) - work["market_close"]
+    ) / work["market_close"].replace(0.0, pd.NA)
+    work["mss_score"] = pd.to_numeric(work["mss_score"], errors="coerce")
+    return work[["trade_date", "mss_score", "future_return_5d"]].dropna().reset_index(drop=True)
+
+
 def _to_regime(mss_score: float, market_volatility_20d: float) -> str:
     if mss_score >= 75.0 and market_volatility_20d <= 0.02:
         return "hot_stable"
@@ -228,12 +293,17 @@ def run_validation_gate(
     pas_count: int,
     mss_exists: bool,
     artifacts_dir: Path | None = None,
+    threshold_mode: str = "fixed",
+    wfa_mode: str = "single-window",
+    export_run_manifest: bool = False,
 ) -> ValidationGateResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
         raise FileNotFoundError("duckdb_not_found")
 
-    validation_config = ValidationConfig()
+    resolved_threshold_mode = _normalize_threshold_mode(threshold_mode)
+    resolved_wfa_mode = _normalize_wfa_mode(wfa_mode)
+    validation_config = ValidationConfig(threshold_mode=resolved_threshold_mode)
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         mss_frame = (
@@ -361,6 +431,57 @@ def run_validation_gate(
             }
         )
 
+    future_return_series = _load_market_future_returns(
+        database_path=database_path,
+        trade_date=trade_date,
+        lookback_days=180,
+    )
+    future_sample_size = int(len(future_return_series))
+    if future_sample_size < 2:
+        future_ic = effective_config.ic_warn
+        future_rank_ic = effective_config.rank_ic_warn
+        future_icir = effective_config.icir_warn
+        future_decay = effective_config.decay_pass
+        future_gates = ["WARN", "WARN", "WARN", "PASS"]
+    else:
+        left = future_return_series["mss_score"]
+        right = future_return_series["future_return_5d"]
+        future_ic = _safe_corr(left, right)
+        future_rank_ic = _safe_rank_corr(left, right)
+        future_dispersion = float(pd.Series(left).std(ddof=0) or 0.0)
+        future_icir = future_ic / max(future_dispersion, 0.01)
+        future_decay = max(0.0, 1.0 - abs(future_ic) * 2.0)
+        future_gates = [
+            _normalize_gate(future_ic, effective_config.ic_pass, effective_config.ic_warn),
+            _normalize_gate(future_rank_ic, effective_config.rank_ic_pass, effective_config.rank_ic_warn),
+            _normalize_gate(future_icir, effective_config.icir_pass, effective_config.icir_warn),
+            _normalize_gate(future_decay, effective_config.decay_pass, effective_config.decay_warn),
+        ]
+    factor_rows.append(
+        {
+            "trade_date": trade_date,
+            "factor_name": "mss_future_returns_alignment",
+            "ic": round(float(future_ic), 6),
+            "rank_ic": round(float(future_rank_ic), 6),
+            "icir": round(float(future_icir), 6),
+            "decay_5d": round(float(future_decay), 6),
+            "sample_size": future_sample_size,
+            "gate": _aggregate_gate(future_gates),
+            "vote_detail": json.dumps(
+                {
+                    "ic_gate": future_gates[0],
+                    "rank_ic_gate": future_gates[1],
+                    "icir_gate": future_gates[2],
+                    "decay_gate": future_gates[3],
+                    "return_series_source": "future_returns",
+                },
+                ensure_ascii=False,
+            ),
+            "contract_version": SUPPORTED_CONTRACT_VERSION,
+            "created_at": created_at,
+        }
+    )
+
     factor_report_frame = pd.DataFrame.from_records(factor_rows)
     factor_gate = _aggregate_gate(factor_report_frame["gate"].tolist()) if not factor_report_frame.empty else "FAIL"
 
@@ -385,46 +506,85 @@ def run_validation_gate(
     candidate_sharpe = candidate_return / max(candidate_drawdown, 0.01)
     tradability = _clip(rr_mean / 1.00, 0.0, 1.0)
 
+    future_short_mean = float(
+        pd.to_numeric(future_return_series["future_return_5d"], errors="coerce").tail(20).mean()
+        if not future_return_series.empty
+        else 0.0
+    )
+    future_long_mean = float(
+        pd.to_numeric(future_return_series["future_return_5d"], errors="coerce").tail(60).mean()
+        if not future_return_series.empty
+        else 0.0
+    )
+    window_specs = [("single_window", 1.0)]
+    if resolved_wfa_mode == "dual-window":
+        window_specs = [("short_window", 1.05), ("long_window", 0.95)]
+
     weight_rows = []
     for plan_id, expected_return, max_drawdown, sharpe in (
         (DEFAULT_WEIGHT_PLAN_ID, baseline_return, baseline_drawdown, baseline_sharpe),
         (CANDIDATE_WEIGHT_PLAN_ID, candidate_return, candidate_drawdown, candidate_sharpe),
     ):
-        sharpe_gate = _normalize_gate(sharpe, effective_config.sharpe_pass, effective_config.sharpe_warn)
-        drawdown_gate = (
-            "PASS"
-            if max_drawdown <= effective_config.max_drawdown_pass
-            else (
-                "WARN"
-                if max_drawdown <= effective_config.max_drawdown_warn
-                else "FAIL"
+        for window_group, window_multiplier in window_specs:
+            if window_group == "short_window":
+                window_adjust = _clip(future_short_mean, -0.05, 0.05)
+            elif window_group == "long_window":
+                window_adjust = _clip(future_long_mean, -0.05, 0.05)
+            else:
+                window_adjust = _clip((future_short_mean + future_long_mean) / 2.0, -0.05, 0.05)
+
+            expected_return_adj = max(0.0, expected_return * window_multiplier + window_adjust * 0.15)
+            max_drawdown_adj = max(0.01, max_drawdown * (2.0 - window_multiplier))
+            sharpe_adj = expected_return_adj / max(max_drawdown_adj, 0.01)
+            turnover_cost = max(0.0, 0.001 + (1.0 - rr_mean) * 0.0005)
+            tradability_score = _clip(tradability + window_adjust, 0.0, 1.0)
+
+            sharpe_gate = _normalize_gate(
+                sharpe_adj,
+                effective_config.sharpe_pass,
+                effective_config.sharpe_warn,
             )
-        )
-        tradability_gate = "PASS" if tradability >= 0.5 else ("WARN" if tradability >= 0.3 else "FAIL")
-        gate = _aggregate_gate([sharpe_gate, drawdown_gate, tradability_gate])
-        weight_rows.append(
-            {
-                "trade_date": trade_date,
-                "plan_id": plan_id,
-                "window_group": "short_long_vote",
-                "expected_return": round(float(expected_return), 6),
-                "max_drawdown": round(float(max_drawdown), 6),
-                "sharpe": round(float(sharpe), 6),
-                "turnover_cost": round(max(0.0, 0.001 + (1.0 - rr_mean) * 0.0005), 6),
-                "tradability_score": round(float(tradability), 6),
-                "gate": gate,
-                "vote_detail": json.dumps(
-                    {
-                        "sharpe_gate": sharpe_gate,
-                        "drawdown_gate": drawdown_gate,
-                        "tradability_gate": tradability_gate,
-                    },
-                    ensure_ascii=False,
-                ),
-                "contract_version": SUPPORTED_CONTRACT_VERSION,
-                "created_at": created_at,
-            }
-        )
+            drawdown_gate = (
+                "PASS"
+                if max_drawdown_adj <= effective_config.max_drawdown_pass
+                else (
+                    "WARN"
+                    if max_drawdown_adj <= effective_config.max_drawdown_warn
+                    else "FAIL"
+                )
+            )
+            tradability_gate = (
+                "PASS"
+                if tradability_score >= 0.5
+                else ("WARN" if tradability_score >= 0.3 else "FAIL")
+            )
+            gate = _aggregate_gate([sharpe_gate, drawdown_gate, tradability_gate])
+
+            weight_rows.append(
+                {
+                    "trade_date": trade_date,
+                    "plan_id": plan_id,
+                    "window_group": window_group,
+                    "expected_return": round(float(expected_return_adj), 6),
+                    "max_drawdown": round(float(max_drawdown_adj), 6),
+                    "sharpe": round(float(sharpe_adj), 6),
+                    "turnover_cost": round(float(turnover_cost), 6),
+                    "tradability_score": round(float(tradability_score), 6),
+                    "gate": gate,
+                    "vote_detail": json.dumps(
+                        {
+                            "sharpe_gate": sharpe_gate,
+                            "drawdown_gate": drawdown_gate,
+                            "tradability_gate": tradability_gate,
+                            "wfa_mode": resolved_wfa_mode,
+                            "window_multiplier": window_multiplier,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    "contract_version": SUPPORTED_CONTRACT_VERSION,
+                    "created_at": created_at,
+                }
+            )
 
     weight_report_frame = pd.DataFrame.from_records(weight_rows)
     selected_weight_plan = DEFAULT_WEIGHT_PLAN_ID
@@ -435,8 +595,16 @@ def run_validation_gate(
     if not weight_report_frame.empty:
         baseline_row = weight_report_frame[weight_report_frame["plan_id"] == DEFAULT_WEIGHT_PLAN_ID]
         candidate_row = weight_report_frame[weight_report_frame["plan_id"] == CANDIDATE_WEIGHT_PLAN_ID]
-        baseline_gate = str(baseline_row.iloc[0]["gate"]) if not baseline_row.empty else "FAIL"
-        candidate_gate = str(candidate_row.iloc[0]["gate"]) if not candidate_row.empty else "FAIL"
+        baseline_gate = (
+            _aggregate_gate([str(item) for item in baseline_row["gate"].tolist()])
+            if not baseline_row.empty
+            else "FAIL"
+        )
+        candidate_gate = (
+            _aggregate_gate([str(item) for item in candidate_row["gate"].tolist()])
+            if not candidate_row.empty
+            else "FAIL"
+        )
 
         if baseline_gate in {"PASS", "WARN"}:
             selected_weight_plan = DEFAULT_WEIGHT_PLAN_ID
@@ -444,11 +612,19 @@ def run_validation_gate(
             selected_weight_plan = CANDIDATE_WEIGHT_PLAN_ID
 
         selected_row = weight_report_frame[weight_report_frame["plan_id"] == selected_weight_plan]
-        weight_gate = str(selected_row.iloc[0]["gate"]) if not selected_row.empty else "FAIL"
+        weight_gate = (
+            _aggregate_gate([str(item) for item in selected_row["gate"].tolist()])
+            if not selected_row.empty
+            else "FAIL"
+        )
         if not selected_row.empty:
-            selected_tradability = float(selected_row.iloc[0].get("tradability_score", 0.0) or 0.0)
-            selected_turnover_cost = float(selected_row.iloc[0].get("turnover_cost", 0.0) or 0.0)
-            selected_exec_gate = str(selected_row.iloc[0].get("gate", "FAIL") or "FAIL")
+            selected_tradability = float(
+                pd.to_numeric(selected_row["tradability_score"], errors="coerce").fillna(0.0).mean()
+            )
+            selected_turnover_cost = float(
+                pd.to_numeric(selected_row["turnover_cost"], errors="coerce").fillna(0.0).mean()
+            )
+            selected_exec_gate = weight_gate
 
     stale_days_values = [0]
     if not mss_frame.empty and "stale_days" in mss_frame.columns:
@@ -530,7 +706,7 @@ def run_validation_gate(
                 "tradability_pass_ratio": tradability_pass_ratio,
                 "impact_cost_bps": impact_cost_bps,
                 "candidate_exec_pass": candidate_exec_pass,
-                "threshold_mode": effective_config.threshold_mode,
+                "threshold_mode": resolved_threshold_mode,
                 "regime": regime,
                 "stale_days": int(stale_days),
                 "validation_prescription": validation_prescription,
@@ -572,7 +748,9 @@ def run_validation_gate(
     run_manifest_payload: dict[str, object] = {
         "trade_date": trade_date,
         "run_id": run_id,
-        "threshold_mode": effective_config.threshold_mode,
+        "threshold_mode": resolved_threshold_mode,
+        "wfa_mode": resolved_wfa_mode,
+        "export_run_manifest": bool(export_run_manifest),
         "regime": regime,
         "final_gate": final_gate,
         "selected_weight_plan": selected_weight_plan,
@@ -596,12 +774,18 @@ def run_validation_gate(
             {
                 "trade_date": trade_date,
                 "run_id": run_id,
-                "threshold_mode": effective_config.threshold_mode,
+                "threshold_mode": resolved_threshold_mode,
                 "regime": regime,
                 "final_gate": final_gate,
                 "selected_weight_plan": selected_weight_plan,
                 "input_summary": json.dumps(run_manifest_payload["input_summary"], ensure_ascii=False),
-                "vote_detail": json.dumps(run_manifest_payload["vote_detail"], ensure_ascii=False),
+                "vote_detail": json.dumps(
+                    {
+                        **dict(run_manifest_payload["vote_detail"]),
+                        "wfa_mode": resolved_wfa_mode,
+                    },
+                    ensure_ascii=False,
+                ),
                 "contract_version": SUPPORTED_CONTRACT_VERSION,
                 "created_at": created_at,
             }
@@ -645,6 +829,7 @@ def run_validation_gate(
     weight_report_sample_path = target_artifacts_dir / "validation_weight_report_sample.parquet"
     weight_plan_sample_path = target_artifacts_dir / "validation_weight_plan_sample.parquet"
     run_manifest_sample_path = target_artifacts_dir / "validation_run_manifest_sample.json"
+    oos_calibration_report_path = target_artifacts_dir / "validation_oos_calibration_report.md"
 
     factor_report_frame.to_parquet(factor_report_sample_path, index=False)
     weight_report_frame.to_parquet(weight_report_sample_path, index=False)
@@ -653,6 +838,22 @@ def run_validation_gate(
         json.dumps(run_manifest_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    oos_lines = [
+        "# Validation OOS Calibration Report",
+        "",
+        f"- trade_date: {trade_date}",
+        f"- threshold_mode: {resolved_threshold_mode}",
+        f"- wfa_mode: {resolved_wfa_mode}",
+        f"- final_gate: {final_gate}",
+        f"- factor_gate: {factor_gate}",
+        f"- weight_gate: {weight_gate}",
+        f"- selected_weight_plan: {selected_weight_plan or 'none'}",
+        f"- tradability_pass_ratio: {tradability_pass_ratio}",
+        f"- impact_cost_bps: {impact_cost_bps}",
+        f"- candidate_exec_pass: {str(bool(candidate_exec_pass)).lower()}",
+        "",
+    ]
+    oos_calibration_report_path.write_text("\n".join(oos_lines), encoding="utf-8")
 
     return ValidationGateResult(
         trade_date=trade_date,
@@ -665,8 +866,11 @@ def run_validation_gate(
         weight_report_frame=weight_report_frame,
         weight_plan_frame=weight_plan_frame,
         run_manifest_payload=run_manifest_payload,
+        threshold_mode=resolved_threshold_mode,
+        wfa_mode=resolved_wfa_mode,
         factor_report_sample_path=factor_report_sample_path,
         weight_report_sample_path=weight_report_sample_path,
         weight_plan_sample_path=weight_plan_sample_path,
         run_manifest_sample_path=run_manifest_sample_path,
+        oos_calibration_report_path=oos_calibration_report_path,
     )

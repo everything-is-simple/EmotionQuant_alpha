@@ -4,7 +4,10 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence
+
+import duckdb
 
 from src.backtest.pipeline import run_backtest
 from src.analysis.pipeline import run_analysis
@@ -12,6 +15,7 @@ from src import __version__
 from src.algorithms.irs.pipeline import run_irs_daily
 from src.algorithms.mss.pipeline import run_mss_scoring
 from src.algorithms.mss.probe import run_mss_probe
+from src.algorithms.validation.pipeline import run_validation_gate
 from src.config.config import Config
 from src.data.fetch_batch_pipeline import (
     FetchBatchProgressEvent,
@@ -31,6 +35,10 @@ from src.trading.pipeline import run_paper_trade
 # - docs/design/core-infrastructure/backtest/backtest-algorithm.md (§1-§4)
 # - docs/design/core-infrastructure/analysis/analysis-algorithm.md (§1-§4)
 # - docs/design/core-infrastructure/trading/trading-algorithm.md (§2-§5)
+# - docs/design/core-algorithms/mss/mss-algorithm.md (§5 周期阈值模式)
+# - docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md (§3 阈值, §4 输出)
+# - Governance/SpiralRoadmap/S3D-EXECUTION-CARD.md (§2 run, §3 test)
+# - Governance/SpiralRoadmap/S3E-EXECUTION-CARD.md (§2 run, §3 test)
 DESIGN_TRACE = {
     "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
     "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
@@ -38,6 +46,10 @@ DESIGN_TRACE = {
     "backtest_algorithm_design": "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
     "analysis_algorithm_design": "docs/design/core-infrastructure/analysis/analysis-algorithm.md",
     "trading_algorithm_design": "docs/design/core-infrastructure/trading/trading-algorithm.md",
+    "mss_algorithm_design": "docs/design/core-algorithms/mss/mss-algorithm.md",
+    "validation_algorithm_design": "docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md",
+    "s3d_execution_card": "Governance/SpiralRoadmap/S3D-EXECUTION-CARD.md",
+    "s3e_execution_card": "Governance/SpiralRoadmap/S3E-EXECUTION-CARD.md",
 }
 
 
@@ -109,6 +121,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mss_parser = subparsers.add_parser("mss", help="Run MSS minimal scoring for a trade date.")
     mss_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    mss_parser.add_argument(
+        "--threshold-mode",
+        choices=("fixed", "adaptive"),
+        default=None,
+        help="MSS cycle threshold mode (S3d). Omit to keep S1a default behavior.",
+    )
     irs_parser = subparsers.add_parser("irs", help="Run IRS scoring for a trade date.")
     irs_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
     irs_parser.add_argument(
@@ -119,6 +137,12 @@ def build_parser() -> argparse.ArgumentParser:
     probe_parser = subparsers.add_parser("mss-probe", help="Run MSS-only probe on date range.")
     probe_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
     probe_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
+    probe_parser.add_argument(
+        "--return-series-source",
+        choices=("temperature_delta", "future_returns"),
+        default="temperature_delta",
+        help="Probe return series source (S3d: future_returns).",
+    )
     recommend_parser = subparsers.add_parser("recommend", help="Run recommendation pipeline.")
     recommend_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
     recommend_parser.add_argument(
@@ -217,6 +241,29 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Generate signal attribution summary output.",
     )
+    validation_parser = subparsers.add_parser("validation", help="Run S3e validation pipeline.")
+    validation_parser.add_argument(
+        "--trade-date",
+        required=True,
+        help="Trade date in YYYYMMDD.",
+    )
+    validation_parser.add_argument(
+        "--threshold-mode",
+        choices=("fixed", "regime"),
+        default="regime",
+        help="Validation threshold mode (S3e default: regime).",
+    )
+    validation_parser.add_argument(
+        "--wfa",
+        choices=("single-window", "dual-window"),
+        default="dual-window",
+        help="Walk-forward mode (S3e default: dual-window).",
+    )
+    validation_parser.add_argument(
+        "--export-run-manifest",
+        action="store_true",
+        help="Export validation_run_manifest sample artifact.",
+    )
     subparsers.add_parser("fetch-status", help="Show latest S3a fetch status.")
     subparsers.add_parser("fetch-retry", help="Retry failed S3a fetch batches.")
 
@@ -253,6 +300,99 @@ def _config_snapshot(config: Config) -> dict[str, object]:
         "tushare_primary_rate_limit_per_min": config.tushare_primary_rate_limit_per_min,
         "tushare_fallback_rate_limit_per_min": config.tushare_fallback_rate_limit_per_min,
     }
+
+
+def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+        [table_name],
+    ).fetchone()
+    return bool(row and int(row[0]) > 0)
+
+
+def _count_trade_date_rows(
+    *,
+    database_path: Path,
+    table_name: str,
+    trade_date: str,
+) -> int:
+    if not database_path.exists():
+        return 0
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        if not _table_exists(connection, table_name):
+            return 0
+        row = connection.execute(
+            f"SELECT COUNT(*) FROM {table_name} WHERE CAST(trade_date AS VARCHAR) = ?",
+            [trade_date],
+        ).fetchone()
+    return int(row[0]) if row else 0
+
+
+def _resolve_validation_inputs(config: Config, trade_date: str) -> tuple[int, int, bool]:
+    database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    irs_count = _count_trade_date_rows(
+        database_path=database_path,
+        table_name="irs_industry_daily",
+        trade_date=trade_date,
+    )
+    pas_count = _count_trade_date_rows(
+        database_path=database_path,
+        table_name="stock_pas_daily",
+        trade_date=trade_date,
+    )
+    mss_count = _count_trade_date_rows(
+        database_path=database_path,
+        table_name="mss_panorama",
+        trade_date=trade_date,
+    )
+    return (irs_count, pas_count, mss_count > 0)
+
+
+def _write_validation_gate_report(
+    *,
+    path: Path,
+    trade_date: str,
+    final_gate: str,
+    threshold_mode: str,
+    wfa_mode: str,
+    selected_weight_plan: str,
+) -> None:
+    go_nogo = "GO" if final_gate in {"PASS", "WARN"} else "NO_GO"
+    lines = [
+        "# S3e Validation Gate Report",
+        "",
+        f"- trade_date: {trade_date}",
+        f"- final_gate: {final_gate}",
+        f"- go_nogo: {go_nogo}",
+        f"- threshold_mode: {threshold_mode}",
+        f"- wfa_mode: {wfa_mode}",
+        f"- selected_weight_plan: {selected_weight_plan or 'none'}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_validation_consumption(
+    *,
+    path: Path,
+    trade_date: str,
+    selected_weight_plan: str,
+    final_gate: str,
+) -> None:
+    lines = [
+        "# Validation Consumption",
+        "",
+        "- producer: eq validation",
+        "- consumer: S4b risk defense calibration",
+        "- consumed_fields: final_gate,selected_weight_plan,threshold_mode,wfa_mode",
+        f"- trade_date: {trade_date}",
+        f"- selected_weight_plan: {selected_weight_plan or 'none'}",
+        f"- final_gate: {final_gate}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
@@ -333,31 +473,49 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
 
 
 def _run_mss(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    threshold_mode = str(args.threshold_mode or "adaptive").strip().lower() or "adaptive"
+    artifacts_dir = None
+    event_name = "s1a_mss"
+    if args.threshold_mode is not None:
+        artifacts_dir = Path("artifacts") / "spiral-s3d" / args.date
+        event_name = "s3d_mss"
     print(
         json.dumps(
             {
                 "event": "mss_start",
                 "command": ctx.command,
                 "trade_date": args.date,
+                "threshold_mode": threshold_mode,
             },
             ensure_ascii=True,
             sort_keys=True,
         )
     )
 
-    result = run_mss_scoring(
-        trade_date=args.date,
-        config=ctx.config,
-    )
+    try:
+        result = run_mss_scoring(
+            trade_date=args.date,
+            config=ctx.config,
+            threshold_mode=threshold_mode,
+            artifacts_dir=artifacts_dir,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
     print(
         json.dumps(
             {
-                "event": "s1a_mss",
+                "event": event_name,
                 "trade_date": args.date,
+                "threshold_mode": result.threshold_mode,
                 "mss_panorama_count": result.mss_panorama_count,
                 "artifacts_dir": str(result.artifacts_dir),
                 "sample_path": str(result.sample_path),
                 "factor_trace_path": str(result.factor_trace_path),
+                "threshold_snapshot_path": str(result.threshold_snapshot_path),
+                "adaptive_regression_path": str(result.adaptive_regression_path),
+                "gate_report_path": str(result.gate_report_path),
+                "consumption_path": str(result.consumption_path),
                 "error_manifest_path": str(result.error_manifest_path),
                 "status": "failed" if result.has_error else "ok",
             },
@@ -410,6 +568,12 @@ def _run_irs(ctx: PipelineContext, args: argparse.Namespace) -> int:
 
 
 def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    return_series_source = str(args.return_series_source or "temperature_delta").strip().lower()
+    artifacts_dir = None
+    event_name = "s1b_mss_probe"
+    if return_series_source == "future_returns":
+        artifacts_dir = Path("artifacts") / "spiral-s3d" / f"{args.start}_{args.end}"
+        event_name = "s3d_mss_probe"
     print(
         json.dumps(
             {
@@ -417,6 +581,7 @@ def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "command": ctx.command,
                 "start_date": args.start,
                 "end_date": args.end,
+                "return_series_source": return_series_source,
             },
             ensure_ascii=True,
             sort_keys=True,
@@ -427,6 +592,8 @@ def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
             start_date=args.start,
             end_date=args.end,
             config=ctx.config,
+            return_series_source=return_series_source,
+            artifacts_dir=artifacts_dir,
         )
     except ValueError as exc:
         print(str(exc))
@@ -434,12 +601,14 @@ def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
     print(
         json.dumps(
             {
-                "event": "s1b_mss_probe",
+                "event": event_name,
                 "start_date": args.start,
                 "end_date": args.end,
+                "return_series_source": result.return_series_source,
                 "artifacts_dir": str(result.artifacts_dir),
                 "probe_report_path": str(result.probe_report_path),
                 "consumption_case_path": str(result.consumption_case_path),
+                "gate_report_path": str(result.gate_report_path),
                 "error_manifest_path": str(result.error_manifest_path),
                 "top_bottom_spread_5d": result.top_bottom_spread_5d,
                 "conclusion": result.conclusion,
@@ -766,6 +935,74 @@ def _run_analysis(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_error else 0
 
 
+def _run_validation(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    trade_date = str(args.trade_date).strip()
+    threshold_mode = str(args.threshold_mode or "regime").strip().lower() or "regime"
+    wfa_mode = str(args.wfa or "dual-window").strip().lower() or "dual-window"
+    artifacts_dir = Path("artifacts") / "spiral-s3e" / trade_date
+    try:
+        irs_count, pas_count, mss_exists = _resolve_validation_inputs(ctx.config, trade_date)
+        result = run_validation_gate(
+            trade_date=trade_date,
+            config=ctx.config,
+            irs_count=irs_count,
+            pas_count=pas_count,
+            mss_exists=mss_exists,
+            artifacts_dir=artifacts_dir,
+            threshold_mode=threshold_mode,
+            wfa_mode=wfa_mode,
+            export_run_manifest=bool(args.export_run_manifest),
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+
+    gate_report_path = artifacts_dir / "gate_report.md"
+    consumption_path = artifacts_dir / "consumption.md"
+    _write_validation_gate_report(
+        path=gate_report_path,
+        trade_date=trade_date,
+        final_gate=result.final_gate,
+        threshold_mode=result.threshold_mode,
+        wfa_mode=result.wfa_mode,
+        selected_weight_plan=result.selected_weight_plan,
+    )
+    _write_validation_consumption(
+        path=consumption_path,
+        trade_date=trade_date,
+        selected_weight_plan=result.selected_weight_plan,
+        final_gate=result.final_gate,
+    )
+    go_nogo = "GO" if result.final_gate in {"PASS", "WARN"} else "NO_GO"
+    print(
+        json.dumps(
+            {
+                "event": "s3e_validation",
+                "trade_date": trade_date,
+                "threshold_mode": result.threshold_mode,
+                "wfa_mode": result.wfa_mode,
+                "final_gate": result.final_gate,
+                "go_nogo": go_nogo,
+                "selected_weight_plan": result.selected_weight_plan,
+                "factor_count": int(len(result.factor_report_frame)),
+                "weight_count": int(len(result.weight_report_frame)),
+                "artifacts_dir": str(artifacts_dir),
+                "factor_report_sample_path": str(result.factor_report_sample_path),
+                "weight_report_sample_path": str(result.weight_report_sample_path),
+                "weight_plan_sample_path": str(result.weight_plan_sample_path),
+                "run_manifest_sample_path": str(result.run_manifest_sample_path),
+                "oos_calibration_report_path": str(result.oos_calibration_report_path),
+                "gate_report_path": str(gate_report_path),
+                "consumption_path": str(consumption_path),
+                "status": "failed" if result.has_fail else "ok",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_fail else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -808,6 +1045,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_trade(ctx, args)
     if command == "analysis":
         return _run_analysis(ctx, args)
+    if command == "validation":
+        return _run_validation(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2

@@ -1,4 +1,4 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.2）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.3）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
@@ -11,14 +11,14 @@
 
 - 复核结论（按“完全版/可实战”口径）：
   - 已完成：`S3a`、`S3ar`
-  - 执行中：`S3`、`S3b`
-  - 计划中：`S3c`、`S3d`、`S3e`
+  - 执行中：`S3`、`S3b`、`S3d`、`S3e`
+  - 计划中：`S3c`
 - 代码-文档对齐修正：
   - `S3c` 命令口径修正为 `eq run --date {trade_date} --to-l2 --strict-sw31`（移除无效 `--stage l2`）。
   - `S3r` 修复命令已落地：`eq backtest --repair s3r` 可执行并产出 `s3r_patch_note/s3r_delta_report`。
+  - `S3d/S3e` 命令阻断已解除：`eq mss --threshold-mode`、`eq mss-probe --return-series-source`、`eq validation --threshold-mode/--wfa/--export-run-manifest` 已落地。
 - 仍需补齐后方可声明“核心设计 full 实现完成”：
-  - `S3d`：MSS adaptive CLI 契约与真实收益 probe 口径
-  - `S3e`：独立 `eq validation` 入口与生产口径测试集
+  - `S3d/S3e`：窗口级实证证据收口（非 CLI 契约层）。
 
 ## 0. 文档定位（先对齐 SoT）
 
@@ -40,12 +40,12 @@
 ## 1. 现实基线快照（As-Is, 2026-02-21）
 
 1. S2c、S3a、S4 已按 6A 收口完成，S3 处于 `in_progress`，并已打通 S3a->S3 与 S4->S3b 的消费门禁链路（见 `Governance/record/development-status.md`）。
-2. `eq` 统一入口已完成阶段B关键命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade/analysis`，并已接入 `backtest --repair s3r`；`stress` 与 `validation` 独立入口仍待后续圈补齐。
+2. `eq` 统一入口已完成阶段B关键命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade/analysis/validation`，并已接入 `backtest --repair s3r`。
 3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路，`src/analysis` 已落地 S3b 最小执行入口。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
 5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S3AR/S4R/S3B/S3C/S3D/S3E/S4B/S4BR-EXECUTION-CARD.md`。
 6. 现实新增阻断：采集阶段出现过 DuckDB 文件锁导致批次失败；当前已落地双 TuShare 主备（10000 网关主 + 5000 官方兜底），AKShare/BaoStock 仅为后续底牌预留，需先完成 S3ar 稳定性收口再推进 S3b。
-7. 核心算法“实现深度”缺口仍存在：`industry_snapshot` 仍是 `ALL` 聚合、MSS 周期仍固定阈值、MSS probe 仍用温度差代理收益、Validation 尚未切到 `factor_series × future_returns` 与双窗口生产口径；因此在 S4b 前新增 S3c/S3d/S3e 三圈作为硬前置。
+7. 核心算法“实现深度”缺口仍存在：`industry_snapshot` 仍是 `ALL` 聚合；`S3d/S3e` 虽已解除 CLI 阻断并落地契约测试，但窗口级生产证据仍待收口；因此在 S4b 前继续保持 `S3c/S3d/S3e` 三圈硬前置。
 
 执行口径采用双层：
 
@@ -429,6 +429,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.3 | 2026-02-21 | S3d/S3e 阻断修复：落地 `eq validation` 子命令与 MSS `threshold-mode/return-series-source` 契约；补齐 S3d/S3e 合同测试并将圈位状态切换为 Active |
 | v1.2 | 2026-02-21 | S3 审计对齐：新增“完成态复核”与实现差距清单；修正 S3c 命令为 `--to-l2`；接入并确认 `backtest --repair s3r` 命令与产物契约 |
 | v1.1 | 2026-02-20 | 阶段B新增核心实现深度圈 `S3c/S3d/S3e`：SW31 行业映射校准、MSS adaptive 校准、Validation 生产校准；`S4b` 前置依赖升级为 `S3e PASS/WARN` |
 | v1.0 | 2026-02-19 | S3b 最小执行入口落地：`eq analysis` + `src/analysis/pipeline.py` + `tests/unit/analysis/*`；As-Is 从“analysis 待补齐”修订为“analysis 已可执行” |

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 from src import __version__
@@ -122,6 +123,76 @@ def test_main_analysis_command_wires_to_pipeline(
     assert payload["quality_status"] == "PASS"
 
 
+def test_main_validation_command_wires_to_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s3e.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_resolve_inputs(*_: object, **__: object) -> tuple[int, int, bool]:
+        return (31, 31, True)
+
+    def _fake_run_validation_gate(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3e" / "20260219"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        factor_report = artifacts_dir / "validation_factor_report_sample.parquet"
+        weight_report = artifacts_dir / "validation_weight_report_sample.parquet"
+        plan_report = artifacts_dir / "validation_weight_plan_sample.parquet"
+        manifest = artifacts_dir / "validation_run_manifest_sample.json"
+        oos_report = artifacts_dir / "validation_oos_calibration_report.md"
+        factor_report.write_text("factor", encoding="utf-8")
+        weight_report.write_text("weight", encoding="utf-8")
+        plan_report.write_text("plan", encoding="utf-8")
+        manifest.write_text("{}", encoding="utf-8")
+        oos_report.write_text("# oos\n", encoding="utf-8")
+        return SimpleNamespace(
+            trade_date="20260219",
+            count=1,
+            frame=pd.DataFrame.from_records([{"trade_date": "20260219", "final_gate": "PASS"}]),
+            final_gate="PASS",
+            selected_weight_plan="vp_balanced_v1",
+            has_fail=False,
+            factor_report_frame=pd.DataFrame.from_records([{"factor_name": "mss_future_returns_alignment"}]),
+            weight_report_frame=pd.DataFrame.from_records([{"plan_id": "vp_balanced_v1"}]),
+            weight_plan_frame=pd.DataFrame.from_records([{"plan_id": "vp_balanced_v1"}]),
+            run_manifest_payload={"trade_date": "20260219"},
+            threshold_mode="regime",
+            wfa_mode="dual-window",
+            factor_report_sample_path=factor_report,
+            weight_report_sample_path=weight_report,
+            weight_plan_sample_path=plan_report,
+            run_manifest_sample_path=manifest,
+            oos_calibration_report_path=oos_report,
+        )
+
+    monkeypatch.setattr(cli_main_module, "_resolve_validation_inputs", _fake_resolve_inputs)
+    monkeypatch.setattr(cli_main_module, "run_validation_gate", _fake_run_validation_gate)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "validation",
+            "--trade-date",
+            "20260219",
+            "--threshold-mode",
+            "regime",
+            "--wfa",
+            "dual-window",
+            "--export-run-manifest",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3e_validation"
+    assert payload["status"] == "ok"
+    assert payload["threshold_mode"] == "regime"
+    assert payload["wfa_mode"] == "dual-window"
+
+
 def test_main_irs_command_wires_to_pipeline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -207,6 +278,68 @@ def test_main_mss_runs_after_l1_and_l2(tmp_path: Path, capsys: pytest.CaptureFix
     assert payload["mss_panorama_count"] > 0
 
 
+def test_main_mss_supports_s3d_threshold_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s3d.mss.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_mss_scoring(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3d" / "20260218"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        threshold_snapshot = artifacts_dir / "mss_regime_thresholds_snapshot.json"
+        adaptive_report = artifacts_dir / "mss_adaptive_regression.md"
+        gate_report = artifacts_dir / "gate_report.md"
+        consumption = artifacts_dir / "consumption.md"
+        sample_path = artifacts_dir / "mss_panorama_sample.parquet"
+        factor_trace = artifacts_dir / "mss_factor_trace.md"
+        factor_intermediate = artifacts_dir / "mss_factor_intermediate_sample.parquet"
+        threshold_snapshot.write_text("{}", encoding="utf-8")
+        adaptive_report.write_text("# report\n", encoding="utf-8")
+        gate_report.write_text("# gate\n", encoding="utf-8")
+        consumption.write_text("# consumption\n", encoding="utf-8")
+        sample_path.write_text("sample", encoding="utf-8")
+        factor_trace.write_text("# trace\n", encoding="utf-8")
+        factor_intermediate.write_text("sample", encoding="utf-8")
+        return SimpleNamespace(
+            trade_date="20260218",
+            artifacts_dir=artifacts_dir,
+            mss_panorama_count=1,
+            threshold_mode="adaptive",
+            has_error=False,
+            error_manifest_path=artifacts_dir / "error_manifest_sample.json",
+            factor_trace_path=factor_trace,
+            sample_path=sample_path,
+            factor_intermediate_sample_path=factor_intermediate,
+            threshold_snapshot_path=threshold_snapshot,
+            adaptive_regression_path=adaptive_report,
+            gate_report_path=gate_report,
+            consumption_path=consumption,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_mss_scoring", _fake_run_mss_scoring)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "mss",
+            "--date",
+            "20260218",
+            "--threshold-mode",
+            "adaptive",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3d_mss"
+    assert payload["threshold_mode"] == "adaptive"
+    assert "spiral-s3d" in payload["artifacts_dir"]
+
+
 def test_main_mss_probe_runs_with_window(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     data_root = tmp_path / "eq_data"
     env_file = tmp_path / ".env.s1b.cli"
@@ -278,6 +411,60 @@ def test_main_mss_probe_runs_with_window(tmp_path: Path, capsys: pytest.CaptureF
     assert "top_bottom_spread_5d" in payload
 
 
+def test_main_mss_probe_supports_future_returns_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s3d.probe.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_mss_probe(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3d" / "20260210_20260219"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        probe_report = artifacts_dir / "mss_probe_return_series_report.md"
+        consumption = artifacts_dir / "consumption.md"
+        gate_report = artifacts_dir / "gate_report.md"
+        probe_report.write_text("# probe\n", encoding="utf-8")
+        consumption.write_text("# consumption\n", encoding="utf-8")
+        gate_report.write_text("# gate\n", encoding="utf-8")
+        return SimpleNamespace(
+            start_date="20260210",
+            end_date="20260219",
+            artifacts_dir=artifacts_dir,
+            return_series_source="future_returns",
+            has_error=False,
+            error_manifest_path=artifacts_dir / "error_manifest_sample.json",
+            probe_report_path=probe_report,
+            consumption_case_path=consumption,
+            gate_report_path=gate_report,
+            top_bottom_spread_5d=0.01,
+            conclusion="PASS_POSITIVE_SPREAD",
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_mss_probe", _fake_run_mss_probe)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "mss-probe",
+            "--start",
+            "20260210",
+            "--end",
+            "20260219",
+            "--return-series-source",
+            "future_returns",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3d_mss_probe"
+    assert payload["return_series_source"] == "future_returns"
+    assert "spiral-s3d" in payload["artifacts_dir"]
+
+
 def test_main_recommend_runs_s2a_mode(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     data_root = tmp_path / "eq_data"
     env_file = tmp_path / ".env.s2a.cli"
@@ -339,6 +526,88 @@ def test_main_recommend_runs_s2a_mode(tmp_path: Path, capsys: pytest.CaptureFixt
     assert payload["event"] == "s2a_recommend"
     assert payload["mode"] == "mss_irs_pas"
     assert payload["status"] == "ok"
+
+
+def test_main_validation_runs_s3e_mode(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    data_root = tmp_path / "eq_data"
+    env_file = tmp_path / ".env.s3e.real.cli"
+    env_file.write_text(
+        f"DATA_PATH={data_root}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    trade_date = "20260218"
+
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--l1-only",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--to-l2",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "mss",
+            "--date",
+            trade_date,
+            "--threshold-mode",
+            "adaptive",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            trade_date,
+            "--mode",
+            "mss_irs_pas",
+            "--with-validation",
+        ]
+    ) == 0
+
+    validation_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "validation",
+            "--trade-date",
+            trade_date,
+            "--threshold-mode",
+            "regime",
+            "--wfa",
+            "dual-window",
+            "--export-run-manifest",
+        ]
+    )
+    assert validation_exit == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3e_validation"
+    assert payload["status"] == "ok"
+    assert payload["threshold_mode"] == "regime"
+    assert payload["wfa_mode"] == "dual-window"
+    assert Path(payload["run_manifest_sample_path"]).exists()
+    assert Path(payload["oos_calibration_report_path"]).exists()
 
 
 def test_main_recommend_runs_s2b_integrated_mode(

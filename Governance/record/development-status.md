@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**当前版本**: v4.23（S3 审计对齐：S3r 修复命令落地 + S3 计划圈 specs 骨架补齐）  
+**当前版本**: v4.24（S3d/S3e 阻断修复：Validation 入口与 MSS 参数契约落地）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3 与 S3b 执行中，S4 与 S3ar 已收口完成：当前推进 S3b，并排入 S3c/S3d/S3e 核心实现深度闭环**
+**S3/S3b/S3d/S3e 执行中，S4 与 S3ar 已收口完成：当前推进 S3b，并并行推进 S3d/S3e 阻断清理后的窗口收口**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -22,13 +22,23 @@
 
 ---
 
+## 本次同步（2026-02-21，S3d/S3e 阻断修复）
+
+1. 落地 MSS CLI 参数契约：`eq mss --threshold-mode` 与 `eq mss-probe --return-series-source` 可执行。
+2. 落地 Validation 独立入口：`eq validation --trade-date --threshold-mode --wfa --export-run-manifest` 可执行。
+3. 落地对应合同测试：S3d 两条 + S3e 三条，并通过回归。
+4. 执行卡状态同步：`S3D-EXECUTION-CARD.md`、`S3E-EXECUTION-CARD.md` 切换为 `Active`。
+5. 债务口径同步：清偿 TD-S3-017（CLI 阻断）、TD-S1-007（MSS 固定阈值债务）、TD-S1-008（温度差代理收益债务）。
+
+---
+
 ## 本次同步（2026-02-21，S3 审计对齐）
 
 1. 代码层补齐 S3r 修复入口：`eq backtest --repair s3r` 已接入 CLI 与回测流水线，并可产出 `s3r_patch_note/s3r_delta_report`。
 2. 修订 S3 路线/执行卡命令漂移：S3c 口径统一为 `eq run --to-l2 --strict-sw31`（移除无效 `--stage l2`）。
 3. 同步状态口径：`S3A-EXECUTION-CARD.md` 与 `S3AR-EXECUTION-CARD.md` 切换为 `Completed`，与 specs/主控状态一致。
 4. 补齐阶段B计划圈 specs 骨架：新增 `spiral-s3r/s3c/s3d/s3e` 的 `requirements/review/final`，消除执行卡引用路径缺失。
-5. 明确未完成项：S3d（adaptive/probe CLI）与 S3e（`eq validation` 入口）仍为计划圈阻断项，未达“核心设计 full 完成”。
+5. 当时未完成项记录：S3d（adaptive/probe CLI）与 S3e（`eq validation` 入口）曾为计划圈阻断项（该项已在 v4.24 清偿）。
 
 ---
 
@@ -173,8 +183,8 @@
 | S3r | 回测修复子圈（条件触发） | 📋 未开始 | 修复命令已落地（`backtest --repair s3r`），待 FAIL 场景触发 |
 | S3b | 收益归因验证专项圈 | 🔄 进行中 | 已落地 `eq analysis` 与三类归因产物，待窗口级收口 |
 | S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 📋 未开始 | 依赖 S3b 收口，推进 IRS 全覆盖门禁与窗口回跑收口 |
-| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 📋 未开始 | 依赖 S3c 收口，修复 MSS 固定阈值与 probe 代理收益缺口 |
-| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 📋 未开始 | 依赖 S3d 收口，修复生产级统计校准缺口 |
+| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
+| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
 | S4b | 极端防御专项圈 | 📋 未开始 | 依赖 S3e 收口结论输入防御参数 |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4b 完成 |
 | S6 | 稳定化闭环 | 📋 未开始 | 重跑一致性与债务清偿 |
@@ -187,8 +197,8 @@
 1. 固定窗口 `20260210-20260213` 执行 S3b 三条命令：`ab-benchmark`、`live-backtest deviation`、`attribution-summary`。
 2. 产出并审计 S3b 五件套：`ab_benchmark_report.md`、`live_backtest_deviation_report.md`、`attribution_summary.json`、`consumption.md`、`gate_report.md`。
 3. 完成 S3b 目标测试与 `contracts/governance` 门禁后，输出收益来源结论并推进 S3c（SW31 行业语义校准）。
-4. S3c 收口后推进 S3d（MSS adaptive + probe 真实收益），修复 MSS 设计深度缺口。
-5. S3d 收口后推进 S3e（Validation 生产校准），再进入 S4b（极端防御）。
+4. 在 S3c 语义校准完成后，对 S3d/S3e 执行固定窗口实证并固化 `review/final`。
+5. 仅当 S3d/S3e 完成窗口证据收口后，再进入 S4b（极端防御）。
 
 ---
 
@@ -205,6 +215,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v4.24 | S3d/S3e 阻断修复：落地 `eq validation` 与 MSS CLI 参数契约，补齐 5 条目标合同测试，执行卡切换为 Active |
 | 2026-02-21 | v4.23 | S3 审计对齐：落地 `backtest --repair s3r`，修正 S3c 命令口径，补齐 `spiral-s3r/s3c/s3d/s3e` specs 骨架并同步执行卡状态 |
 | 2026-02-21 | v4.22 | 补齐 `spiral-s2r` specs 档案并重审 `spiral-s2b/s2c` 规格口径，完成 S0-S2r 路线图/执行卡/specs/record 四层一致性复核 |
 | 2026-02-21 | v4.21 | S0c-R1 收口：修复 strict 门禁语义与旧断言漂移，补齐 `data_readiness` 持久化/`flat_threshold` 契约测试，S0c 目标回归与治理门禁通过 |
