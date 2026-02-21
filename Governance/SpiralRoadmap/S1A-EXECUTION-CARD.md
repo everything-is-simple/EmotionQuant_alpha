@@ -1,4 +1,4 @@
-# S1a 执行卡（v0.2）
+# S1a 执行卡（v0.3）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
@@ -17,7 +17,7 @@
 ## 1. 目标
 
 - 产出 `mss_panorama` 当日评分结果。
-- 确保核心字段 `mss_score/mss_temperature/mss_cycle` 可追溯。
+- 确保核心字段 `mss_score/mss_temperature/mss_cycle/mss_rank/mss_percentile/mss_trend_quality` 可追溯。
 - 形成 MSS 因子轨迹与中间因子证据。
 
 ---
@@ -53,7 +53,7 @@ pytest tests/unit/algorithms/mss/test_mss_full_semantics_contract.py -q
 
 - gate:
   - `mss_panorama` 当日记录数 `> 0`
-  - 输出字段至少包含 `mss_score/mss_temperature/mss_cycle`
+  - 输出字段至少包含 `mss_score/mss_temperature/mss_cycle/mss_rank/mss_percentile/mss_trend_quality`
 - contracts:
   - `python -m scripts.quality.local_quality_check --contracts --governance` 必须通过
 - consumption:
@@ -66,7 +66,7 @@ pytest tests/unit/algorithms/mss/test_mss_full_semantics_contract.py -q
 - 复盘文件：`Governance/specs/spiral-s1a/review.md`
 - 必填结论：
   - `mss_panorama` 当日记录是否 `> 0`
-  - 核心字段是否齐全
+  - 核心字段（含 `mss_rank/mss_percentile/mss_trend_quality`）是否齐全
   - 因子轨迹与中间因子是否可复核
 
 ---

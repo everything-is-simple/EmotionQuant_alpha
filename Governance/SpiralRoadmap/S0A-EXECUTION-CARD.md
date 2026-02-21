@@ -1,4 +1,4 @@
-# S0a 执行卡（v0.2）
+# S0a 执行卡（v0.3）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
@@ -13,6 +13,7 @@
 - 落地 `src.pipeline.main` 最小 CLI。
 - 确保配置读取仅通过 `Config.from_env()` 注入。
 - 确保数据门禁关键配置可在入口层可见（`flat_threshold/min_coverage_ratio/stale_hard_limit_days`）。
+- 为 S2 完全版保留入口能力：`recommend` 子命令支持 `--integration-mode` 与 `--repair s2r` 参数透传。
 
 ---
 
@@ -52,6 +53,7 @@ pytest tests/unit/config/test_env_docs_alignment.py -q
   - 入口命令是否可复现
   - 配置注入是否仅走 `Config.from_env()`
   - 门禁关键配置是否可见（`flat_threshold/min_coverage_ratio/stale_hard_limit_days`）
+  - `recommend` 子命令参数契约是否包含 `--integration-mode` 与 `--repair`
   - 是否存在硬编码路径
 
 ---

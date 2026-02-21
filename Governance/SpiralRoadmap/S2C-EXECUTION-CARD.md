@@ -1,7 +1,7 @@
-# S2c 执行卡（v0.3）
+# S2c 执行卡（v0.4）
 
 **状态**: Active  
-**更新时间**: 2026-02-17  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2c）  
 **微圈**: S2c（核心算法深化：完整语义实现 + 权重桥接硬门禁）
 
@@ -27,11 +27,11 @@
 
 | 模块 | 必须补齐 | 设计依据 | 验收要点 |
 |---|---|---|---|
-| MSS | 六因子完整实现（大盘系数、赚钱效应、亏钱效应、连续性、极端、波动）+ 统一 `ratio -> zscore -> [0,100]` + 完整温度公式 | `docs/design/core-algorithms/mss/mss-algorithm.md` | 因子语义与权重口径一致；缺失基线回退 50；温度可追溯 |
+| MSS | 六因子完整实现（大盘系数、赚钱效应、亏钱效应、连续性、极端、波动）+ 统一 `ratio -> zscore -> [0,100]` + 完整温度公式 + `rank/percentile` 落库 | `docs/design/core-algorithms/mss/mss-algorithm.md` | 因子语义与权重口径一致；缺失基线回退 50；温度与 `mss_rank/mss_percentile` 可追溯 |
 | IRS | 六因子完整实现（广度、连续性、资金流、估值、龙头、行业基因）+ 轮动状态判定 | `docs/design/core-algorithms/irs/irs-algorithm.md` | 不再使用简化映射；行业得分与 `rotation_status` 可审计 |
 | PAS | 三因子完整实现（牛股基因、结构位置、行为确认）+ `effective_risk_reward_ratio` 口径 | `docs/design/core-algorithms/pas/pas-algorithm.md` | 因子互斥归属；不允许单指标独立触发交易；输出字段齐全 |
 | Validation | 因子验证（IC/RankIC/ICIR/衰减）+ 权重验证（Walk-Forward baseline vs candidate）+ Gate 决策 | `docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md` | 产出五件套：`validation_factor_report`/`validation_weight_report`/`validation_gate_decision`/`validation_weight_plan`/`validation_run_manifest` |
-| Integration | Gate 前置检查 + 权重计划解析 + 桥接链路硬门禁 + FAIL 阻断 | `docs/design/core-algorithms/integration/integration-algorithm.md` | `selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 全链路一致 |
+| Integration | Gate 前置检查 + 权重计划解析 + 桥接链路硬门禁 + FAIL 阻断 + 四模式集成 + 推荐数量硬约束 | `docs/design/core-algorithms/integration/integration-algorithm.md` | `selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 全链路一致；`integration_mode` 可追溯；每日<=20/行业<=5 |
 
 ---
 
@@ -58,6 +58,7 @@ pytest tests/unit/algorithms/validation/test_weight_validation_walk_forward_cont
 pytest tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py -q
 pytest tests/unit/integration/test_validation_weight_plan_bridge.py -q
 pytest tests/unit/integration/test_algorithm_semantics_regression.py -q
+pytest tests/unit/integration/test_integration_contract.py -q
 ```
 
 ---
@@ -134,6 +135,7 @@ pytest tests/unit/integration/test_algorithm_semantics_regression.py -q
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v0.4 | 2026-02-21 | 升级完全版口径：补充 MSS `rank/percentile` 契约落库、Integration 四模式与推荐硬约束（每日<=20/行业<=5）为 S2c 必验项 |
 | v0.3 | 2026-02-17 | 新增 `evidence_lane` 收口口径：正式证据固定 `release` 车道，`debug` 目录仅用于调试/演练 |
 | v0.2 | 2026-02-16 | 明确 S2c 为“核心算法完整实现 + 桥接硬门禁”双目标；新增 MSS/IRS/PAS/Validation/Integration 模块级补齐任务、测试与产物清单 |
 | v0.1 | 2026-02-16 | 首版：定义 S2c 执行卡（权重桥接 + 语义收口） |

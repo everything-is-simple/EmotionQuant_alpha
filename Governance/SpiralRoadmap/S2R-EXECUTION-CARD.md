@@ -1,7 +1,7 @@
-# S2r 执行卡（v0.1）
+# S2r 执行卡（v0.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S2r（质量门失败修复子圈）
 
@@ -12,6 +12,7 @@
 - 触发条件：S2b `quality_gate_report.status = FAIL`。
 - 只修不扩，恢复到 `PASS/WARN` 可推进状态。
 - 产出修复证据：`s2r_patch_note` 与 `s2r_delta_report`。
+- 修复后必须保持可追溯：`integration_mode`、`weight_plan_id`、`quality_gate_status` 与修复前后一致性可审计。
 
 ---
 
@@ -19,6 +20,7 @@
 
 ```bash
 eq recommend --date {trade_date} --mode integrated --repair s2r
+eq recommend --date {trade_date} --mode integrated --integration-mode {top_down|bottom_up|dual_verify|complementary} --repair s2r
 ```
 
 ---
@@ -46,6 +48,7 @@ pytest tests/unit/integration/test_quality_gate_contract.py -q
 - 必填结论：
   - 修复前后差异是否可追溯
   - `quality_gate_report.status` 是否恢复到 `PASS/WARN`
+  - 修复后 `integration_mode` 与桥接链路是否仍可审计
   - 是否满足回到 S2b 重验条件
 
 ---
@@ -71,3 +74,4 @@ pytest tests/unit/integration/test_quality_gate_contract.py -q
 
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
+- Integration 设计：`docs/design/core-algorithms/integration/integration-algorithm.md`

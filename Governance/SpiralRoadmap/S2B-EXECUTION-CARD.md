@@ -1,7 +1,7 @@
-# S2b 执行卡（v0.1）
+# S2b 执行卡（v0.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S2b（MSS+IRS+PAS 集成推荐）
 
@@ -12,13 +12,18 @@
 - 打通集成推荐闭环，稳定产出 `integrated_recommendation`。
 - 产出质量门结论 `quality_gate_report` 与 `s2_go_nogo_decision`。
 - 固化执行边界：`contract_version = "nc-v1"`、`risk_reward_ratio >= 1.0`。
+- 落地四种集成模式：`top_down/bottom_up/dual_verify/complementary`。
+- 强制推荐硬约束：每日最多 `20`、单行业最多 `5`。
 
 ---
 
 ## 2. run
 
 ```bash
-eq recommend --date {trade_date} --mode integrated
+eq recommend --date {trade_date} --mode integrated --integration-mode top_down
+eq recommend --date {trade_date} --mode integrated --integration-mode bottom_up
+eq recommend --date {trade_date} --mode integrated --integration-mode dual_verify
+eq recommend --date {trade_date} --mode integrated --integration-mode complementary
 ```
 
 ---
@@ -28,6 +33,7 @@ eq recommend --date {trade_date} --mode integrated
 ```bash
 pytest tests/unit/integration/test_integration_contract.py -q
 pytest tests/unit/integration/test_quality_gate_contract.py -q
+pytest tests/unit/pipeline/test_cli_entrypoint.py -q
 ```
 
 ---
@@ -46,6 +52,8 @@ pytest tests/unit/integration/test_quality_gate_contract.py -q
 - 复盘文件：`Governance/specs/spiral-s2b/review.md`
 - 必填结论：
   - `integrated_recommendation` 当日是否 `> 0`
+  - `integration_mode` 是否可追溯且仅取 `{top_down,bottom_up,dual_verify,complementary}`
+  - 推荐数量约束是否生效（每日<=20、单行业<=5）
   - `quality_gate_report.status` 是否为 `PASS/WARN`
   - A 股可追溯字段是否齐备：`t1_restriction_hit`、`limit_guard_result`、`session_guard_result`
 
@@ -72,3 +80,4 @@ pytest tests/unit/integration/test_quality_gate_contract.py -q
 
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
+- Integration 设计：`docs/design/core-algorithms/integration/integration-algorithm.md`

@@ -1,4 +1,4 @@
-# S0b 执行卡（v0.2）
+# S0b 执行卡（v0.3）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
@@ -13,6 +13,7 @@
 - 保障 `raw_daily` 与 `raw_trade_cal` 当日可复核。
 - 失败链路产出 `error_manifest.json`。
 - 落地数据门禁元数据持久化：`system_config`、`data_quality_report`、`data_readiness_gate`。
+- 保证 S2 桥接所需基础快照可用：`raw_index_member`、`raw_index_classify`、`raw_stock_basic`。
 
 ---
 
@@ -49,6 +50,7 @@ pytest tests/unit/data/test_data_readiness_persistence_contract.py -q
 - 必填结论：
   - `raw_daily` 是否 `> 0`
   - `raw_trade_cal` 是否包含 `{trade_date}`
+  - `raw_index_member/raw_index_classify/raw_stock_basic` 是否可被后续圈消费
   - `data_readiness_gate` 是否落库且状态可复核（ready/degraded/blocked）
   - `data_quality_report` 是否记录覆盖率与动作（continue/block/fallback）
   - 失败链路是否输出 `error_manifest`

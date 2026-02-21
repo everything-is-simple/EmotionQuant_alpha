@@ -1,9 +1,9 @@
-# EmotionQuant S0-S2c 真螺旋执行路线图（执行版 v1.2）
+# EmotionQuant S0-S2r 真螺旋执行路线图（执行版 v1.3）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
-**适用范围**: S0-S2c（数据层到核心算法深化闭环）  
-**文档角色**: S0-S2c 执行合同（不是上位 SoT 替代）
+**适用范围**: S0-S2r（数据层到核心算法深化与修复闭环）  
+**文档角色**: S0-S2r 执行合同（不是上位 SoT 替代）
 
 ---
 
@@ -15,11 +15,11 @@
 2. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`（路线主控）
 3. `Governance/steering/6A-WORKFLOW.md` + `Governance/steering/系统铁律.md`
 4. `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`（阶段A/B/C 门禁模板）
-5. 本文件（S0-S2c 微圈执行合同）
+5. 本文件（S0-S2r 微圈执行合同）
 
 本文件只负责两件事：
 
-- 把 S0-S2c 拆成可收口微圈
+- 把 S0-S2r 拆成可收口微圈
 - 给每圈定义可审计的 `run/test/artifact/review/sync` 合同
 
 ---
@@ -31,6 +31,7 @@
 3. S0/S1 合同测试已落地：`tests/unit/pipeline/test_cli_entrypoint.py`、`tests/unit/algorithms/mss/test_mss_contract.py`、`tests/unit/algorithms/mss/test_mss_probe_contract.py`、`tests/unit/integration/test_mss_integration_contract.py`。
 4. 本地质量门禁脚本可执行：`python -m scripts.quality.local_quality_check --contracts --governance`（必要）与 `--scan`（可选补充）。
 5. CI 质量门禁已存在：`.github/workflows/quality-gates.yml`。
+6. S2“完全版必须补项”已代码落地：`integration_mode` 四模式（`top_down/bottom_up/dual_verify/complementary`）、推荐硬约束（每日最多 20 / 行业最多 5）、`mss_rank/mss_percentile` 正式落库。
 
 执行口径采用双层：
 
@@ -108,7 +109,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 ---
 
-## 4. S0-S2c 微圈总览（实战口径）
+## 4. S0-S2r 微圈总览（实战口径）
 
 | Spiral | 主目标 | CP Slice（1-3） | 预算 | 前置 | 退出去向 |
 |---|---|---|---:|---|---|
@@ -132,7 +133,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 
 ### 4.2 ENH 显式映射（新增）
 
-为提高 S0-S2c 的 ENH 可追溯性，补充以下“ENH -> Spiral”显式映射：
+为提高 S0-S2r 的 ENH 可追溯性，补充以下“ENH -> Spiral”显式映射：
 
 | ENH | 名称 | 本阶段落位 Spiral | 说明 |
 |---|---|---|---|
@@ -155,6 +156,16 @@ flowchart LR
   ENH05[ENH-05 金丝雀] --> S0c[S0c]
   ENH08[ENH-08 冻结检查骨架] --> S0c
 ```
+
+### 4.3 S2 完全版必须满足的设计语义条目（硬门禁）
+
+以下条目任一未满足，S2 不得标记“完全版完成”：
+
+1. Integration 必须支持并可审计四模式：`top_down` / `bottom_up` / `dual_verify` / `complementary`，并在输出中记录 `integration_mode`。
+2. 推荐硬约束必须强制执行：每日最多 `20`，单行业最多 `5`，且 S/A 优先排序可复核。
+3. MSS 必须输出并落库历史排序字段：`mss_rank` 与 `mss_percentile`（基于温度序列计算），不得仅停留在文档语义。
+4. Validation -> Integration 桥接必须可审计：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id`。
+5. 执行边界必须一致：`contract_version=nc-v1`，`risk_reward_ratio>=1.0`，A 股规则字段可追溯。
 
 ---
 
@@ -217,7 +228,7 @@ flowchart LR
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/mss/test_mss_contract.py tests/unit/algorithms/mss/test_mss_engine.py`
 - 门禁：
   - `mss_panorama` 当日记录数 `> 0`。
-  - 字段含 `mss_score/mss_temperature/mss_cycle`。
+  - 字段含 `mss_score/mss_temperature/mss_cycle/mss_rank/mss_percentile/mss_trend_quality`。
 - 产物：`mss_panorama_sample.parquet`, `mss_factor_trace.md`
 - 消费：S1b 记录“MSS 输出被回溯探针消费”。
 
@@ -255,10 +266,16 @@ flowchart LR
 - 主目标：MSS+IRS+PAS 集成推荐闭环。
 - 执行卡：`Governance/SpiralRoadmap/S2B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_env_docs_alignment.py -q`
-- `target command`：`eq recommend --date {trade_date} --mode integrated`
+- `target command`：
+  - `eq recommend --date {trade_date} --mode integrated --integration-mode top_down`
+  - `eq recommend --date {trade_date} --mode integrated --integration-mode bottom_up`
+  - `eq recommend --date {trade_date} --mode integrated --integration-mode dual_verify`
+  - `eq recommend --date {trade_date} --mode integrated --integration-mode complementary`
 - `target test`（本圈必须补齐并执行）：`tests/unit/integration/test_integration_contract.py tests/unit/integration/test_quality_gate_contract.py`
 - 门禁：
   - `integrated_recommendation` 当日记录数 `> 0`。
+  - `integration_mode` 必须仅取 `{top_down,bottom_up,dual_verify,complementary}` 且可追溯。
+  - 推荐硬约束生效：每日最多 `20`、单行业最多 `5`。
   - `quality_gate_report.status in (PASS, WARN)`。
   - 契约版本兼容：`contract_version = "nc-v1"`。
   - RR 执行边界一致：`risk_reward_ratio >= 1.0`（`<1.0` 必须被执行层过滤）。
@@ -278,6 +295,8 @@ flowchart LR
   - Validation 产物齐备并可追溯：`validation_factor_report`、`validation_weight_report`、`validation_gate_decision`、`validation_weight_plan`、`validation_run_manifest`。
   - `validation_gate_decision.selected_weight_plan` 可解析到 `validation_weight_plan.plan_id`。
   - `integrated_recommendation.weight_plan_id` 与选中计划一致，且 `w_mss/w_irs/w_pas` 可复核。
+  - MSS 语义字段 `mss_rank/mss_percentile/mss_trend_quality` 必须可追溯。
+  - Integration 四模式与推荐硬约束必须通过契约回归。
   - 桥接缺失或不一致必须阻断，状态标记 `blocked`，不得推进 S3a/S3。
   - `contract_version = "nc-v1"` 且 `risk_reward_ratio >= 1.0` 执行边界一致。
 - 产物：`validation_factor_report_sample.parquet`, `validation_weight_report_sample.parquet`, `validation_weight_plan_sample.parquet`, `s2c_algorithm_closeout.md`
@@ -362,6 +381,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.3 | 2026-02-21 | 升级“完全版”口径：新增 S2 设计语义硬门禁（Integration 四模式、推荐数量硬约束、MSS rank/percentile 落库）；同步 S1a/S2b/S2c 合同条款与命令矩阵 |
 | v1.2 | 2026-02-21 | 修复 S1 对齐：明确 S1 阶段边界（S1a+S1b）；更新 As-Is 快照为当前实现状态；S1b 产物目录统一为 `{start}_{end}` |
 | v1.1 | 2026-02-21 | S0 执行合同升级为实战口径：S0b/S0c 增补 `system_config/data_quality_report/data_readiness_gate` 持久化门禁；S0c 默认命令切为 `--strict-sw31` 并新增 `flat_threshold` 契约测试 |
 | v1.0 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确 S0-S2c 阶段 ENH-01/02/03/04/05/08 的落位与可追溯关系 |

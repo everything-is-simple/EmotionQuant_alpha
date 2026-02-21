@@ -1,4 +1,4 @@
-# S1b 执行卡（v0.2）
+# S1b 执行卡（v0.3）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
@@ -20,6 +20,7 @@
 - 产出 `mss_only_probe_report` 与 `mss_consumption_case`。
 - 固化 `top_bottom_spread_5d` 与消费结论。
 - 强制校验 `contract_version = nc-v1`，防止错误契约被静默消费。
+- 固化消费语义字段：`mss_trend_quality/mss_rank/mss_percentile` 必须可追溯。
 
 ---
 
@@ -53,6 +54,7 @@ pytest tests/unit/integration/test_mss_integration_contract.py -q
 - gate:
   - 产出 `mss_only_probe_report` 且包含 `top_bottom_spread_5d`
   - 产出 `mss_consumption_case` 且包含消费字段与结论
+  - 消费记录必须覆盖 `mss_trend_quality/mss_rank/mss_percentile`
   - `contract_version` 必须为 `nc-v1`，否则 `blocked`
 - contracts:
   - `python -m scripts.quality.local_quality_check --contracts --governance` 必须通过

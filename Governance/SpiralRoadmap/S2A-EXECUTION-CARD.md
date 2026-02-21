@@ -1,7 +1,7 @@
-# S2a 执行卡（v0.1）
+# S2a 执行卡（v0.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-15  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S2a（IRS + PAS + Validation）
 
@@ -12,6 +12,7 @@
 - 打通 `IRS + PAS + Validation` 最小闭环。
 - 产出并落库 `irs_industry_daily`、`stock_pas_daily`、`validation_gate_decision`。
 - 固化 `contract_version = "nc-v1"` 与 FAIL 处方语义。
+- Validation 执行语义字段必须可追溯：`selected_weight_plan/fallback_plan/position_cap_ratio/tradability_pass_ratio/impact_cost_bps/candidate_exec_pass`。
 
 ---
 
@@ -29,6 +30,7 @@ eq recommend --date {trade_date} --mode mss_irs_pas --with-validation
 pytest tests/unit/algorithms/irs/test_irs_contract.py -q
 pytest tests/unit/algorithms/pas/test_pas_contract.py -q
 pytest tests/unit/integration/test_validation_gate_contract.py -q
+pytest tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py -q
 ```
 
 ---
@@ -48,6 +50,7 @@ pytest tests/unit/integration/test_validation_gate_contract.py -q
 - 必填结论：
   - 三张输出表当日是否都 `> 0`
   - `validation_gate_decision.contract_version` 是否为 `nc-v1`
+  - `selected_weight_plan/fallback_plan/position_cap_ratio/tradability_pass_ratio/impact_cost_bps/candidate_exec_pass` 是否齐全
   - FAIL 场景是否包含 `validation_prescription`
 
 ---
@@ -73,3 +76,4 @@ pytest tests/unit/integration/test_validation_gate_contract.py -q
 
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
+- Validation 设计：`docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md`

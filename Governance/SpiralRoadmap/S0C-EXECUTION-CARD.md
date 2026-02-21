@@ -1,4 +1,4 @@
-# S0c 执行卡（v0.2）
+# S0c 执行卡（v0.3）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
@@ -14,6 +14,7 @@
 - 默认执行严格 SW31 门禁（31 行业覆盖，禁止 `industry_code=ALL` 回退）。
 - `flat_count` 口径对齐 `flat_threshold`（单位 `%`，来自 `system_config`）。
 - 失败链路带 `error_level` 分级。
+- 形成可供 S2 集成层消费的行业映射链路证据（成员表 + 分类表 + 快照一致性）。
 
 ---
 
@@ -54,6 +55,7 @@ pytest tests/unit/data/test_flat_threshold_config_contract.py -q
 - 必填结论：
   - `market_snapshot` 当日是否存在
   - `industry_snapshot` 是否为 SW31 31 行业且不含 `ALL`
+  - 行业映射审计（`sw_mapping_audit`）是否可支持 S2 `stock -> industry` 桥接
   - `flat_count` 是否按 `flat_threshold` 计算
   - 质量字段是否齐全
   - `data_readiness_gate` 是否落库并与 gate 结论一致
