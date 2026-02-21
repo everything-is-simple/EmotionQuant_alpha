@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.4.4  
+**版本**: v7.4.5  
 **最后更新**: 2026-02-21  
 **适用对象**: 个人开发、个人使用
 
@@ -87,7 +87,7 @@
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ completed | `Governance/specs/spiral-s3ar/final.md` |
 | S3r | 回测修复子圈（条件触发） | 📋 planned | `Governance/specs/spiral-s3r/final.md` |
 | S3b | 收益归因验证专项圈 | 🔄 in_progress | `Governance/specs/spiral-s3b/final.md` |
-| S3c | 行业语义校准专项圈（SW31 行业映射 + IRS 全覆盖门禁） | 📋 planned | `Governance/specs/spiral-s3c/final.md` |
+| S3c | 行业语义校准专项圈（SW31 行业映射 + IRS 全覆盖门禁） | 🔄 in_progress | `Governance/specs/spiral-s3c/final.md` |
 | S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 in_progress | `Governance/specs/spiral-s3d/final.md` |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 in_progress | `Governance/specs/spiral-s3e/final.md` |
 | S4b | 极端防御专项圈 | 📋 planned | 待创建 `Governance/specs/spiral-s4b/*` |
@@ -222,6 +222,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.4.5 | 2026-02-21 | S3c 启动同步：`20260219` 窗口通过 SW31/IRS 门禁，S3c 状态切换为 `in_progress`，并补齐 `gate/consumption` 产物契约 |
 | v7.4.4 | 2026-02-21 | S3/S3e 阻断修复同步：回测/交易历史 schema 兼容落地；Validation decay 单调口径修复；S3b 形成可交易窗口证据但固定窗口仍阻断 |
 | v7.4.3 | 2026-02-21 | S3d/S3e 阻断修复同步：`eq validation` 与 MSS `threshold-mode/return-series-source` 契约落地；S3d/S3e 状态切换为 `in_progress` |
 | v7.4.2 | 2026-02-21 | S3 审计对齐：补齐 `spiral-s3r/s3c/s3d/s3e` specs 骨架入口；新增 S3r 状态行并同步 S3 计划圈证据路径 |

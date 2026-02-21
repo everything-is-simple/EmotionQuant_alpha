@@ -686,14 +686,17 @@ def run_l2_snapshot(
     artifacts_dir = Path("artifacts") / "spiral-s0c" / trade_date
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     parquet_root = Path(config.parquet_path) / "l2"
+    thresholds = {
+        "flat_threshold": float(config.flat_threshold),
+        "min_coverage_ratio": float(config.min_coverage_ratio),
+        "stale_hard_limit_days": int(config.stale_hard_limit_days),
+    }
+    quality_context_error = ""
     if database_path.exists():
-        thresholds = init_quality_context(database_path, config=config)
-    else:
-        thresholds = {
-            "flat_threshold": float(config.flat_threshold),
-            "min_coverage_ratio": float(config.min_coverage_ratio),
-            "stale_hard_limit_days": int(config.stale_hard_limit_days),
-        }
+        try:
+            thresholds = init_quality_context(database_path, config=config)
+        except Exception as exc:  # pragma: no cover - IO contention is environment-dependent
+            quality_context_error = str(exc)
     flat_threshold_ratio = float(thresholds["flat_threshold"]) / 100.0
     min_coverage_ratio = float(thresholds["min_coverage_ratio"])
     stale_hard_limit_days = int(thresholds["stale_hard_limit_days"])
@@ -712,6 +715,9 @@ def run_l2_snapshot(
                 "message": message,
             }
         )
+
+    if quality_context_error:
+        add_error("P1", "init_quality_context", f"quality_context_init_fallback:{quality_context_error}")
 
     try:
         if not database_path.exists():
@@ -822,8 +828,7 @@ def run_l2_snapshot(
             if not bool(sw_audit_payload.get("uses_sw31", False)):
                 add_error("P0", "gate", "sw31_mapping_source_missing")
     except Exception as exc:  # pragma: no cover - validated through contract tests
-        if not errors:
-            add_error("P0", "run_l2_snapshot", str(exc))
+        add_error("P0", "run_l2_snapshot", str(exc))
 
     source_trade_dates = {
         "market_snapshot": trade_date,

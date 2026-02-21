@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**版本**: v2.25  
+**版本**: v2.26  
 **范围**: S0-S6
 
 ---
@@ -106,6 +106,9 @@
 | A-TEST-040 | S3/S4 schema 兼容合同测试集 | `tests/unit/backtest/test_backtest_schema_compat_contract.py` + `tests/unit/trading/test_backtest_status_schema_compat_contract.py` | A | 固化“旧表可读可写、缺列不崩溃”的兼容契约 |
 | A-CODE-041 | Validation decay 单调代理实现 | `src/algorithms/validation/pipeline.py` | A | 修复 `decay_5d` 与 `|IC|` 关系反向问题，确保强信号不会被反向惩罚 |
 | A-TEST-042 | Validation decay 单调性测试 | `tests/unit/algorithms/validation/test_decay_proxy_contract.py` | A | 固化 decay 代理与 `|IC|` 单调关系，防止回归 |
+| A-CODE-043 | S3c CLI 门禁/消费产物写入器 | `src/pipeline/main.py` | A | 在 `eq irs --require-sw31` 路径固化 `gate_report/consumption` 契约，保证执行卡产物与代码一致 |
+| A-CODE-044 | L2 质量上下文初始化受控回退 | `src/data/l2_pipeline.py` | A | 避免 `run --to-l2` 在质量上下文初始化阶段因 IO 异常直接抛栈中断 |
+| A-TEST-045 | S3c CLI 产物契约回归测试 | `tests/unit/pipeline/test_cli_entrypoint.py::test_main_irs_command_wires_to_pipeline` | A | 固化 `s3c_irs` 输出 `gate_status/go_nogo/gate_report_path/consumption_path` 契约 |
 
 ---
 
@@ -126,6 +129,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v2.26 | 新增 S3c CLI 产物契约资产（A-CODE-043、A-TEST-045）与 L2 初始化受控回退资产（A-CODE-044） |
 | 2026-02-21 | v2.25 | 新增 S3/S4 历史 schema 兼容资产（A-CODE-039、A-TEST-040）与 Validation decay 单调口径资产（A-CODE-041、A-TEST-042） |
 | 2026-02-21 | v2.24 | 新增 S2r 规格资产模板（S-GOV-018）；将 A-CODE-015 升级为完整语义口径（四模式 + 推荐硬约束） |
 | 2026-02-21 | v2.23 | 新增 S0c-R1 资产：`quality_store` 持久化基座（A-CODE-037）与门禁持久化/阈值合同测试集（A-TEST-038）；空缺项由 SW 映射聚合转为 IRS 全覆盖门禁审计器 |

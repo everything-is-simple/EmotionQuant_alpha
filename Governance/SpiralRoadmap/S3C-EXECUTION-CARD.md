@@ -1,7 +1,7 @@
 # S3c 执行卡（v0.1）
 
-**状态**: Planned  
-**更新时间**: 2026-02-20  
+**状态**: Active  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3c（行业语义校准闭环）
 
@@ -40,6 +40,22 @@ pytest tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py -q
 - `artifacts/spiral-s3c/{trade_date}/sw_mapping_audit.md`
 - `artifacts/spiral-s3c/{trade_date}/consumption.md`
 - `artifacts/spiral-s3c/{trade_date}/gate_report.md`
+
+---
+
+## 4.1 本轮执行证据（2026-02-21）
+
+- 实跑窗口：`trade_date=20260219`
+- Run 结果：
+  - `eq run --date 20260219 --to-l2 --strict-sw31` => `industry_snapshot_count=31`
+  - `eq irs --date 20260219 --require-sw31` => `irs_industry_count=31`, `gate_status=PASS`, `go_nogo=GO`
+- Test 结果：
+  - `python -m pytest tests/unit/data/test_industry_snapshot_sw31_contract.py -q` 通过
+  - `python -m pytest tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py -q` 通过
+  - `python -m pytest tests/unit/pipeline/test_cli_entrypoint.py::test_main_irs_command_wires_to_pipeline -q` 通过
+- 说明：
+  - 已补齐 `S3c gate_report/consumption` 产物契约落地（由 `eq irs --require-sw31` 输出）。
+  - `S3c` 当前维持 `Active`，待与 `S3b` 固定窗口收口节奏对齐后再切 `Completed`。
 
 ---
 

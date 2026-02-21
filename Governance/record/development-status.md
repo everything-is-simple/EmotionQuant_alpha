@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**当前版本**: v4.26（S3/S3e 核心阻断修复：schema 兼容 + Validation decay 单调口径）  
+**当前版本**: v4.27（S3c 启动：SW31/IRS 门禁证据落地 + CLI 产物契约补齐）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3/S3b/S3d/S3e 执行中，S4 与 S3ar 已收口完成：当前推进 S3b，并并行推进 S3d/S3e 阻断清理后的窗口收口**
+**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：当前推进 S3b 固定窗口清障，并并行推进 S3c/S3d/S3e 窗口收口**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -19,6 +19,25 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-21，S3c 启动与契约补齐）
+
+1. 启动 S3c 实跑窗口 `20260219`：
+   - `eq run --date 20260219 --to-l2 --strict-sw31` 通过（`industry_snapshot_count=31`）。
+   - `eq irs --date 20260219 --require-sw31` 通过（`irs_industry_count=31`，`gate_status=PASS`）。
+2. 补齐 S3c 产物契约：
+   - `src/pipeline/main.py` 在 `s3c_irs` 路径新增 `gate_report.md` 与 `consumption.md` 输出。
+   - CLI payload 新增 `gate_report_path/consumption_path/gate_status/go_nogo`。
+3. 提升 `run --to-l2` 稳定性：
+   - `src/data/l2_pipeline.py` 将 `init_quality_context` 异常改为受控回退，避免初始化阶段直接抛栈中断。
+4. 目标测试通过：
+   - `tests/unit/data/test_industry_snapshot_sw31_contract.py`
+   - `tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py`
+   - `tests/unit/pipeline/test_cli_entrypoint.py::test_main_irs_command_wires_to_pipeline`
+5. 治理门禁通过：
+   - `python -m scripts.quality.local_quality_check --contracts --governance`。
 
 ---
 
@@ -205,7 +224,7 @@
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
 | S3r | 回测修复子圈（条件触发） | 📋 未开始 | 修复命令已落地（`backtest --repair s3r`），待 FAIL 场景触发 |
 | S3b | 收益归因验证专项圈 | 🔄 进行中 | 已落地 `eq analysis` 与三类归因产物，待窗口级收口 |
-| S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 📋 未开始 | 依赖 S3b 收口，推进 IRS 全覆盖门禁与窗口回跑收口 |
+| S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 🔄 进行中 | `20260219` 窗口已通过 SW31/IRS 门禁并补齐 `gate/consumption` 产物，待与 S3b 固定窗口节奏对齐后收口 |
 | S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
 | S4b | 极端防御专项圈 | 📋 未开始 | 依赖 S3e 收口结论输入防御参数 |
@@ -215,12 +234,12 @@
 
 ---
 
-## 下一步（S3b -> S3c/S3d/S3e）
+## 下一步（S3b/S3c -> S3d/S3e）
 
 1. 固定窗口 `20260210-20260213` 执行 S3b 三条命令：`ab-benchmark`、`live-backtest deviation`、`attribution-summary`。
 2. 产出并审计 S3b 五件套：`ab_benchmark_report.md`、`live_backtest_deviation_report.md`、`attribution_summary.json`、`consumption.md`、`gate_report.md`。
-3. 完成 S3b 目标测试与 `contracts/governance` 门禁后，输出收益来源结论并推进 S3c（SW31 行业语义校准）。
-4. 在 S3c 语义校准完成后，对 S3d/S3e 执行固定窗口实证并固化 `review/final`。
+3. 基于 `20260219` 已有 S3c 证据，补跑固定窗口并完成 `spiral-s3c final` 收口。
+4. 在 S3c 语义校准收口后，对 S3d/S3e 执行固定窗口实证并固化 `review/final`。
 5. 仅当 S3d/S3e 完成窗口证据收口后，再进入 S4b（极端防御）。
 
 ---
@@ -238,6 +257,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v4.27 | S3c 启动：`20260219` 窗口通过 SW31/IRS 门禁；补齐 `s3c_irs` 的 `gate_report/consumption` 契约；`run --to-l2` 初始化异常改为受控回退 |
 | 2026-02-21 | v4.26 | S3/S3e 核心阻断修复：回测/交易历史 schema 兼容落地；Validation `decay_5d` 口径改为单调正向并补测试；S3b 固定窗口仍因无成交记录阻断 |
 | 2026-02-21 | v4.25 | S3b 入口兼容收口：修复 `pyproject` 包发现配置并补齐契约测试，仓库外目录执行 `eq --help` 成功，清偿 TD-S3B-016 |
 | 2026-02-21 | v4.24 | S3d/S3e 阻断修复：落地 `eq validation` 与 MSS CLI 参数契约，补齐 5 条目标合同测试，执行卡切换为 Active |

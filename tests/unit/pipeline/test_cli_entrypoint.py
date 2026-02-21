@@ -228,6 +228,10 @@ def test_main_irs_command_wires_to_pipeline(
     assert payload["event"] == "s3c_irs"
     assert payload["require_sw31"] is True
     assert payload["irs_industry_count"] == 31
+    assert payload["gate_status"] == "PASS"
+    assert payload["go_nogo"] == "GO"
+    assert Path(payload["gate_report_path"]).exists()
+    assert Path(payload["consumption_path"]).exists()
     assert payload["status"] == "ok"
 
 

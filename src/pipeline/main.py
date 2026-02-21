@@ -395,6 +395,59 @@ def _write_validation_consumption(
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_s3c_gate_report(
+    *,
+    path: Path,
+    trade_date: str,
+    require_sw31: bool,
+    output_industry_count: int,
+    output_has_all: bool,
+    allocation_missing_count: int,
+    gate_status: str,
+    go_nogo: str,
+    gate_reason: str,
+) -> None:
+    lines = [
+        "# S3c Gate Report",
+        "",
+        f"- trade_date: {trade_date}",
+        f"- require_sw31: {str(require_sw31).lower()}",
+        f"- output_industry_count: {output_industry_count}",
+        f"- output_has_all: {str(output_has_all).lower()}",
+        f"- allocation_missing_count: {allocation_missing_count}",
+        f"- gate_status: {gate_status}",
+        f"- go_nogo: {go_nogo}",
+        f"- gate_reason: {gate_reason}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_s3c_consumption(
+    *,
+    path: Path,
+    trade_date: str,
+    gate_status: str,
+    coverage_report_path: Path,
+    sw_mapping_audit_path: Path,
+) -> None:
+    lines = [
+        "# S3c Consumption",
+        "",
+        "- producer: eq run --to-l2 --strict-sw31 + eq irs --require-sw31",
+        "- consumer: S3d MSS adaptive calibration / S3e validation production calibration",
+        "- consumed_fields: industry_snapshot_sw31, sw_mapping_audit, irs_allocation_coverage, gate_status",
+        f"- trade_date: {trade_date}",
+        f"- gate_status: {gate_status}",
+        f"- sw_mapping_audit_path: {sw_mapping_audit_path}",
+        f"- coverage_report_path: {coverage_report_path}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
     print(
         json.dumps(
@@ -549,6 +602,64 @@ def _run_irs(ctx: PipelineContext, args: argparse.Namespace) -> int:
         print(str(exc))
         return 2
 
+    artifacts_dir = Path(result.coverage_report_path).parent
+    output_industry_count = int(result.count)
+    output_has_all = False
+    allocation_missing_count = 0
+    frame = getattr(result, "frame", None)
+    if frame is not None and hasattr(frame, "columns"):
+        if "industry_code" in frame.columns:
+            output_codes = {
+                str(code).strip()
+                for code in frame["industry_code"].tolist()
+                if str(code).strip()
+            }
+            if output_codes:
+                output_industry_count = len(output_codes)
+            output_has_all = "ALL" in output_codes
+        if "allocation_advice" in frame.columns:
+            allocation_missing_count = int(
+                (frame["allocation_advice"].astype(str).str.strip() == "").sum()
+            )
+
+    gate_pass = (
+        (not output_has_all)
+        and output_industry_count == 31
+        and allocation_missing_count == 0
+    ) if bool(args.require_sw31) else output_industry_count > 0
+    gate_status = "PASS" if gate_pass else "FAIL"
+    go_nogo = "GO" if gate_status in {"PASS", "WARN"} else "NO_GO"
+    gate_reason = (
+        "ok"
+        if gate_pass
+        else (
+            f"output_industry_count={output_industry_count}, "
+            f"output_has_all={str(output_has_all).lower()}, "
+            f"allocation_missing_count={allocation_missing_count}"
+        )
+    )
+    gate_report_path = artifacts_dir / "gate_report.md"
+    consumption_path = artifacts_dir / "consumption.md"
+    sw_mapping_audit_path = artifacts_dir / "sw_mapping_audit.md"
+    _write_s3c_gate_report(
+        path=gate_report_path,
+        trade_date=args.date,
+        require_sw31=bool(args.require_sw31),
+        output_industry_count=output_industry_count,
+        output_has_all=output_has_all,
+        allocation_missing_count=allocation_missing_count,
+        gate_status=gate_status,
+        go_nogo=go_nogo,
+        gate_reason=gate_reason,
+    )
+    _write_s3c_consumption(
+        path=consumption_path,
+        trade_date=args.date,
+        gate_status=gate_status,
+        coverage_report_path=Path(result.coverage_report_path),
+        sw_mapping_audit_path=sw_mapping_audit_path,
+    )
+
     print(
         json.dumps(
             {
@@ -558,6 +669,10 @@ def _run_irs(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "irs_industry_count": result.count,
                 "factor_intermediate_sample_path": str(result.factor_intermediate_sample_path),
                 "coverage_report_path": str(result.coverage_report_path),
+                "gate_report_path": str(gate_report_path),
+                "consumption_path": str(consumption_path),
+                "gate_status": gate_status,
+                "go_nogo": go_nogo,
                 "status": "ok",
             },
             ensure_ascii=True,
