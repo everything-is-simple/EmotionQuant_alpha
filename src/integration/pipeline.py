@@ -19,8 +19,21 @@ DESIGN_TRACE = {
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 BASELINE_WEIGHT = round(1.0 / 3.0, 4)
 BASELINE_PLAN_ALIASES = {"baseline", "vp_balanced_v1"}
+SUPPORTED_INTEGRATION_MODES = {"top_down", "bottom_up", "dual_verify", "complementary"}
+MAX_RECOMMENDATIONS_PER_DAY = 20
+MAX_RECOMMENDATIONS_PER_INDUSTRY = 5
 TOP_DOWN_CYCLE_CAP = {
     "emergence": 1.00,
+    "fermentation": 0.80,
+    "acceleration": 0.70,
+    "divergence": 0.60,
+    "climax": 0.40,
+    "diffusion": 0.50,
+    "recession": 0.20,
+    "unknown": 0.20,
+}
+BOTTOM_UP_CYCLE_CAP = {
+    "emergence": 0.80,
     "fermentation": 0.80,
     "acceleration": 0.70,
     "divergence": 0.60,
@@ -100,6 +113,7 @@ QUALITY_GATE_COLUMNS = [
 class IntegrationRunResult:
     trade_date: str
     count: int
+    integration_mode: str
     frame: pd.DataFrame
     quality_status: str
     quality_frame: pd.DataFrame
@@ -269,6 +283,20 @@ def _to_bool(value: object) -> bool:
     return False
 
 
+def _safe_text(value: object, default: str = "") -> str:
+    if value is None:
+        return default
+    try:
+        if not pd.notna(value):
+            return default
+    except Exception:
+        pass
+    text = str(value).strip()
+    if text.lower() in {"<na>", "nan", "none"}:
+        return default
+    return text or default
+
+
 def _to_float(value: object, fallback: float = 0.0) -> float:
     try:
         parsed = float(value)
@@ -287,6 +315,132 @@ def _cycle_cap_ratio(mss_cycle: str) -> float:
     return float(TOP_DOWN_CYCLE_CAP.get(str(mss_cycle or "unknown"), 0.20))
 
 
+def _cycle_cap_ratio_bottom_up(mss_cycle: str) -> float:
+    return float(BOTTOM_UP_CYCLE_CAP.get(str(mss_cycle or "unknown"), 0.20))
+
+
+def _normalize_integration_mode(mode: str) -> str:
+    candidate = str(mode or "top_down").strip().lower() or "top_down"
+    if candidate not in SUPPORTED_INTEGRATION_MODES:
+        raise ValueError(f"unsupported integration_mode: {candidate}")
+    return candidate
+
+
+def _grade_priority(grade: str) -> int:
+    mapping = {"S": 0, "A": 1, "B": 2, "C": 3, "D": 4}
+    return mapping.get(str(grade or "").strip().upper(), 5)
+
+
+def _recommendation_priority(recommendation: str) -> int:
+    mapping = {"STRONG_BUY": 0, "BUY": 1, "HOLD": 2, "SELL": 3, "AVOID": 4}
+    return mapping.get(str(recommendation or "").strip().upper(), 5)
+
+
+def _apply_recommendation_limits(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    ranked = frame.copy()
+    ranked["__grade_priority"] = ranked["opportunity_grade"].map(_grade_priority)
+    ranked["__recommendation_priority"] = ranked["recommendation"].map(_recommendation_priority)
+    ranked = ranked.sort_values(
+        by=["__grade_priority", "__recommendation_priority", "final_score", "position_size"],
+        ascending=[True, True, False, False],
+        kind="stable",
+    )
+
+    picked_indices: list[int] = []
+    industry_counts: dict[str, int] = {}
+    for idx, row in ranked.iterrows():
+        if len(picked_indices) >= MAX_RECOMMENDATIONS_PER_DAY:
+            break
+        industry_code = _safe_text(row.get("industry_code", ""), "UNKNOWN")
+        current_count = int(industry_counts.get(industry_code, 0))
+        if current_count >= MAX_RECOMMENDATIONS_PER_INDUSTRY:
+            continue
+        picked_indices.append(idx)
+        industry_counts[industry_code] = current_count + 1
+
+    limited = ranked.loc[picked_indices].copy()
+    limited = limited.drop(columns=["__grade_priority", "__recommendation_priority"], errors="ignore")
+    return limited.reset_index(drop=True)
+
+
+def _latest_snapshot_trade_date(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    table_name: str,
+    trade_date: str,
+) -> str:
+    if not _table_exists(connection, table_name):
+        return ""
+    row = connection.execute(
+        f"SELECT MAX(CAST(trade_date AS VARCHAR)) FROM {table_name} "
+        "WHERE CAST(trade_date AS VARCHAR) <= ?",
+        [trade_date],
+    ).fetchone()
+    if not row:
+        return ""
+    return _safe_text(row[0], "")
+
+
+def _load_stock_industry_lookup(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    trade_date: str,
+) -> tuple[dict[str, tuple[str, str]], dict[str, tuple[str, str]]]:
+    if not _table_exists(connection, "raw_index_member"):
+        return ({}, {})
+    if not _table_exists(connection, "raw_index_classify"):
+        return ({}, {})
+
+    member_snapshot = _latest_snapshot_trade_date(
+        connection,
+        table_name="raw_index_member",
+        trade_date=trade_date,
+    )
+    classify_snapshot = _latest_snapshot_trade_date(
+        connection,
+        table_name="raw_index_classify",
+        trade_date=trade_date,
+    )
+    if not member_snapshot or not classify_snapshot:
+        return ({}, {})
+
+    frame = connection.execute(
+        "SELECT m.con_code, m.index_code, m.in_date, m.out_date, "
+        "c.industry_code, c.industry_name "
+        "FROM raw_index_member m "
+        "LEFT JOIN raw_index_classify c ON m.index_code = c.index_code "
+        "WHERE CAST(m.trade_date AS VARCHAR) = ? "
+        "AND CAST(c.trade_date AS VARCHAR) = ?",
+        [member_snapshot, classify_snapshot],
+    ).df()
+    if frame.empty:
+        return ({}, {})
+
+    lookup_by_stock: dict[str, tuple[str, str]] = {}
+    lookup_by_ts: dict[str, tuple[str, str]] = {}
+    for _, record in frame.iterrows():
+        ts_code = _safe_text(record.get("con_code", ""), "").upper()
+        if not ts_code:
+            continue
+        in_date = _safe_text(record.get("in_date", ""), "")
+        out_date = _safe_text(record.get("out_date", ""), "")
+        if in_date and in_date > trade_date:
+            continue
+        if out_date and out_date <= trade_date:
+            continue
+        industry_code = _safe_text(record.get("industry_code", ""), "UNKNOWN")
+        industry_name = _safe_text(record.get("industry_name", ""), "未知行业")
+        stock_code = _to_stock_code("", ts_code)
+
+        if stock_code and stock_code not in lookup_by_stock:
+            lookup_by_stock[stock_code] = (industry_code, industry_name)
+        if ts_code and ts_code not in lookup_by_ts:
+            lookup_by_ts[ts_code] = (industry_code, industry_name)
+    return (lookup_by_stock, lookup_by_ts)
+
+
 def _resolve_weight_plan(
     *,
     database_path: Path,
@@ -296,6 +450,8 @@ def _resolve_weight_plan(
     if not selected_weight_plan:
         return ("", BASELINE_WEIGHT, BASELINE_WEIGHT, BASELINE_WEIGHT, "selected_weight_plan_missing")
 
+    stock_industry_by_stock: dict[str, tuple[str, str]] = {}
+    stock_industry_by_ts: dict[str, tuple[str, str]] = {}
     with duckdb.connect(str(database_path), read_only=True) as connection:
         if not _table_exists(connection, "validation_weight_plan"):
             return (
@@ -381,10 +537,12 @@ def run_integrated_daily(
     trade_date: str,
     config: Config,
     with_validation_bridge: bool = False,
+    integration_mode: str = "top_down",
 ) -> IntegrationRunResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
         raise FileNotFoundError("duckdb_not_found")
+    resolved_integration_mode = _normalize_integration_mode(integration_mode)
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         required_tables = (
@@ -397,10 +555,16 @@ def run_integrated_daily(
         if missing:
             raise ValueError(f"required_tables_missing: {','.join(sorted(missing))}")
 
+        mss_columns = ["trade_date", "mss_score"]
+        optional_mss_columns = ("mss_temperature", "mss_cycle", "mss_trend", "contract_version")
+        for column_name in optional_mss_columns:
+            if _column_exists(connection, "mss_panorama", column_name):
+                mss_columns.append(column_name)
+        order_column = "created_at" if _column_exists(connection, "mss_panorama", "created_at") else "trade_date"
         mss_frame = connection.execute(
-            "SELECT trade_date, mss_score, mss_cycle, mss_trend, contract_version "
+            f"SELECT {', '.join(mss_columns)} "
             "FROM mss_panorama WHERE trade_date = ? "
-            "ORDER BY created_at DESC LIMIT 1",
+            f"ORDER BY {order_column} DESC LIMIT 1",
             [trade_date],
         ).df()
         if mss_frame.empty:
@@ -416,9 +580,19 @@ def run_integrated_daily(
         if irs_frame.empty:
             raise ValueError("irs_industry_daily_empty_for_trade_date")
 
+        pas_columns = [
+            "trade_date",
+            "stock_code",
+            "ts_code",
+            "pas_score",
+            "pas_direction",
+            "risk_reward_ratio",
+            "contract_version",
+        ]
+        if _column_exists(connection, "stock_pas_daily", "opportunity_grade"):
+            pas_columns.append("opportunity_grade")
         pas_frame = connection.execute(
-            "SELECT trade_date, stock_code, ts_code, pas_score, pas_direction, "
-            "risk_reward_ratio, contract_version "
+            f"SELECT {', '.join(pas_columns)} "
             "FROM stock_pas_daily WHERE trade_date = ? ORDER BY stock_code",
             [trade_date],
         ).df()
@@ -455,15 +629,28 @@ def run_integrated_daily(
         if gate_frame.empty:
             raise ValueError("validation_gate_decision_empty_for_trade_date")
 
+        stock_industry_by_stock, stock_industry_by_ts = _load_stock_industry_lookup(
+            connection,
+            trade_date=trade_date,
+        )
+
     mss_record = mss_frame.iloc[0].to_dict()
-    irs_record = irs_frame.iloc[0].to_dict()
     gate_record = gate_frame.iloc[0].to_dict()
+    default_irs_record = irs_frame.iloc[0].to_dict()
+    irs_by_industry: dict[str, dict[str, object]] = {}
+    for _, item in irs_frame.iterrows():
+        record = item.to_dict()
+        industry_code = _safe_text(record.get("industry_code", ""), "")
+        if not industry_code or industry_code in irs_by_industry:
+            continue
+        irs_by_industry[industry_code] = record
 
     validation_gate = _normalize_gate(str(gate_record.get("final_gate", "FAIL")))
     effective_gate = validation_gate
     validation_contract_version = str(gate_record.get("contract_version", "")).strip()
     selected_weight_plan = str(gate_record.get("selected_weight_plan", "")).strip()
-    selected_plan_is_baseline = selected_weight_plan in BASELINE_PLAN_ALIASES
+    selected_plan_is_baseline = selected_weight_plan == "baseline"
+    selected_plan_is_baseline_alias = selected_weight_plan in BASELINE_PLAN_ALIASES
     fallback_plan = str(gate_record.get("fallback_plan", "")).strip()
     position_cap_ratio = _to_position_cap_ratio(gate_record.get("position_cap_ratio", 1.0))
     tradability_pass_ratio = _to_float(gate_record.get("tradability_pass_ratio", 1.0), 1.0)
@@ -500,22 +687,24 @@ def run_integrated_daily(
                 w_pas = BASELINE_WEIGHT
 
     integration_state = "normal"
+    has_cold_start_industry = any(
+        str(item.get("quality_flag", "")).strip() == "cold_start" for item in irs_by_industry.values()
+    )
+    has_stale_industry = any(
+        str(item.get("quality_flag", "")).strip() == "stale" for item in irs_by_industry.values()
+    )
     if validation_gate == "FAIL":
         integration_state = "blocked_gate_fail"
     elif with_validation_bridge and bridge_error:
         integration_state = "blocked_bridge_missing"
-    elif fallback_plan == "last_valid":
-        effective_gate = "WARN"
-        integration_state = "warn_data_stale"
-        position_cap_ratio = min(position_cap_ratio, 0.80)
-        weight_plan_id = "baseline"
-        w_mss = BASELINE_WEIGHT
-        w_irs = BASELINE_WEIGHT
-        w_pas = BASELINE_WEIGHT
     elif (
         selected_weight_plan
-        and not selected_plan_is_baseline
-        and not candidate_exec_pass
+        and not selected_plan_is_baseline_alias
+        and (
+            not candidate_exec_pass
+            or tradability_pass_ratio < 0.90
+            or impact_cost_bps > 35.0
+        )
     ):
         effective_gate = "WARN"
         integration_state = "warn_candidate_exec"
@@ -524,6 +713,14 @@ def run_integrated_daily(
         w_mss = BASELINE_WEIGHT
         w_irs = BASELINE_WEIGHT
         w_pas = BASELINE_WEIGHT
+    elif has_cold_start_industry:
+        effective_gate = "WARN"
+        integration_state = "warn_data_cold_start"
+        position_cap_ratio = min(position_cap_ratio, 0.80)
+    elif has_stale_industry or fallback_plan == "last_valid":
+        effective_gate = "WARN"
+        integration_state = "warn_data_stale"
+        position_cap_ratio = min(position_cap_ratio, 0.80)
     elif effective_gate == "WARN":
         integration_state = "warn_gate_fallback"
 
@@ -541,25 +738,53 @@ def run_integrated_daily(
         mss_cycle = str(mss_record.get("mss_cycle", "unknown"))
         mss_trend = str(mss_record.get("mss_trend", "sideways"))
         mss_direction = _direction_from_trend(mss_trend)
-
-        irs_score = float(irs_record.get("irs_score", 0.0))
-        irs_recommendation = str(irs_record.get("recommendation", "HOLD"))
-        allocation_advice = str(irs_record.get("allocation_advice", "")).strip()
-        irs_direction = _direction_from_recommendation(irs_recommendation)
-        industry_code = str(irs_record.get("industry_code", "UNKNOWN"))
-        industry_name = str(irs_record.get("industry_name", "未知行业"))
-        cycle_position_cap = _cycle_cap_ratio(mss_cycle)
+        cycle_position_cap_top_down = _cycle_cap_ratio(mss_cycle)
+        cycle_position_cap_bottom_up = min(
+            cycle_position_cap_top_down,
+            _cycle_cap_ratio_bottom_up(mss_cycle),
+        )
 
         raw_lookup_by_stock: dict[str, dict[str, object]] = {}
         raw_lookup_by_ts: dict[str, dict[str, object]] = {}
         for _, raw_row in raw_frame.iterrows():
             raw_item = raw_row.to_dict()
             stock_key = str(raw_item.get("stock_code", "")).strip()
-            ts_key = str(raw_item.get("ts_code", "")).strip()
+            ts_key = str(raw_item.get("ts_code", "")).strip().upper()
             if stock_key and stock_key not in raw_lookup_by_stock:
                 raw_lookup_by_stock[stock_key] = raw_item
             if ts_key and ts_key not in raw_lookup_by_ts:
                 raw_lookup_by_ts[ts_key] = raw_item
+
+        pas_metrics = pas_frame.copy()
+        if "opportunity_grade" not in pas_metrics.columns:
+            pas_metrics["opportunity_grade"] = pas_metrics["pas_score"].map(_to_opportunity_grade)
+        pas_metrics["opportunity_grade"] = (
+            pas_metrics["opportunity_grade"].astype(str).str.strip().str.upper()
+        )
+        pas_metrics["stock_code_key"] = pas_metrics.apply(
+            lambda row: _to_stock_code(
+                str(row.get("stock_code", "")),
+                str(row.get("ts_code", "")),
+            ),
+            axis=1,
+        )
+        pas_metrics["ts_code_key"] = pas_metrics["ts_code"].astype(str).str.strip().str.upper()
+        pas_metrics["industry_code"] = "UNKNOWN"
+        pas_metrics["industry_name"] = "未知行业"
+        for idx, row in pas_metrics.iterrows():
+            stock_code_key = str(row.get("stock_code_key", ""))
+            ts_code_key = str(row.get("ts_code_key", ""))
+            industry_tuple = stock_industry_by_stock.get(stock_code_key) or stock_industry_by_ts.get(ts_code_key)
+            if industry_tuple:
+                pas_metrics.at[idx, "industry_code"] = str(industry_tuple[0])
+                pas_metrics.at[idx, "industry_name"] = str(industry_tuple[1])
+        pas_metrics["is_sa"] = pas_metrics["opportunity_grade"].isin({"S", "A"})
+        pas_sa_ratio = float(pas_metrics["is_sa"].mean()) if len(pas_metrics) > 0 else 0.0
+        industry_sa_ratio_map = (
+            pas_metrics.groupby("industry_code")["is_sa"].mean().to_dict()
+            if len(pas_metrics) > 0
+            else {}
+        )
 
         for _, pas_row in pas_frame.iterrows():
             pas_record = pas_row.to_dict()
@@ -572,7 +797,20 @@ def run_integrated_daily(
                 str(pas_record.get("stock_code", "")),
                 str(pas_record.get("ts_code", "")),
             )
-            ts_code = str(pas_record.get("ts_code", "")).strip()
+            ts_code = str(pas_record.get("ts_code", "")).strip().upper()
+            industry_tuple = stock_industry_by_stock.get(stock_code) or stock_industry_by_ts.get(ts_code)
+            if industry_tuple:
+                industry_code, industry_name = industry_tuple
+            else:
+                industry_code = str(default_irs_record.get("industry_code", "UNKNOWN"))
+                industry_name = str(default_irs_record.get("industry_name", "未知行业"))
+            irs_record = irs_by_industry.get(industry_code, default_irs_record)
+            irs_score = float(irs_record.get("irs_score", 0.0))
+            irs_recommendation = str(irs_record.get("recommendation", "HOLD"))
+            allocation_advice = str(irs_record.get("allocation_advice", "")).strip()
+            irs_direction = _direction_from_recommendation(irs_recommendation)
+            industry_sa_ratio = float(industry_sa_ratio_map.get(industry_code, 0.0))
+
             raw_item = raw_lookup_by_stock.get(stock_code) or raw_lookup_by_ts.get(ts_code) or {}
 
             open_price = float(raw_item.get("open", 0.0) or 0.0)
@@ -591,21 +829,59 @@ def run_integrated_daily(
             pas_direction = str(pas_record.get("pas_direction", "neutral"))
             if pas_direction not in {"bullish", "bearish", "neutral"}:
                 pas_direction = "neutral"
+            opportunity_grade = str(pas_record.get("opportunity_grade", "")).strip().upper()
+            if opportunity_grade not in {"S", "A", "B", "C", "D"}:
+                opportunity_grade = _to_opportunity_grade(pas_score)
 
-            final_score = round(
+            top_down_score = round(
                 mss_score * w_mss + irs_score * w_irs + effective_pas_score * w_pas,
                 4,
             )
+            bottom_up_score = (
+                effective_pas_score * 0.70 + irs_score * 0.20 + mss_score * 0.10
+            )
+            if pas_sa_ratio >= 0.20:
+                bottom_up_score *= 1.05
+            if industry_sa_ratio >= 0.20:
+                bottom_up_score *= 1.05
+            if allocation_advice == "回避":
+                bottom_up_score *= 0.90
+            bottom_up_score = round(max(0.0, min(100.0, bottom_up_score)), 4)
+
+            td_recommendation = _to_recommendation(top_down_score, mss_cycle)
+            bu_recommendation = _to_recommendation(bottom_up_score, mss_cycle)
+            td_direction = _direction_from_recommendation(td_recommendation)
+            bu_direction = _direction_from_recommendation(bu_recommendation)
+
+            if resolved_integration_mode == "top_down":
+                final_score = top_down_score
+                recommendation = td_recommendation
+                mode_position_cap = cycle_position_cap_top_down
+            elif resolved_integration_mode == "bottom_up":
+                final_score = bottom_up_score
+                recommendation = bu_recommendation
+                mode_position_cap = cycle_position_cap_bottom_up
+            elif resolved_integration_mode == "dual_verify":
+                final_score = round((top_down_score + bottom_up_score) / 2.0, 4)
+                recommendation = _to_recommendation(final_score, mss_cycle)
+                if td_direction != bu_direction and td_direction != "neutral" and bu_direction != "neutral":
+                    recommendation = "HOLD"
+                mode_position_cap = min(cycle_position_cap_top_down, cycle_position_cap_bottom_up)
+            else:  # complementary
+                final_score = round(top_down_score * 0.40 + bottom_up_score * 0.60, 4)
+                recommendation = _to_recommendation(final_score, mss_cycle)
+                if td_direction != bu_direction and td_direction != "neutral" and bu_direction != "neutral":
+                    recommendation = "HOLD"
+                mode_position_cap = cycle_position_cap_top_down
+
             direction = _to_direction(mss_direction, irs_direction, pas_direction)
             consistency = _to_consistency(mss_direction, irs_direction, pas_direction)
-            recommendation = _to_recommendation(final_score, mss_cycle)
-            opportunity_grade = _to_opportunity_grade(pas_score)
             neutrality = round(max(0.0, min(1.0, 1.0 - abs(final_score - 50.0) / 50.0)), 4)
 
             base_position_size = max(0.0, min(1.0, final_score / 100.0))
             if mss_temperature < 30.0 or mss_temperature > 80.0:
                 base_position_size *= 0.85
-            position_cap = min(position_cap_ratio, cycle_position_cap)
+            position_cap = min(position_cap_ratio, mode_position_cap)
             if effective_gate == "WARN":
                 position_cap = min(position_cap, 0.80)
             position_size = round(min(base_position_size, position_cap), 4)
@@ -622,7 +898,7 @@ def run_integrated_daily(
                     "final_score": final_score,
                     "direction": direction,
                     "consistency": consistency,
-                    "integration_mode": "top_down",
+                    "integration_mode": resolved_integration_mode,
                     "weight_plan_id": weight_plan_id,
                     "w_mss": round(w_mss, 4),
                     "w_irs": round(w_irs, 4),
@@ -651,6 +927,7 @@ def run_integrated_daily(
         if integrated_rows
         else pd.DataFrame(columns=INTEGRATED_COLUMNS)
     )
+    integrated_frame = _apply_recommendation_limits(integrated_frame)
     integrated_frame = integrated_frame.reindex(columns=INTEGRATED_COLUMNS)
     integrated_count = int(len(integrated_frame))
 
@@ -694,6 +971,7 @@ def run_integrated_daily(
     return IntegrationRunResult(
         trade_date=trade_date,
         count=integrated_count,
+        integration_mode=resolved_integration_mode,
         frame=integrated_frame,
         quality_status=quality_status,
         quality_frame=quality_frame,

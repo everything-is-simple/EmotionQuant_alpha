@@ -49,6 +49,8 @@ def test_mss_temperature_matches_six_factor_weight_formula() -> None:
     assert 0.0 <= score.mss_volatility_factor <= 100.0
     assert -1.0 <= score.mss_extreme_direction_bias <= 1.0
     assert score.trend_quality in {"normal", "cold_start", "degraded"}
+    assert score.mss_rank >= 1
+    assert 0.0 <= score.mss_percentile <= 100.0
 
 
 def test_mss_missing_baseline_fallbacks_to_neutral_50() -> None:
@@ -83,3 +85,5 @@ def test_mss_missing_baseline_fallbacks_to_neutral_50() -> None:
     assert score.mss_extreme_factor == pytest.approx(50.0, abs=1e-6)
     assert score.mss_volatility_factor == pytest.approx(50.0, abs=1e-6)
     assert score.mss_temperature == pytest.approx(50.0, abs=1e-6)
+    assert score.mss_rank == 1
+    assert score.mss_percentile == pytest.approx(100.0, abs=1e-6)

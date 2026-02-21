@@ -58,4 +58,4 @@ def test_s1a_generates_mss_panorama_and_artifacts(tmp_path: Path) -> None:
         )
 
     assert rows > 0
-    assert {"mss_score", "mss_temperature", "mss_cycle"} <= fields
+    assert {"mss_score", "mss_temperature", "mss_cycle", "mss_rank", "mss_percentile"} <= fields

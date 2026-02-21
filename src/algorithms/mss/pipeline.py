@@ -52,6 +52,31 @@ def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> boo
     return bool(row and int(row[0]) > 0)
 
 
+def _column_exists(
+    connection: duckdb.DuckDBPyConnection,
+    table_name: str,
+    column_name: str,
+) -> bool:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        [table_name, column_name],
+    ).fetchone()
+    return bool(row and int(row[0]) > 0)
+
+
+def _duckdb_type_from_series(series: pd.Series) -> str:
+    dtype = str(series.dtype).lower()
+    if "bool" in dtype:
+        return "BOOLEAN"
+    if "int" in dtype:
+        return "BIGINT"
+    if "float" in dtype:
+        return "DOUBLE"
+    if "datetime" in dtype:
+        return "TIMESTAMP"
+    return "VARCHAR"
+
+
 def _safe_ratio(numerator: float, denominator: float) -> float:
     if denominator <= 0:
         return 0.0
@@ -136,6 +161,8 @@ def _write_factor_trace(path: Path, score: MssScoreResult) -> None:
         f"- mss_cycle: {score.mss_cycle}",
         f"- trend: {score.trend}",
         f"- trend_quality: {score.trend_quality}",
+        f"- rank: {score.mss_rank}",
+        f"- percentile: {score.mss_percentile}",
         f"- neutrality: {score.neutrality}",
         "",
         "## Factors",
@@ -171,6 +198,20 @@ def _persist_mss_panorama(
             "CREATE TABLE IF NOT EXISTS mss_panorama AS "
             "SELECT * FROM incoming_df WHERE 1=0"
         )
+        existing_columns = [str(item[1]) for item in connection.execute("PRAGMA table_info('mss_panorama')").fetchall()]
+        for column_name in frame.columns:
+            if column_name in existing_columns:
+                continue
+            column_type = _duckdb_type_from_series(frame[column_name])
+            connection.execute(f"ALTER TABLE mss_panorama ADD COLUMN {column_name} {column_type}")
+        existing_columns = [str(item[1]) for item in connection.execute("PRAGMA table_info('mss_panorama')").fetchall()]
+        aligned = frame.copy()
+        for column_name in existing_columns:
+            if column_name not in aligned.columns:
+                aligned[column_name] = None
+        aligned = aligned[existing_columns]
+        connection.unregister("incoming_df")
+        connection.register("incoming_df", aligned)
         connection.execute(
             "DELETE FROM mss_panorama WHERE trade_date = ?",
             [trade_date],
@@ -223,12 +264,18 @@ def run_mss_scoring(
 
             history: list[float] = []
             if _table_exists(connection, "mss_panorama"):
-                history_rows = connection.execute(
-                    "SELECT mss_temperature FROM mss_panorama WHERE trade_date < ? "
-                    "ORDER BY trade_date DESC LIMIT 252",
-                    [trade_date],
-                ).fetchall()
-                history = [float(item[0]) for item in reversed(history_rows)]
+                history_column = (
+                    "mss_temperature"
+                    if _column_exists(connection, "mss_panorama", "mss_temperature")
+                    else ("mss_score" if _column_exists(connection, "mss_panorama", "mss_score") else "")
+                )
+                if history_column:
+                    history_rows = connection.execute(
+                        f"SELECT {history_column} FROM mss_panorama WHERE trade_date < ? "
+                        "ORDER BY trade_date DESC LIMIT 252",
+                        [trade_date],
+                    ).fetchall()
+                    history = [float(item[0]) for item in reversed(history_rows) if item and item[0] is not None]
 
         snapshot = MssInputSnapshot.from_record(snapshot_frame.iloc[0].to_dict())
         score = calculate_mss_score(snapshot, temperature_history=history)
@@ -242,7 +289,13 @@ def run_mss_scoring(
         if mss_panorama_count <= 0:
             add_error("P0", "gate", "mss_panorama_empty")
 
-        required_fields = {"mss_score", "mss_temperature", "mss_cycle"}
+        required_fields = {
+            "mss_score",
+            "mss_temperature",
+            "mss_cycle",
+            "mss_rank",
+            "mss_percentile",
+        }
         if not required_fields <= set(result_frame.columns):
             add_error("P0", "gate", "mss_panorama_required_fields_missing")
 

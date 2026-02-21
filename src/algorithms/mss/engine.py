@@ -207,6 +207,8 @@ class MssScoreResult:
     mss_cycle: str
     trend: str
     trend_quality: str
+    mss_rank: int
+    mss_percentile: float
     position_advice: str
     neutrality: float
     mss_market_coefficient: float
@@ -231,11 +233,15 @@ class MssScoreResult:
             "mss_cycle": self.mss_cycle,
             "mss_trend": self.trend,
             "mss_trend_quality": self.trend_quality,
+            "mss_rank": self.mss_rank,
+            "mss_percentile": self.mss_percentile,
             "mss_position_advice": self.position_advice,
             "temperature": self.mss_temperature,
             "cycle": self.mss_cycle,
             "trend": self.trend,
             "trend_quality": self.trend_quality,
+            "rank": self.mss_rank,
+            "percentile": self.mss_percentile,
             "position_advice": self.position_advice,
             "neutrality": self.neutrality,
             "mss_market_coefficient": self.mss_market_coefficient,
@@ -388,6 +394,27 @@ def _position_advice_for_cycle(cycle: str) -> str:
     return mapping.get(cycle, "0%-20%")
 
 
+def _compute_rank_percentile(
+    *,
+    temperature: float,
+    temperature_history: Sequence[float],
+) -> tuple[int, float]:
+    history: list[float] = []
+    for item in temperature_history:
+        try:
+            parsed = float(item)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(parsed):
+            history.append(parsed)
+    history.append(float(temperature))
+    if not history:
+        return (1, 100.0)
+    rank = 1 + sum(1 for item in history if item > float(temperature))
+    percentile = 100.0 * sum(1 for item in history if item <= float(temperature)) / float(len(history))
+    return (int(rank), float(round(_clamp(percentile, 0.0, 100.0), 4)))
+
+
 def calculate_mss_score(
     snapshot: MssInputSnapshot,
     *,
@@ -504,6 +531,10 @@ def calculate_mss_score(
         cycle = "unknown"
 
     neutrality = _clamp(1.0 - abs(temperature - 50.0) / 50.0, 0.0, 1.0)
+    mss_rank, mss_percentile = _compute_rank_percentile(
+        temperature=temperature,
+        temperature_history=history,
+    )
 
     return MssScoreResult(
         trade_date=snapshot.trade_date,
@@ -512,6 +543,8 @@ def calculate_mss_score(
         mss_cycle=cycle,
         trend=trend,
         trend_quality=trend_quality if trend_quality in VALID_TREND_QUALITIES else "degraded",
+        mss_rank=mss_rank,
+        mss_percentile=mss_percentile,
         position_advice=_position_advice_for_cycle(cycle),
         neutrality=float(round(neutrality, 4)),
         mss_market_coefficient=float(round(market_coefficient, 4)),

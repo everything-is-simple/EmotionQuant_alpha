@@ -41,9 +41,9 @@
 - 质量门：
   - `python -m scripts.quality.local_quality_check --contracts --governance` 通过。
 
-## 5. 距“完全实战版”仍需补齐（跨 S0-S2 全量视角）
-- Integration 设计中的双模式集成（`bottom_up/dual_verify/complementary`）尚未在实现层落地，当前主流程仍以 `top_down` 为主。
-- Integration 设计中的推荐数量约束（每日最多 20、行业最多 5）尚未强制执行。
-- MSS 设计中的历史 `rank/percentile` 输出尚未落库为正式契约字段。
+## 5. “完全版必须补项”闭环状态（2026-02-21 再复核）
+- 已闭环：Integration 双模式集成（`top_down/bottom_up/dual_verify/complementary`）可执行、可追溯，CLI 支持 `--integration-mode`。
+- 已闭环：推荐数量硬约束已强制执行（每日最多 20、单行业最多 5）。
+- 已闭环：MSS 历史 `rank/percentile` 已作为正式契约字段稳定落库（`mss_rank` / `mss_percentile`）。
 
-> 以上三项不阻断 S0-S2 的当前执行闭环，但会影响“完全实战版”与完整核心设计算法的 100% 对齐度。
+当前结论：S0/S1/S2 在核心算法口径上已完成“设计 -> 路线图 -> 执行卡 -> 代码/测试”闭环，不存在本轮定义下的“必须补”未完成项。

@@ -28,6 +28,7 @@ DESIGN_TRACE = {
 class RecommendRunResult:
     trade_date: str
     mode: str
+    integration_mode: str
     evidence_lane: str
     artifacts_dir: Path
     irs_count: int
@@ -181,6 +182,7 @@ def _write_quality_gate_report(
     integrated_count: int,
     rr_filtered_count: int,
     message: str,
+    integration_mode: str,
 ) -> None:
     lines = [
         "# S2 Quality Gate Report",
@@ -190,6 +192,7 @@ def _write_quality_gate_report(
         f"- validation_gate: {validation_gate}",
         f"- integrated_count: {integrated_count}",
         f"- rr_filtered_count: {rr_filtered_count}",
+        f"- integration_mode: {integration_mode}",
         f"- message: {message}",
         "",
     ]
@@ -384,6 +387,7 @@ def _run_s2a(
     return RecommendRunResult(
         trade_date=trade_date,
         mode="mss_irs_pas",
+        integration_mode="top_down",
         evidence_lane=evidence_lane,
         artifacts_dir=artifacts_dir,
         irs_count=irs_count,
@@ -411,6 +415,7 @@ def _run_s2b(
     with_validation_bridge: bool,
     config: Config,
     evidence_lane: str,
+    integration_mode: str,
 ) -> RecommendRunResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     artifacts_dir = (
@@ -427,6 +432,7 @@ def _run_s2b(
     integrated_count = 0
     quality_gate_status = "FAIL"
     go_nogo = "NO_GO"
+    resolved_integration_mode = str(integration_mode or "top_down").strip() or "top_down"
 
     irs_sample_path = artifacts_dir / "irs_industry_daily_sample.parquet"
     pas_sample_path = artifacts_dir / "stock_pas_daily_sample.parquet"
@@ -467,7 +473,9 @@ def _run_s2b(
             trade_date=trade_date,
             config=config,
             with_validation_bridge=with_validation_bridge,
+            integration_mode=integration_mode,
         )
+        resolved_integration_mode = str(integration_result.integration_mode or resolved_integration_mode)
         integrated_count = integration_result.count
         final_gate = integration_result.validation_gate
         quality_gate_status = integration_result.quality_status
@@ -482,6 +490,7 @@ def _run_s2b(
             integrated_count=integration_result.count,
             rr_filtered_count=integration_result.rr_filtered_count,
             message=integration_result.quality_message,
+            integration_mode=integration_result.integration_mode,
         )
         _write_go_nogo_decision(
             path=go_nogo_decision_path,
@@ -535,6 +544,7 @@ def _run_s2b(
             integrated_count=0,
             rr_filtered_count=0,
             message="exception_in_s2b_pipeline",
+            integration_mode=integration_mode,
         )
         _write_go_nogo_decision(
             path=go_nogo_decision_path,
@@ -561,6 +571,7 @@ def _run_s2b(
     return RecommendRunResult(
         trade_date=trade_date,
         mode="integrated",
+        integration_mode=resolved_integration_mode,
         evidence_lane=evidence_lane,
         artifacts_dir=artifacts_dir,
         irs_count=irs_count,
@@ -587,6 +598,7 @@ def _run_s2r(
     with_validation: bool,
     with_validation_bridge: bool,
     config: Config,
+    integration_mode: str,
 ) -> RecommendRunResult:
     s2b_result = _run_s2b(
         trade_date=trade_date,
@@ -594,6 +606,7 @@ def _run_s2r(
         with_validation_bridge=with_validation_bridge,
         config=config,
         evidence_lane="release",
+        integration_mode=integration_mode,
     )
 
     s2r_artifacts_dir = Path("artifacts") / "spiral-s2r" / trade_date
@@ -645,6 +658,7 @@ def _run_s2r(
     return RecommendRunResult(
         trade_date=trade_date,
         mode="integrated",
+        integration_mode=s2b_result.integration_mode,
         evidence_lane="release",
         artifacts_dir=s2r_artifacts_dir,
         irs_count=s2b_result.irs_count,
@@ -674,6 +688,7 @@ def run_recommendation(
     with_validation: bool,
     with_validation_bridge: bool = False,
     repair: str = "",
+    integration_mode: str = "top_down",
     evidence_lane: str = "release",
     config: Config,
 ) -> RecommendRunResult:
@@ -699,6 +714,7 @@ def run_recommendation(
                 with_validation=with_validation,
                 with_validation_bridge=with_validation_bridge,
                 config=config,
+                integration_mode=integration_mode,
             )
         return _run_s2b(
             trade_date=trade_date,
@@ -706,5 +722,6 @@ def run_recommendation(
             with_validation_bridge=with_validation_bridge,
             evidence_lane=evidence_lane,
             config=config,
+            integration_mode=integration_mode,
         )
     raise ValueError(f"unsupported mode for current stage: {mode}")

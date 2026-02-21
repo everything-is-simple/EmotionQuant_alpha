@@ -60,6 +60,8 @@ def test_calculate_mss_score_returns_required_fields_and_ranges() -> None:
     assert 0.0 <= result.mss_score <= 100.0
     assert 0.0 <= result.mss_temperature <= 100.0
     assert 0.0 <= result.neutrality <= 1.0
+    assert result.mss_rank >= 1
+    assert 0.0 <= result.mss_percentile <= 100.0
     assert result.mss_cycle in {
         "emergence",
         "fermentation",
@@ -72,7 +74,13 @@ def test_calculate_mss_score_returns_required_fields_and_ranges() -> None:
     }
 
     payload = result.to_storage_record()
-    assert {"mss_score", "mss_temperature", "mss_cycle"} <= set(payload.keys())
+    assert {
+        "mss_score",
+        "mss_temperature",
+        "mss_cycle",
+        "mss_rank",
+        "mss_percentile",
+    } <= set(payload.keys())
     assert payload["trade_date"] == "20260215"
     assert payload["contract_version"] == "nc-v1"
     assert result.trend_quality in {"normal", "cold_start", "degraded"}
@@ -105,3 +113,5 @@ def test_calculate_mss_score_marks_trend_quality_levels() -> None:
     normal = calculate_mss_score(snapshot, temperature_history=[50.0] * 25)
     assert cold_start.trend_quality == "cold_start"
     assert normal.trend_quality == "normal"
+    assert cold_start.mss_rank >= 1
+    assert 0.0 <= normal.mss_percentile <= 100.0

@@ -61,6 +61,8 @@ def test_s2b_generates_integrated_recommendation_with_execution_fields(tmp_path:
     )
     assert result.has_error is False
     assert result.integrated_count > 0
+    assert result.integrated_count <= 20
+    assert result.integration_mode == "top_down"
     assert result.quality_gate_status in {"PASS", "WARN"}
     assert result.integrated_sample_path.exists()
     assert result.quality_gate_report_path.exists()
@@ -87,3 +89,67 @@ def test_s2b_generates_integrated_recommendation_with_execution_fields(tmp_path:
     assert str(row[4]) != ""
     assert quality_row is not None
     assert quality_row[0] in ("PASS", "WARN")
+
+
+def test_s2b_supports_bottom_up_mode(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_date = "20260218"
+    _prepare_s2b_inputs(config, trade_date)
+
+    result = run_recommendation(
+        trade_date=trade_date,
+        mode="integrated",
+        integration_mode="bottom_up",
+        with_validation=False,
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.integrated_count > 0
+    assert result.integration_mode == "bottom_up"
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path), read_only=True) as connection:
+        mode_row = connection.execute(
+            "SELECT DISTINCT integration_mode FROM integrated_recommendation WHERE trade_date=?",
+            [trade_date],
+        ).fetchall()
+    assert mode_row
+    assert all(str(item[0]) == "bottom_up" for item in mode_row)
+
+
+def test_s2b_enforces_daily_and_industry_recommendation_caps(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_date = "20260218"
+    _prepare_s2b_inputs(config, trade_date)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        target_row = connection.execute(
+            "SELECT index_code FROM raw_index_member ORDER BY index_code LIMIT 1"
+        ).fetchone()
+        assert target_row is not None
+        target_index_code = str(target_row[0])
+        connection.execute(
+            "UPDATE raw_index_member SET index_code = ? WHERE CAST(trade_date AS VARCHAR) LIKE '202602%'",
+            [target_index_code],
+        )
+
+    result = run_recommendation(
+        trade_date=trade_date,
+        mode="integrated",
+        with_validation=False,
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.integrated_count <= 20
+
+    with duckdb.connect(str(db_path), read_only=True) as connection:
+        max_industry_count = connection.execute(
+            "SELECT COALESCE(MAX(cnt), 0) FROM ("
+            "SELECT industry_code, COUNT(*) AS cnt "
+            "FROM integrated_recommendation WHERE trade_date=? GROUP BY industry_code"
+            ")",
+            [trade_date],
+        ).fetchone()
+    assert max_industry_count is not None
+    assert int(max_industry_count[0]) <= 5

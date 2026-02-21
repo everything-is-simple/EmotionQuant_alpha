@@ -414,9 +414,28 @@ def test_main_recommend_runs_s2b_integrated_mode(
     payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert payload["event"] == "s2b_recommend"
     assert payload["mode"] == "integrated"
+    assert payload["integration_mode"] == "top_down"
     assert payload["status"] == "ok"
     assert payload["quality_gate_status"] in {"PASS", "WARN"}
     assert payload["integrated_count"] > 0
+
+    recommend_exit_bu = main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            trade_date,
+            "--mode",
+            "integrated",
+            "--integration-mode",
+            "bottom_up",
+        ]
+    )
+    assert recommend_exit_bu == 0
+    payload_bu = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload_bu["event"] == "s2b_recommend"
+    assert payload_bu["integration_mode"] == "bottom_up"
 
 
 def test_main_recommend_runs_s2r_repair_mode(
@@ -494,6 +513,7 @@ def test_main_recommend_runs_s2r_repair_mode(
     payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert payload["event"] == "s2r_recommend"
     assert payload["repair"] == "s2r"
+    assert payload["integration_mode"] == "top_down"
     assert "spiral-s2r" in payload["artifacts_dir"]
     assert Path(payload["s2r_patch_note_path"]).exists()
     assert Path(payload["s2r_delta_report_path"]).exists()

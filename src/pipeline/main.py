@@ -127,6 +127,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline mode, e.g. mss_irs_pas or integrated.",
     )
     recommend_parser.add_argument(
+        "--integration-mode",
+        choices=("top_down", "bottom_up", "dual_verify", "complementary"),
+        default="top_down",
+        help="Integration mode for --mode integrated (default top_down).",
+    )
+    recommend_parser.add_argument(
         "--with-validation",
         action="store_true",
         help="Enable validation gate generation.",
@@ -448,6 +454,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "command": ctx.command,
                 "trade_date": args.date,
                 "mode": args.mode,
+                "integration_mode": args.integration_mode,
                 "with_validation": bool(args.with_validation),
                 "with_validation_bridge": bool(args.with_validation_bridge),
                 "evidence_lane": args.evidence_lane,
@@ -464,6 +471,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             with_validation=bool(args.with_validation),
             with_validation_bridge=bool(args.with_validation_bridge),
             repair=str(args.repair or ""),
+            integration_mode=str(args.integration_mode or "top_down"),
             evidence_lane=args.evidence_lane,
             config=ctx.config,
         )
@@ -476,6 +484,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             "event": event_name,
             "trade_date": args.date,
             "mode": args.mode,
+            "integration_mode": result.integration_mode,
             "repair": str(args.repair or ""),
             "with_validation_bridge": bool(args.with_validation_bridge),
             "evidence_lane": result.evidence_lane,
@@ -499,6 +508,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             "event": "s2a_recommend",
             "trade_date": args.date,
             "mode": args.mode,
+            "integration_mode": result.integration_mode,
             "evidence_lane": result.evidence_lane,
             "irs_count": result.irs_count,
             "pas_count": result.pas_count,
