@@ -7,6 +7,12 @@
 
 ---
 
+## 0. 现状对齐（2026-02-21）
+
+- 本卡为计划圈，尚未进入执行态。
+- 进入执行前必须补齐独立入口：`eq validation` 子命令（含 `--threshold-mode/--wfa/--export-run-manifest`）。
+- 在 `eq validation` 与对应合同测试落地前，S3e 不得标记 `in_progress/completed`。
+
 ## 1. 目标
 
 - 因子验证切换到 `factor_series × future_returns` 生产口径。
@@ -77,4 +83,3 @@ pytest tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py 
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 依赖图：`Governance/SpiralRoadmap/DEPENDENCY-MAP.md`
-

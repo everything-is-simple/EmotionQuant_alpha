@@ -7,6 +7,12 @@
 
 ---
 
+## 0. 现状对齐（2026-02-21）
+
+- 本卡为计划圈，尚未进入执行态。
+- 进入执行前必须先补齐 CLI 能力：`eq mss --threshold-mode` 与 `eq mss-probe --return-series-source` 参数契约。
+- 以上能力未落地前，S3d 不得标记 `in_progress/completed`。
+
 ## 1. 目标
 
 - 落地 MSS `adaptive` 阈值模式（`T30/T45/T60/T75` + 冷启动回退）。
@@ -75,4 +81,3 @@ pytest tests/unit/algorithms/mss/test_mss_probe_return_series_contract.py -q
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 依赖图：`Governance/SpiralRoadmap/DEPENDENCY-MAP.md`
-

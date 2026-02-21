@@ -16,11 +16,13 @@ from src.data.fetch_batch_pipeline import read_fetch_status
 # - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3)
 # - Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md (§1 目标, §4 artifact)
 # - Governance/SpiralRoadmap/S3-EXECUTION-CARD.md (§1 目标, §4 artifact)
+# - Governance/SpiralRoadmap/S3R-EXECUTION-CARD.md (§2 run, §4 artifact)
 # - docs/design/core-infrastructure/backtest/backtest-algorithm.md (§3 信号入口, §4 A股约束)
 DESIGN_TRACE = {
     "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
     "s3a_execution_card": "Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md",
     "s3_execution_card": "Governance/SpiralRoadmap/S3-EXECUTION-CARD.md",
+    "s3r_execution_card": "Governance/SpiralRoadmap/S3R-EXECUTION-CARD.md",
     "backtest_algorithm_design": "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
 }
 
@@ -113,6 +115,9 @@ class BacktestRunResult:
     go_nogo: str
     bridge_check_status: str
     has_error: bool
+    repair: str = ""
+    s3r_patch_note_path: Path | None = None
+    s3r_delta_report_path: Path | None = None
 
 
 def _utc_now_text() -> str:
@@ -133,8 +138,8 @@ def _validate_date_range(start_date: str, end_date: str) -> None:
         raise ValueError(f"end date must be >= start date: start={start_date}, end={end_date}")
 
 
-def _artifacts_dir(end_date: str) -> Path:
-    return Path("artifacts") / "spiral-s3" / end_date
+def _artifacts_dir(*, end_date: str, spiral_id: str = "s3") -> Path:
+    return Path("artifacts") / f"spiral-{spiral_id}" / end_date
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -148,6 +153,53 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 def _write_markdown(path: Path, lines: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_s3r_patch_note(
+    *,
+    path: Path,
+    backtest_id: str,
+    engine: str,
+    start_date: str,
+    end_date: str,
+    quality_status: str,
+    go_nogo: str,
+) -> None:
+    lines = [
+        "# S3r Patch Note",
+        "",
+        f"- backtest_id: {backtest_id}",
+        f"- engine: {engine}",
+        f"- start_date: {start_date}",
+        f"- end_date: {end_date}",
+        "- repair_scope: backtest_gate_only",
+        f"- quality_status_after_repair: {quality_status}",
+        f"- go_nogo_after_repair: {go_nogo}",
+        "- policy: only repair, no scope expansion",
+        "",
+    ]
+    _write_markdown(path, lines)
+
+
+def _write_s3r_delta_report(
+    *,
+    path: Path,
+    consumed_signal_rows: int,
+    total_trades: int,
+    quality_status: str,
+    go_nogo: str,
+) -> None:
+    lines = [
+        "# S3r Delta Report",
+        "",
+        f"- consumed_signal_rows_after_repair: {consumed_signal_rows}",
+        f"- total_trades_after_repair: {total_trades}",
+        f"- quality_status_after_repair: {quality_status}",
+        f"- go_nogo_after_repair: {go_nogo}",
+        "- delta_summary: rerun backtest with S3r repair policy",
+        "",
+    ]
+    _write_markdown(path, lines)
 
 
 def _persist(
@@ -552,6 +604,7 @@ def run_backtest(
     start_date: str,
     end_date: str,
     engine: str,
+    repair: str = "",
     config: Config,
 ) -> BacktestRunResult:
     _validate_date_range(start_date, end_date)
@@ -560,9 +613,14 @@ def run_backtest(
         raise ValueError(
             f"unsupported engine: {normalized_engine}; allowed={sorted(SUPPORTED_ENGINE)}"
         )
+    repair_mode = str(repair or "").strip().lower()
+    if repair_mode and repair_mode != "s3r":
+        raise ValueError(f"unsupported repair mode: {repair_mode}")
 
-    artifacts_dir = _artifacts_dir(end_date)
-    backtest_id = f"BT_{start_date}_{end_date}_{normalized_engine}"
+    spiral_id = "s3r" if repair_mode == "s3r" else "s3"
+    artifacts_dir = _artifacts_dir(end_date=end_date, spiral_id=spiral_id)
+    id_prefix = "BTR" if repair_mode == "s3r" else "BT"
+    backtest_id = f"{id_prefix}_{start_date}_{end_date}_{normalized_engine}"
     backtest_results_path = artifacts_dir / "backtest_results.parquet"
     backtest_trade_records_path = artifacts_dir / "backtest_trade_records.parquet"
     ab_metric_summary_path = artifacts_dir / "ab_metric_summary.md"
@@ -1231,6 +1289,28 @@ def run_backtest(
         error_manifest_path = artifacts_dir / "error_manifest.json"
         _write_json(error_manifest_path, error_payload)
 
+    s3r_patch_note_path: Path | None = None
+    s3r_delta_report_path: Path | None = None
+    if repair_mode == "s3r":
+        s3r_patch_note_path = artifacts_dir / "s3r_patch_note.md"
+        s3r_delta_report_path = artifacts_dir / "s3r_delta_report.md"
+        _write_s3r_patch_note(
+            path=s3r_patch_note_path,
+            backtest_id=backtest_id,
+            engine=normalized_engine,
+            start_date=start_date,
+            end_date=end_date,
+            quality_status=gate_quality_status,
+            go_nogo=gate_go_nogo,
+        )
+        _write_s3r_delta_report(
+            path=s3r_delta_report_path,
+            consumed_signal_rows=int(len(integrated_frame)),
+            total_trades=total_trades,
+            quality_status=gate_quality_status,
+            go_nogo=gate_go_nogo,
+        )
+
     return BacktestRunResult(
         backtest_id=backtest_id,
         engine=normalized_engine,
@@ -1249,4 +1329,7 @@ def run_backtest(
         go_nogo=gate_go_nogo,
         bridge_check_status=bridge_check_status,
         has_error=bool(errors),
+        repair=repair_mode,
+        s3r_patch_note_path=s3r_patch_note_path,
+        s3r_delta_report_path=s3r_delta_report_path,
     )

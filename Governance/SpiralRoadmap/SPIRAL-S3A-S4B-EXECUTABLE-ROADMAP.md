@@ -1,11 +1,24 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.1）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.2）
 
 **状态**: Active  
-**更新时间**: 2026-02-20  
+**更新时间**: 2026-02-21  
 **适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、行业语义校准、MSS 自适应校准、Validation 生产校准、极端防御）  
 **文档角色**: S3a-S4b 执行合同（不是上位 SoT 替代）
 
 ---
+
+## 完成态复核（S3 审计，2026-02-21）
+
+- 复核结论（按“完全版/可实战”口径）：
+  - 已完成：`S3a`、`S3ar`
+  - 执行中：`S3`、`S3b`
+  - 计划中：`S3c`、`S3d`、`S3e`
+- 代码-文档对齐修正：
+  - `S3c` 命令口径修正为 `eq run --date {trade_date} --to-l2 --strict-sw31`（移除无效 `--stage l2`）。
+  - `S3r` 修复命令已落地：`eq backtest --repair s3r` 可执行并产出 `s3r_patch_note/s3r_delta_report`。
+- 仍需补齐后方可声明“核心设计 full 实现完成”：
+  - `S3d`：MSS adaptive CLI 契约与真实收益 probe 口径
+  - `S3e`：独立 `eq validation` 入口与生产口径测试集
 
 ## 0. 文档定位（先对齐 SoT）
 
@@ -24,10 +37,10 @@
 
 ---
 
-## 1. 现实基线快照（As-Is, 2026-02-19）
+## 1. 现实基线快照（As-Is, 2026-02-21）
 
 1. S2c、S3a、S4 已按 6A 收口完成，S3 处于 `in_progress`，并已打通 S3a->S3 与 S4->S3b 的消费门禁链路（见 `Governance/record/development-status.md`）。
-2. `eq` 统一入口已完成阶段B关键命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade/analysis`；`stress` 仍待后续圈补齐。
+2. `eq` 统一入口已完成阶段B关键命令接入：`fetch-batch/fetch-status/fetch-retry/backtest/trade/analysis`，并已接入 `backtest --repair s3r`；`stress` 与 `validation` 独立入口仍待后续圈补齐。
 3. `src/backtest` 已扩展多交易日回放与 T+1/涨跌停最小执行细节，`src/trading` 已落地 S4 paper trade 最小链路，`src/analysis` 已落地 S3b 最小执行入口。
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
 5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S3AR/S4R/S3B/S3C/S3D/S3E/S4B/S4BR-EXECUTION-CARD.md`。
@@ -274,7 +287,7 @@ flowchart LR
 - 主目标：行业语义校准闭环（SW31 行业映射 + IRS 全行业覆盖门禁）。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/test_snapshot_contract.py -q`
 - `target command`：
-  - `eq run --date {trade_date} --stage l2 --strict-sw31`
+  - `eq run --date {trade_date} --to-l2 --strict-sw31`
   - `eq irs --date {trade_date} --require-sw31`
 - `target test`（本圈必须补齐并执行）：`tests/unit/data/test_industry_snapshot_sw31_contract.py tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py`
 - 门禁：
@@ -416,6 +429,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.2 | 2026-02-21 | S3 审计对齐：新增“完成态复核”与实现差距清单；修正 S3c 命令为 `--to-l2`；接入并确认 `backtest --repair s3r` 命令与产物契约 |
 | v1.1 | 2026-02-20 | 阶段B新增核心实现深度圈 `S3c/S3d/S3e`：SW31 行业映射校准、MSS adaptive 校准、Validation 生产校准；`S4b` 前置依赖升级为 `S3e PASS/WARN` |
 | v1.0 | 2026-02-19 | S3b 最小执行入口落地：`eq analysis` + `src/analysis/pipeline.py` + `tests/unit/analysis/*`；As-Is 从“analysis 待补齐”修订为“analysis 已可执行” |
 | v0.9 | 2026-02-19 | 修订 S3ar 执行口径为“双 TuShare 主备已实现 + AKShare/BaoStock 预留”；同步 target test 与产物清单到当前代码实现，消除设计-实现漂移 |

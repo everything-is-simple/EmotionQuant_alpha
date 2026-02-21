@@ -1,11 +1,16 @@
-# S3r 执行卡（v0.1）
+# S3r 执行卡（v0.2）
 
-**状态**: Active  
-**更新时间**: 2026-02-18  
+**状态**: Planned（条件触发待执行，命令已落地）  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3r（回测修复子圈）
 
 ---
+
+## 0. 现状对齐（2026-02-21）
+
+- `eq backtest --repair s3r` 已接入 CLI 与回测流水线。
+- 当前为条件触发圈：仅当 S3 `gate=FAIL` 时进入执行与收口。
 
 ## 1. 目标
 
@@ -79,3 +84,4 @@ pytest tests/unit/backtest/test_backtest_reproducibility.py -q
 ## 9. 本轮进度（2026-02-18）
 
 - 条件触发圈，当前未触发。
+- 已完成实现前置：`--repair s3r` 可执行，且可产出 `s3r_patch_note/s3r_delta_report`。

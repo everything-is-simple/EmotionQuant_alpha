@@ -1,11 +1,18 @@
-# S3a 执行卡（v0.2）
+# S3a 执行卡（v0.3）
 
-**状态**: Active  
-**更新时间**: 2026-02-18  
+**状态**: Completed（2026-02-21 复核通过）  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3a（ENH-10 数据采集增强）
 
 ---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：S3a 已完成并可用于实战链路输入准备。
+- 证据锚点：`Governance/specs/spiral-s3a/final.md`、`Governance/specs/spiral-s3a/review.md`。
+- 代码锚点：`src/data/fetch_batch_pipeline.py`、`src/data/fetcher.py`、`src/pipeline/main.py`。
+- 测试锚点：`tests/unit/data/test_fetch_batch_contract.py`、`tests/unit/data/test_fetch_resume_contract.py`、`tests/unit/data/test_fetch_retry_contract.py`。
 
 ## 1. 目标
 

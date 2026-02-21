@@ -673,6 +673,71 @@ def test_main_backtest_runs_with_s3a_consumption(
     assert payload["total_trades"] > 0
 
 
+def test_main_backtest_runs_s3r_repair_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s3r.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_backtest(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3r" / "20260219"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        patch_note = artifacts_dir / "s3r_patch_note.md"
+        delta_report = artifacts_dir / "s3r_delta_report.md"
+        patch_note.write_text("# patch\n", encoding="utf-8")
+        delta_report.write_text("# delta\n", encoding="utf-8")
+        return SimpleNamespace(
+            backtest_id="BTR_20260218_20260219_qlib",
+            engine="qlib",
+            start_date="20260218",
+            end_date="20260219",
+            repair="s3r",
+            consumed_signal_rows=10,
+            total_trades=3,
+            quality_status="WARN",
+            go_nogo="GO",
+            bridge_check_status="PASS",
+            artifacts_dir=artifacts_dir,
+            backtest_results_path=artifacts_dir / "backtest_results.parquet",
+            backtest_trade_records_path=artifacts_dir / "backtest_trade_records.parquet",
+            ab_metric_summary_path=artifacts_dir / "ab_metric_summary.md",
+            gate_report_path=artifacts_dir / "gate_report.md",
+            consumption_path=artifacts_dir / "consumption.md",
+            error_manifest_path=artifacts_dir / "error_manifest_sample.json",
+            s3r_patch_note_path=patch_note,
+            s3r_delta_report_path=delta_report,
+            has_error=False,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_backtest", _fake_run_backtest)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "backtest",
+            "--engine",
+            "qlib",
+            "--start",
+            "20260218",
+            "--end",
+            "20260219",
+            "--repair",
+            "s3r",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3r_backtest"
+    assert payload["repair"] == "s3r"
+    assert "spiral-s3r" in payload["artifacts_dir"]
+    assert Path(payload["s3r_patch_note_path"]).exists()
+    assert Path(payload["s3r_delta_report_path"]).exists()
+
+
 def test_main_trade_runs_paper_mode(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

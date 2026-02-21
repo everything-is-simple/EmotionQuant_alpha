@@ -185,6 +185,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     backtest_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
     backtest_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
+    backtest_parser.add_argument(
+        "--repair",
+        choices=("s3r",),
+        default=None,
+        help="Run S3r repair workflow for backtest mode.",
+    )
     trade_parser = subparsers.add_parser("trade", help="Run S4 paper trading pipeline.")
     trade_parser.add_argument(
         "--mode",
@@ -643,32 +649,40 @@ def _run_backtest(ctx: PipelineContext, args: argparse.Namespace) -> int:
             start_date=args.start,
             end_date=args.end,
             engine=args.engine,
+            repair=str(args.repair or ""),
             config=ctx.config,
         )
     except ValueError as exc:
         print(str(exc))
         return 2
+    event_name = "s3r_backtest" if str(args.repair or "") == "s3r" else "s3_backtest"
+    payload = {
+        "event": event_name,
+        "backtest_id": result.backtest_id,
+        "engine": result.engine,
+        "start_date": result.start_date,
+        "end_date": result.end_date,
+        "repair": result.repair,
+        "consumed_signal_rows": result.consumed_signal_rows,
+        "total_trades": result.total_trades,
+        "quality_status": result.quality_status,
+        "go_nogo": result.go_nogo,
+        "bridge_check_status": result.bridge_check_status,
+        "artifacts_dir": str(result.artifacts_dir),
+        "backtest_results_path": str(result.backtest_results_path),
+        "backtest_trade_records_path": str(result.backtest_trade_records_path),
+        "ab_metric_summary_path": str(result.ab_metric_summary_path),
+        "gate_report_path": str(result.gate_report_path),
+        "consumption_path": str(result.consumption_path),
+        "error_manifest_path": str(result.error_manifest_path),
+    }
+    if result.s3r_patch_note_path is not None:
+        payload["s3r_patch_note_path"] = str(result.s3r_patch_note_path)
+    if result.s3r_delta_report_path is not None:
+        payload["s3r_delta_report_path"] = str(result.s3r_delta_report_path)
     print(
         json.dumps(
-            {
-                "event": "s3_backtest",
-                "backtest_id": result.backtest_id,
-                "engine": result.engine,
-                "start_date": result.start_date,
-                "end_date": result.end_date,
-                "consumed_signal_rows": result.consumed_signal_rows,
-                "total_trades": result.total_trades,
-                "quality_status": result.quality_status,
-                "go_nogo": result.go_nogo,
-                "bridge_check_status": result.bridge_check_status,
-                "artifacts_dir": str(result.artifacts_dir),
-                "backtest_results_path": str(result.backtest_results_path),
-                "backtest_trade_records_path": str(result.backtest_trade_records_path),
-                "ab_metric_summary_path": str(result.ab_metric_summary_path),
-                "gate_report_path": str(result.gate_report_path),
-                "consumption_path": str(result.consumption_path),
-                "error_manifest_path": str(result.error_manifest_path),
-            },
+            payload,
             ensure_ascii=True,
             sort_keys=True,
         )

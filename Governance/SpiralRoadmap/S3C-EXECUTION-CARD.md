@@ -18,7 +18,7 @@
 ## 2. run
 
 ```bash
-eq run --date {trade_date} --stage l2 --strict-sw31
+eq run --date {trade_date} --to-l2 --strict-sw31
 eq irs --date {trade_date} --require-sw31
 ```
 
@@ -75,4 +75,3 @@ pytest tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py -q
 - 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 依赖图：`Governance/SpiralRoadmap/DEPENDENCY-MAP.md`
-

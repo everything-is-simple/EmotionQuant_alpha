@@ -1,11 +1,18 @@
-# S3ar 执行卡（v0.2）
+# S3ar 执行卡（v0.3）
 
-**状态**: Active  
-**更新时间**: 2026-02-19  
+**状态**: Completed（2026-02-21 复核通过）  
+**更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3ar（采集稳定性修复圈：双 TuShare 主备 + DuckDB 锁恢复）
 
 ---
+
+## 完成态复核（2026-02-21）
+
+- 复核结论：S3ar 已完成并收口，主备通道与锁恢复语义已落地。
+- 证据锚点：`Governance/specs/spiral-s3ar/final.md`、`Governance/specs/spiral-s3ar/review.md`。
+- 代码锚点：`src/data/fetcher.py`、`src/data/fetch_batch_pipeline.py`、`src/data/repositories/base.py`。
+- 测试锚点：`tests/unit/data/test_fetcher_contract.py`、`tests/unit/data/test_fetch_retry_contract.py`、`tests/unit/data/test_duckdb_lock_recovery_contract.py`。
 
 ## 1. 目标
 
