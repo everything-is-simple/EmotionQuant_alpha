@@ -2,7 +2,7 @@
 
 **Spiral**: S2c  
 **状态**: completed  
-**最后更新**: 2026-02-17
+**最后更新**: 2026-02-21
 
 ## 1. A1 Align
 
@@ -12,6 +12,7 @@
   - S2c 产物分流：`artifacts/spiral-s2c/{trade_date}`（release）与 `artifacts/spiral-s2c-debug/{trade_date}`（debug）。
   - 新增 release 证据同步脚本：`scripts/quality/sync_s2c_release_artifacts.py`，同步前校验 PASS/GO 与样例行数。
   - 补齐 S2c 收口文档：`s2c_semantics_traceability_matrix.md`、`s2c_algorithm_closeout.md`。
+  - 补齐 S2 完整版硬语义：Integration 四模式、推荐数量硬约束（每日<=20/行业<=5）、MSS `mss_rank/mss_percentile` 契约落库。
 - Out Scope（本轮未完成）:
   - S3/S4 回测交易链路。
   - S3a ENH-10 功能实现。

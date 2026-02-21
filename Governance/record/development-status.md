@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**当前版本**: v4.21（S0c-R1 收口：SW31 严格门禁 + readiness 持久化 + flat_threshold 契约测试）  
+**当前版本**: v4.22（S0-S2r 规格/记录对齐复核：执行卡、路线图、specs、record 一致性收口）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -18,6 +18,17 @@
 - S2a（IRS + PAS + Validation 最小闭环）: 已完成并补齐 6A 证据链。
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
+- S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-21，S0-S2r 规格/记录一致性复核）
+
+1. 补齐 `Governance/specs/spiral-s2r/` 规格档案（`requirements/review/final`），消除“执行卡存在但 specs 缺位”。
+2. 修订 `spiral-s2b` 规格口径，从“最小实现”升级为“完全版语义”：四模式集成 + 推荐数量硬约束。
+3. 修订 `spiral-s2c` 规格口径，补记 MSS `mss_rank/mss_percentile` 契约落库与 Integration 完整语义复核结论。
+4. 复核结果：`S0-S2r` 路线图、执行卡、specs、record 四层文档与现有代码实现一致。
+5. 治理门禁复核通过：`python -m scripts.quality.local_quality_check --contracts --governance`。
 
 ---
 
@@ -144,6 +155,7 @@
 | S2a | IRS + PAS + Validation 最小闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2b | MSS+IRS+PAS 集成推荐闭环 | ✅ 已完成 | 6A 证据已归档 |
 | S2c | 核心算法深化闭环（权重桥接 + 语义收口） | ✅ 已完成 | release 证据统一、closeout 文档补齐、A6 同步完成 |
+| S2r | 质量门失败修复子圈 | ✅ 已完成 | specs 档案与执行卡对齐，`--repair s2r` 可直接触发 |
 | S3a | ENH-10 数据采集增强闭环 | ✅ 已完成 | 已接入真实 TuShare 客户端，实测吞吐与失败恢复证据齐备 |
 | S3 | 回测闭环 | 🔄 进行中 | 已扩展多交易日回放并落地板块化涨跌停阈值 |
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
@@ -182,6 +194,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v4.22 | 补齐 `spiral-s2r` specs 档案并重审 `spiral-s2b/s2c` 规格口径，完成 S0-S2r 路线图/执行卡/specs/record 四层一致性复核 |
 | 2026-02-21 | v4.21 | S0c-R1 收口：修复 strict 门禁语义与旧断言漂移，补齐 `data_readiness` 持久化/`flat_threshold` 契约测试，S0c 目标回归与治理门禁通过 |
 | 2026-02-20 | v4.20 | 主控路线对齐：进度看板新增 `S3c/S3d/S3e`，并将 `S4b` 依赖从 `S3b` 修订为 `S3e`；下一步改为 `S3b->S3c->S3d->S3e` |
 | 2026-02-20 | v4.19 | 修订主控一致性：进度看板显式补齐 S3b/S4b，且将 S5 前置依赖从 S4 修正为 S4b，消除阶段B/阶段C圈序漂移 |

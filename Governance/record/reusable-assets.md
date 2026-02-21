@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**版本**: v2.23  
+**版本**: v2.24  
 **范围**: S0-S6
 
 ---
@@ -37,6 +37,7 @@
 | S-GOV-015 | S2c 6A 阶段证据模板 | `Governance/specs/spiral-s2c/*` | A | 桥接硬门禁子步与 full 语义收口证据复用 |
 | S-GOV-016 | S3ar 6A 证据档案模板 | `Governance/specs/spiral-s3ar/*` | S | 采集稳定性修复圈 requirements/review/final 与门禁证据骨架复用 |
 | S-GOV-017 | S3ar 执行卡模板 | `Governance/SpiralRoadmap/S3AR-EXECUTION-CARD.md` | S | 双 TuShare 主备与 DuckDB 锁恢复 run/test/artifact/review/sync 合同复用 |
+| S-GOV-018 | S2r 6A 修复子圈证据模板 | `Governance/specs/spiral-s2r/*` | S | FAIL 修复场景下 requirements/review/final 与 patch/delta 证据口径复用 |
 
 ---
 
@@ -79,7 +80,7 @@
 | A-TEST-012 | MSS 探针/集成消费合同测试集 | `tests/unit/algorithms/mss/test_mss_probe_contract.py` + `tests/unit/integration/test_mss_integration_contract.py` | A | MSS 输出可消费性与探针指标回归保障 |
 | A-CODE-013 | S2a 推荐编排与三表最小闭环骨架 | `src/algorithms/irs/pipeline.py` + `src/algorithms/pas/pipeline.py` + `src/algorithms/validation/pipeline.py` + `src/pipeline/recommend.py` | A | S2a 的 `eq recommend --mode mss_irs_pas --with-validation` |
 | A-TEST-014 | S2a 合同测试集 | `tests/unit/algorithms/irs/test_irs_contract.py` + `tests/unit/algorithms/pas/test_pas_contract.py` + `tests/unit/integration/test_validation_gate_contract.py` | A | IRS/PAS/Validation 输出契约回归保障 |
-| A-CODE-015 | S2b 集成推荐与质量门骨架 | `src/integration/pipeline.py` + `src/pipeline/recommend.py` + `src/pipeline/main.py` | A | S2b 的 `eq recommend --mode integrated` 与质量门输出 |
+| A-CODE-015 | S2b 集成推荐与质量门完整实现 | `src/integration/pipeline.py` + `src/pipeline/recommend.py` + `src/pipeline/main.py` | A | S2b 的 `eq recommend --mode integrated`，覆盖四模式集成与推荐硬约束（每日<=20/行业<=5） |
 | A-TEST-016 | S2b 合同测试集 | `tests/unit/integration/test_integration_contract.py` + `tests/unit/integration/test_quality_gate_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py` | A | Integration/Quality Gate/CLI 路径回归保障 |
 | A-CODE-017 | S2c Validation-Integration 桥接硬门禁实现 | `src/algorithms/validation/pipeline.py` + `src/integration/pipeline.py` + `src/pipeline/recommend.py` + `src/pipeline/main.py` | A | `selected_weight_plan -> validation_weight_plan -> integrated_recommendation` 契约落地 |
 | A-TEST-018 | S2c 桥接与语义回归测试集 | `tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py` + `tests/unit/integration/test_validation_weight_plan_bridge.py` + `tests/unit/integration/test_algorithm_semantics_regression.py` | A | 桥接一致性、Gate 阻断、关键语义边界回归 |
@@ -121,6 +122,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v2.24 | 新增 S2r 规格资产模板（S-GOV-018）；将 A-CODE-015 升级为完整语义口径（四模式 + 推荐硬约束） |
 | 2026-02-21 | v2.23 | 新增 S0c-R1 资产：`quality_store` 持久化基座（A-CODE-037）与门禁持久化/阈值合同测试集（A-TEST-038）；空缺项由 SW 映射聚合转为 IRS 全覆盖门禁审计器 |
 | 2026-02-20 | v2.22 | 新增 S3ar 实网验真证据样例集资产（A-QA-009），用于主备可用性/限速/窗口采集证据复用对照 |
 | 2026-02-20 | v2.21 | 新增 unit 环境隔离夹具资产（A-QA-008）与 S3ar 锁恢复/幂等写入代码测试资产（A-CODE-035、A-TEST-036） |
