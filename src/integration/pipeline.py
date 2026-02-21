@@ -18,6 +18,17 @@ DESIGN_TRACE = {
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 BASELINE_WEIGHT = round(1.0 / 3.0, 4)
+BASELINE_PLAN_ALIASES = {"baseline", "vp_balanced_v1"}
+TOP_DOWN_CYCLE_CAP = {
+    "emergence": 1.00,
+    "fermentation": 0.80,
+    "acceleration": 0.70,
+    "divergence": 0.60,
+    "climax": 0.40,
+    "diffusion": 0.50,
+    "recession": 0.20,
+    "unknown": 0.20,
+}
 INTEGRATED_TEXT_COLUMNS = {
     "trade_date",
     "stock_code",
@@ -245,6 +256,37 @@ def _normalize_gate(gate: str) -> str:
     return "FAIL"
 
 
+def _to_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    candidate = str(value or "").strip().lower()
+    if candidate in {"1", "true", "t", "yes", "y"}:
+        return True
+    if candidate in {"0", "false", "f", "no", "n"}:
+        return False
+    return False
+
+
+def _to_float(value: object, fallback: float = 0.0) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return float(fallback)
+    if not pd.notna(parsed):
+        return float(fallback)
+    return float(parsed)
+
+
+def _to_position_cap_ratio(value: object) -> float:
+    return float(max(0.0, min(1.0, _to_float(value, 1.0))))
+
+
+def _cycle_cap_ratio(mss_cycle: str) -> float:
+    return float(TOP_DOWN_CYCLE_CAP.get(str(mss_cycle or "unknown"), 0.20))
+
+
 def _resolve_weight_plan(
     *,
     database_path: Path,
@@ -315,6 +357,7 @@ def _quality_status(
     integrated_count: int,
     rr_filtered_count: int,
     bridge_error: str,
+    integration_state: str,
 ) -> tuple[str, str, str]:
     if contract_version != SUPPORTED_CONTRACT_VERSION:
         return ("FAIL", "NO_GO", "contract_version_mismatch")
@@ -325,6 +368,8 @@ def _quality_status(
     if integrated_count <= 0:
         return ("FAIL", "NO_GO", "integrated_recommendation_empty")
     if validation_gate == "WARN":
+        if integration_state.startswith("warn_"):
+            return ("WARN", "GO", integration_state)
         return ("WARN", "GO", "validation_gate_warn")
     if rr_filtered_count > 0:
         return ("WARN", "GO", "rr_filtered_records_detected")
@@ -362,7 +407,8 @@ def run_integrated_daily(
             raise ValueError("mss_panorama_empty_for_trade_date")
 
         irs_frame = connection.execute(
-            "SELECT trade_date, industry_code, industry_name, irs_score, recommendation, contract_version "
+            "SELECT trade_date, industry_code, industry_name, irs_score, recommendation, "
+            "allocation_advice, quality_flag, contract_version "
             "FROM irs_industry_daily WHERE trade_date = ? "
             "ORDER BY created_at DESC",
             [trade_date],
@@ -388,11 +434,21 @@ def run_integrated_daily(
         else:
             raw_frame = pd.DataFrame.from_records([])
 
-        gate_select = "trade_date, final_gate, contract_version"
-        if _column_exists(connection, "validation_gate_decision", "selected_weight_plan"):
-            gate_select += ", selected_weight_plan"
+        gate_columns = ["trade_date", "final_gate", "contract_version"]
+        optional_gate_columns = (
+            "selected_weight_plan",
+            "fallback_plan",
+            "position_cap_ratio",
+            "tradability_pass_ratio",
+            "impact_cost_bps",
+            "candidate_exec_pass",
+            "reason",
+        )
+        for column_name in optional_gate_columns:
+            if _column_exists(connection, "validation_gate_decision", column_name):
+                gate_columns.append(column_name)
         gate_frame = connection.execute(
-            f"SELECT {gate_select} FROM validation_gate_decision WHERE trade_date = ? "
+            f"SELECT {', '.join(gate_columns)} FROM validation_gate_decision WHERE trade_date = ? "
             "ORDER BY created_at DESC LIMIT 1",
             [trade_date],
         ).df()
@@ -404,54 +460,95 @@ def run_integrated_daily(
     gate_record = gate_frame.iloc[0].to_dict()
 
     validation_gate = _normalize_gate(str(gate_record.get("final_gate", "FAIL")))
+    effective_gate = validation_gate
     validation_contract_version = str(gate_record.get("contract_version", "")).strip()
     selected_weight_plan = str(gate_record.get("selected_weight_plan", "")).strip()
+    selected_plan_is_baseline = selected_weight_plan in BASELINE_PLAN_ALIASES
+    fallback_plan = str(gate_record.get("fallback_plan", "")).strip()
+    position_cap_ratio = _to_position_cap_ratio(gate_record.get("position_cap_ratio", 1.0))
+    tradability_pass_ratio = _to_float(gate_record.get("tradability_pass_ratio", 1.0), 1.0)
+    impact_cost_bps = _to_float(gate_record.get("impact_cost_bps", 0.0), 0.0)
+    candidate_exec_pass = _to_bool(gate_record.get("candidate_exec_pass", True))
+
     weight_plan_id = "baseline"
     w_mss = BASELINE_WEIGHT
     w_irs = BASELINE_WEIGHT
     w_pas = BASELINE_WEIGHT
     bridge_error = ""
-    if with_validation_bridge and validation_gate != "FAIL":
-        (
-            weight_plan_id,
-            w_mss,
-            w_irs,
-            w_pas,
-            bridge_error,
-        ) = _resolve_weight_plan(
-            database_path=database_path,
-            trade_date=trade_date,
-            selected_weight_plan=selected_weight_plan,
-        )
-    integration_state = (
-        "blocked_gate_fail"
-        if validation_gate == "FAIL"
-        else (
-            "blocked_bridge_missing"
-            if with_validation_bridge and bridge_error
-            else ("warn_gate_fallback" if validation_gate == "WARN" else "normal")
-        )
-    )
+    if validation_gate != "FAIL":
+        if selected_weight_plan in {"", "baseline"}:
+            if with_validation_bridge and not selected_weight_plan:
+                bridge_error = "selected_weight_plan_missing"
+        else:
+            (
+                weight_plan_id,
+                w_mss,
+                w_irs,
+                w_pas,
+                bridge_error,
+            ) = _resolve_weight_plan(
+                database_path=database_path,
+                trade_date=trade_date,
+                selected_weight_plan=selected_weight_plan,
+            )
+            if bridge_error and not with_validation_bridge:
+                bridge_error = ""
+                effective_gate = "WARN"
+                weight_plan_id = "baseline"
+                w_mss = BASELINE_WEIGHT
+                w_irs = BASELINE_WEIGHT
+                w_pas = BASELINE_WEIGHT
+
+    integration_state = "normal"
+    if validation_gate == "FAIL":
+        integration_state = "blocked_gate_fail"
+    elif with_validation_bridge and bridge_error:
+        integration_state = "blocked_bridge_missing"
+    elif fallback_plan == "last_valid":
+        effective_gate = "WARN"
+        integration_state = "warn_data_stale"
+        position_cap_ratio = min(position_cap_ratio, 0.80)
+        weight_plan_id = "baseline"
+        w_mss = BASELINE_WEIGHT
+        w_irs = BASELINE_WEIGHT
+        w_pas = BASELINE_WEIGHT
+    elif (
+        selected_weight_plan
+        and not selected_plan_is_baseline
+        and not candidate_exec_pass
+    ):
+        effective_gate = "WARN"
+        integration_state = "warn_candidate_exec"
+        position_cap_ratio = min(position_cap_ratio, 0.80)
+        weight_plan_id = "baseline"
+        w_mss = BASELINE_WEIGHT
+        w_irs = BASELINE_WEIGHT
+        w_pas = BASELINE_WEIGHT
+    elif effective_gate == "WARN":
+        integration_state = "warn_gate_fallback"
 
     integrated_rows: list[dict[str, object]] = []
     rr_filtered_count = 0
     created_at = pd.Timestamp.utcnow().isoformat()
 
     if (
-        validation_gate != "FAIL"
+        effective_gate != "FAIL"
         and validation_contract_version == SUPPORTED_CONTRACT_VERSION
         and not (with_validation_bridge and bridge_error)
     ):
         mss_score = float(mss_record.get("mss_score", 0.0))
+        mss_temperature = _to_float(mss_record.get("mss_temperature", mss_score), mss_score)
         mss_cycle = str(mss_record.get("mss_cycle", "unknown"))
         mss_trend = str(mss_record.get("mss_trend", "sideways"))
         mss_direction = _direction_from_trend(mss_trend)
 
         irs_score = float(irs_record.get("irs_score", 0.0))
         irs_recommendation = str(irs_record.get("recommendation", "HOLD"))
+        allocation_advice = str(irs_record.get("allocation_advice", "")).strip()
         irs_direction = _direction_from_recommendation(irs_recommendation)
         industry_code = str(irs_record.get("industry_code", "UNKNOWN"))
         industry_name = str(irs_record.get("industry_name", "未知行业"))
+        cycle_position_cap = _cycle_cap_ratio(mss_cycle)
 
         raw_lookup_by_stock: dict[str, dict[str, object]] = {}
         raw_lookup_by_ts: dict[str, dict[str, object]] = {}
@@ -490,12 +587,13 @@ def run_integrated_daily(
             target = entry + (entry - stop) * risk_reward_ratio
 
             pas_score = float(pas_record.get("pas_score", 0.0))
+            effective_pas_score = pas_score * (0.85 if allocation_advice == "回避" else 1.0)
             pas_direction = str(pas_record.get("pas_direction", "neutral"))
             if pas_direction not in {"bullish", "bearish", "neutral"}:
                 pas_direction = "neutral"
 
             final_score = round(
-                mss_score * w_mss + irs_score * w_irs + pas_score * w_pas,
+                mss_score * w_mss + irs_score * w_irs + effective_pas_score * w_pas,
                 4,
             )
             direction = _to_direction(mss_direction, irs_direction, pas_direction)
@@ -504,9 +602,13 @@ def run_integrated_daily(
             opportunity_grade = _to_opportunity_grade(pas_score)
             neutrality = round(max(0.0, min(1.0, 1.0 - abs(final_score - 50.0) / 50.0)), 4)
 
-            position_size = round(max(0.0, min(1.0, final_score / 100.0)), 4)
-            if validation_gate == "WARN":
-                position_size = round(min(position_size, 0.8), 4)
+            base_position_size = max(0.0, min(1.0, final_score / 100.0))
+            if mss_temperature < 30.0 or mss_temperature > 80.0:
+                base_position_size *= 0.85
+            position_cap = min(position_cap_ratio, cycle_position_cap)
+            if effective_gate == "WARN":
+                position_cap = min(position_cap, 0.80)
+            position_size = round(min(base_position_size, position_cap), 4)
 
             integrated_rows.append(
                 {
@@ -525,7 +627,7 @@ def run_integrated_daily(
                     "w_mss": round(w_mss, 4),
                     "w_irs": round(w_irs, 4),
                     "w_pas": round(w_pas, 4),
-                    "validation_gate": validation_gate,
+                    "validation_gate": effective_gate,
                     "integration_state": integration_state,
                     "recommendation": recommendation,
                     "position_size": position_size,
@@ -553,18 +655,19 @@ def run_integrated_daily(
     integrated_count = int(len(integrated_frame))
 
     quality_status, go_nogo, quality_message = _quality_status(
-        validation_gate=validation_gate,
+        validation_gate=effective_gate,
         contract_version=validation_contract_version,
         integrated_count=integrated_count,
         rr_filtered_count=rr_filtered_count,
         bridge_error=bridge_error,
+        integration_state=integration_state,
     )
     quality_frame = pd.DataFrame.from_records(
         [
             {
                 "trade_date": trade_date,
                 "status": quality_status,
-                "validation_gate": validation_gate,
+                "validation_gate": effective_gate,
                 "go_nogo": go_nogo,
                 "integrated_count": integrated_count,
                 "rr_filtered_count": rr_filtered_count,
@@ -594,7 +697,7 @@ def run_integrated_daily(
         frame=integrated_frame,
         quality_status=quality_status,
         quality_frame=quality_frame,
-        validation_gate=validation_gate,
+        validation_gate=effective_gate,
         integration_state=integration_state,
         go_nogo=go_nogo,
         rr_filtered_count=rr_filtered_count,

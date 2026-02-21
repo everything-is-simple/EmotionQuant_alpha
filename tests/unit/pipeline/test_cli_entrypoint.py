@@ -419,6 +419,86 @@ def test_main_recommend_runs_s2b_integrated_mode(
     assert payload["integrated_count"] > 0
 
 
+def test_main_recommend_runs_s2r_repair_mode(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    data_root = tmp_path / "eq_data"
+    env_file = tmp_path / ".env.s2r.cli"
+    env_file.write_text(
+        f"DATA_PATH={data_root}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    trade_date = "20260218"
+
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--l1-only",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "run",
+            "--date",
+            trade_date,
+            "--source",
+            "tushare",
+            "--to-l2",
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "mss",
+            "--date",
+            trade_date,
+        ]
+    ) == 0
+    assert main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            trade_date,
+            "--mode",
+            "mss_irs_pas",
+            "--with-validation",
+        ]
+    ) == 0
+
+    repair_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            trade_date,
+            "--mode",
+            "integrated",
+            "--repair",
+            "s2r",
+        ]
+    )
+    assert repair_exit in {0, 1}
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s2r_recommend"
+    assert payload["repair"] == "s2r"
+    assert "spiral-s2r" in payload["artifacts_dir"]
+    assert Path(payload["s2r_patch_note_path"]).exists()
+    assert Path(payload["s2r_delta_report_path"]).exists()
+
+
 def test_main_fetch_batch_status_and_retry(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

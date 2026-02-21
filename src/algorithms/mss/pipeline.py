@@ -135,6 +135,7 @@ def _write_factor_trace(path: Path, score: MssScoreResult) -> None:
         f"- mss_temperature: {score.mss_temperature}",
         f"- mss_cycle: {score.mss_cycle}",
         f"- trend: {score.trend}",
+        f"- trend_quality: {score.trend_quality}",
         f"- neutrality: {score.neutrality}",
         "",
         "## Factors",

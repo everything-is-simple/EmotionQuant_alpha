@@ -86,3 +86,51 @@ def test_s2b_gate_fail_produces_no_go_and_blocks_recommendation(tmp_path: Path) 
         ).fetchone()
 
     assert quality_row == ("FAIL", "NO_GO")
+
+
+def test_s2r_repair_emits_patch_and_delta_artifacts(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_date = "20260218"
+    _prepare_s2b_inputs(config, trade_date)
+
+    result = run_recommendation(
+        trade_date=trade_date,
+        mode="integrated",
+        with_validation=False,
+        repair="s2r",
+        config=config,
+    )
+    assert "spiral-s2r" in str(result.artifacts_dir)
+    assert result.s2r_patch_note_path is not None
+    assert result.s2r_delta_report_path is not None
+    assert result.s2r_patch_note_path.exists()
+    assert result.s2r_delta_report_path.exists()
+    assert result.quality_gate_report_path.exists()
+
+
+def test_s2b_warns_and_fallbacks_when_candidate_exec_not_pass(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_date = "20260218"
+    _prepare_s2b_inputs(config, trade_date)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE validation_gate_decision "
+            "SET final_gate='PASS', selected_weight_plan='vp_candidate_v1', "
+            "candidate_exec_pass=false, tradability_pass_ratio=0.50, impact_cost_bps=60.0 "
+            "WHERE trade_date=?",
+            [trade_date],
+        )
+
+    result = run_recommendation(
+        trade_date=trade_date,
+        mode="integrated",
+        with_validation=False,
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.quality_gate_status == "WARN"
+    assert result.go_nogo == "GO"
+    quality_text = result.quality_gate_report_path.read_text(encoding="utf-8")
+    assert "warn_candidate_exec" in quality_text

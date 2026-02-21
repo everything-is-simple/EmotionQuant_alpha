@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,8 @@ class RecommendRunResult:
     integrated_sample_path: Path
     quality_gate_report_path: Path
     go_nogo_decision_path: Path
+    s2r_patch_note_path: Path | None = None
+    s2r_delta_report_path: Path | None = None
 
 
 def _resolve_s2c_artifacts_dir(*, trade_date: str, evidence_lane: str) -> Path:
@@ -209,6 +212,57 @@ def _write_go_nogo_decision(
         f"- decision: {go_nogo}",
         f"- quality_gate_status: {status}",
         f"- reason: {reason}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _copy_if_exists(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source.exists():
+        shutil.copyfile(source, destination)
+
+
+def _write_s2r_patch_note(
+    *,
+    path: Path,
+    trade_date: str,
+    quality_gate_status: str,
+    go_nogo: str,
+    final_gate: str,
+) -> None:
+    lines = [
+        "# S2r Patch Note",
+        "",
+        f"- trade_date: {trade_date}",
+        "- repair_scope: quality_gate_only",
+        f"- final_gate_after_repair: {final_gate}",
+        f"- quality_gate_status_after_repair: {quality_gate_status}",
+        f"- go_nogo_after_repair: {go_nogo}",
+        "- policy: only repair, no scope expansion",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_s2r_delta_report(
+    *,
+    path: Path,
+    trade_date: str,
+    integrated_count: int,
+    rr_filtered_count: int,
+    quality_gate_status: str,
+) -> None:
+    lines = [
+        "# S2r Delta Report",
+        "",
+        f"- trade_date: {trade_date}",
+        f"- integrated_count_after_repair: {integrated_count}",
+        f"- rr_filtered_count_after_repair: {rr_filtered_count}",
+        f"- quality_gate_status_after_repair: {quality_gate_status}",
+        "- delta_summary: rerun integrated recommendation with S2r repair policy",
         "",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -527,17 +581,109 @@ def _run_s2b(
     )
 
 
+def _run_s2r(
+    *,
+    trade_date: str,
+    with_validation: bool,
+    with_validation_bridge: bool,
+    config: Config,
+) -> RecommendRunResult:
+    s2b_result = _run_s2b(
+        trade_date=trade_date,
+        with_validation=with_validation,
+        with_validation_bridge=with_validation_bridge,
+        config=config,
+        evidence_lane="release",
+    )
+
+    s2r_artifacts_dir = Path("artifacts") / "spiral-s2r" / trade_date
+    s2r_artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    integrated_sample_path = s2r_artifacts_dir / "integrated_recommendation_sample.parquet"
+    quality_gate_report_path = s2r_artifacts_dir / "quality_gate_report.md"
+    go_nogo_decision_path = s2r_artifacts_dir / "s2_go_nogo_decision.md"
+    error_manifest_path = s2r_artifacts_dir / "error_manifest_sample.json"
+    s2r_patch_note_path = s2r_artifacts_dir / "s2r_patch_note.md"
+    s2r_delta_report_path = s2r_artifacts_dir / "s2r_delta_report.md"
+    irs_sample_path = s2r_artifacts_dir / "irs_industry_daily_sample.parquet"
+    pas_sample_path = s2r_artifacts_dir / "stock_pas_daily_sample.parquet"
+    validation_sample_path = s2r_artifacts_dir / "validation_gate_decision_sample.parquet"
+
+    _copy_if_exists(s2b_result.integrated_sample_path, integrated_sample_path)
+    _copy_if_exists(s2b_result.quality_gate_report_path, quality_gate_report_path)
+    _copy_if_exists(s2b_result.go_nogo_decision_path, go_nogo_decision_path)
+    _copy_if_exists(s2b_result.error_manifest_path, error_manifest_path)
+    _copy_if_exists(s2b_result.irs_sample_path, irs_sample_path)
+    _copy_if_exists(s2b_result.pas_sample_path, pas_sample_path)
+    _copy_if_exists(s2b_result.validation_sample_path, validation_sample_path)
+
+    rr_filtered_count = 0
+    if quality_gate_report_path.exists():
+        for line in quality_gate_report_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("- rr_filtered_count:"):
+                try:
+                    rr_filtered_count = int(float(line.split(":", maxsplit=1)[1].strip()))
+                except ValueError:
+                    rr_filtered_count = 0
+                break
+
+    _write_s2r_patch_note(
+        path=s2r_patch_note_path,
+        trade_date=trade_date,
+        quality_gate_status=s2b_result.quality_gate_status,
+        go_nogo=s2b_result.go_nogo,
+        final_gate=s2b_result.final_gate,
+    )
+    _write_s2r_delta_report(
+        path=s2r_delta_report_path,
+        trade_date=trade_date,
+        integrated_count=s2b_result.integrated_count,
+        rr_filtered_count=rr_filtered_count,
+        quality_gate_status=s2b_result.quality_gate_status,
+    )
+
+    return RecommendRunResult(
+        trade_date=trade_date,
+        mode="integrated",
+        evidence_lane="release",
+        artifacts_dir=s2r_artifacts_dir,
+        irs_count=s2b_result.irs_count,
+        pas_count=s2b_result.pas_count,
+        validation_count=s2b_result.validation_count,
+        final_gate=s2b_result.final_gate,
+        integrated_count=s2b_result.integrated_count,
+        quality_gate_status=s2b_result.quality_gate_status,
+        go_nogo=s2b_result.go_nogo,
+        has_error=s2b_result.has_error,
+        error_manifest_path=error_manifest_path,
+        irs_sample_path=irs_sample_path,
+        pas_sample_path=pas_sample_path,
+        validation_sample_path=validation_sample_path,
+        integrated_sample_path=integrated_sample_path,
+        quality_gate_report_path=quality_gate_report_path,
+        go_nogo_decision_path=go_nogo_decision_path,
+        s2r_patch_note_path=s2r_patch_note_path,
+        s2r_delta_report_path=s2r_delta_report_path,
+    )
+
+
 def run_recommendation(
     *,
     trade_date: str,
     mode: str,
     with_validation: bool,
     with_validation_bridge: bool = False,
+    repair: str = "",
     evidence_lane: str = "release",
     config: Config,
 ) -> RecommendRunResult:
     if evidence_lane not in {"release", "debug"}:
         raise ValueError(f"unsupported evidence_lane: {evidence_lane}")
+    repair_mode = str(repair or "").strip().lower()
+    if repair_mode and repair_mode != "s2r":
+        raise ValueError(f"unsupported repair mode: {repair_mode}")
+    if repair_mode and mode != "integrated":
+        raise ValueError("repair mode requires --mode integrated")
 
     if mode == "mss_irs_pas":
         return _run_s2a(
@@ -547,6 +693,13 @@ def run_recommendation(
             evidence_lane=evidence_lane,
         )
     if mode == "integrated":
+        if repair_mode == "s2r":
+            return _run_s2r(
+                trade_date=trade_date,
+                with_validation=with_validation,
+                with_validation_bridge=with_validation_bridge,
+                config=config,
+            )
         return _run_s2b(
             trade_date=trade_date,
             with_validation=with_validation,

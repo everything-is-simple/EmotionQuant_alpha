@@ -65,7 +65,8 @@ def test_validation_gate_persists_selected_weight_plan_and_plan_row(tmp_path: Pa
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path), read_only=True) as connection:
         gate_row = connection.execute(
-            "SELECT final_gate, selected_weight_plan, contract_version "
+            "SELECT final_gate, selected_weight_plan, contract_version, "
+            "tradability_pass_ratio, impact_cost_bps, candidate_exec_pass "
             "FROM validation_gate_decision WHERE trade_date=?",
             [trade_date],
         ).fetchone()
@@ -79,6 +80,10 @@ def test_validation_gate_persists_selected_weight_plan_and_plan_row(tmp_path: Pa
     assert gate_row[0] in {"PASS", "WARN"}
     assert gate_row[2] == "nc-v1"
     assert gate_row[1] != ""
+    assert float(gate_row[3]) >= 0.0
+    assert float(gate_row[3]) <= 1.0
+    assert float(gate_row[4]) >= 0.0
+    assert gate_row[5] in (True, False, 0, 1)
 
     assert plan_row is not None
     assert plan_row[0] == gate_row[1]

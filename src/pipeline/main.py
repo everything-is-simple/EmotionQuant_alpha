@@ -142,6 +142,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="debug",
         help="Artifact lane for S2c evidence (release/debug).",
     )
+    recommend_parser.add_argument(
+        "--repair",
+        choices=("s2r",),
+        default=None,
+        help="Run S2r repair workflow for integrated mode.",
+    )
     fetch_batch_parser = subparsers.add_parser(
         "fetch-batch",
         help="Run S3a fetch batches with resumable progress.",
@@ -445,6 +451,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "with_validation": bool(args.with_validation),
                 "with_validation_bridge": bool(args.with_validation_bridge),
                 "evidence_lane": args.evidence_lane,
+                "repair": str(args.repair or ""),
             },
             ensure_ascii=True,
             sort_keys=True,
@@ -456,6 +463,7 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             mode=args.mode,
             with_validation=bool(args.with_validation),
             with_validation_bridge=bool(args.with_validation_bridge),
+            repair=str(args.repair or ""),
             evidence_lane=args.evidence_lane,
             config=ctx.config,
         )
@@ -463,10 +471,12 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
         print(str(exc))
         return 2
     if args.mode == "integrated":
+        event_name = "s2r_recommend" if str(args.repair or "") == "s2r" else "s2b_recommend"
         payload = {
-            "event": "s2b_recommend",
+            "event": event_name,
             "trade_date": args.date,
             "mode": args.mode,
+            "repair": str(args.repair or ""),
             "with_validation_bridge": bool(args.with_validation_bridge),
             "evidence_lane": result.evidence_lane,
             "final_gate": result.final_gate,
@@ -480,6 +490,10 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             "error_manifest_path": str(result.error_manifest_path),
             "status": "failed" if result.has_error else "ok",
         }
+        if result.s2r_patch_note_path is not None:
+            payload["s2r_patch_note_path"] = str(result.s2r_patch_note_path)
+        if result.s2r_delta_report_path is not None:
+            payload["s2r_delta_report_path"] = str(result.s2r_delta_report_path)
     else:
         payload = {
             "event": "s2a_recommend",

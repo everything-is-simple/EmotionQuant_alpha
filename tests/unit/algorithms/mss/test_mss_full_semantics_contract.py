@@ -48,6 +48,7 @@ def test_mss_temperature_matches_six_factor_weight_formula() -> None:
     assert 0.0 <= score.mss_extreme_factor <= 100.0
     assert 0.0 <= score.mss_volatility_factor <= 100.0
     assert -1.0 <= score.mss_extreme_direction_bias <= 1.0
+    assert score.trend_quality in {"normal", "cold_start", "degraded"}
 
 
 def test_mss_missing_baseline_fallbacks_to_neutral_50() -> None:

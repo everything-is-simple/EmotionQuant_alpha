@@ -8,11 +8,16 @@ from src.algorithms.mss.engine import (
 )
 
 
-def test_detect_trend_uses_three_point_monotonic_rule() -> None:
+def test_detect_trend_uses_monotonic_rule_during_cold_start() -> None:
     assert detect_trend([40.0, 45.0, 50.0]) == "up"
     assert detect_trend([50.0, 45.0, 40.0]) == "down"
     assert detect_trend([50.0, 50.0, 52.0]) == "sideways"
     assert detect_trend([50.0, 52.0]) == "sideways"
+
+
+def test_detect_trend_uses_ema_slope_band_after_cold_start() -> None:
+    assert detect_trend([44.0, 45.0, 46.0, 47.0, 48.0, 49.0, 50.0, 58.0]) == "up"
+    assert detect_trend([58.0, 57.0, 56.0, 55.0, 54.0, 53.0, 52.0, 44.0]) == "down"
 
 
 def test_detect_cycle_matches_naming_contract() -> None:
@@ -70,3 +75,33 @@ def test_calculate_mss_score_returns_required_fields_and_ranges() -> None:
     assert {"mss_score", "mss_temperature", "mss_cycle"} <= set(payload.keys())
     assert payload["trade_date"] == "20260215"
     assert payload["contract_version"] == "nc-v1"
+    assert result.trend_quality in {"normal", "cold_start", "degraded"}
+
+
+def test_calculate_mss_score_marks_trend_quality_levels() -> None:
+    snapshot = MssInputSnapshot(
+        trade_date="20260215",
+        total_stocks=0,
+        rise_count=0,
+        limit_up_count=0,
+        limit_down_count=0,
+        touched_limit_up=0,
+        strong_up_count=0,
+        strong_down_count=0,
+        new_100d_high_count=0,
+        new_100d_low_count=0,
+        continuous_limit_up_2d=0,
+        continuous_limit_up_3d_plus=0,
+        continuous_new_high_2d_plus=0,
+        high_open_low_close_count=0,
+        low_open_high_close_count=0,
+        pct_chg_std=0.0,
+        amount_volatility=0.0,
+        data_quality="normal",
+        stale_days=0,
+        source_trade_date="20260215",
+    )
+    cold_start = calculate_mss_score(snapshot, temperature_history=[48.0, 49.0])
+    normal = calculate_mss_score(snapshot, temperature_history=[50.0] * 25)
+    assert cold_start.trend_quality == "cold_start"
+    assert normal.trend_quality == "normal"

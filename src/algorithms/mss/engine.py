@@ -16,6 +16,7 @@ DESIGN_TRACE = {
 }
 
 VALID_TRENDS = {"up", "down", "sideways"}
+VALID_TREND_QUALITIES = {"normal", "cold_start", "degraded"}
 VALID_CYCLES = {
     "emergence",
     "fermentation",
@@ -205,6 +206,7 @@ class MssScoreResult:
     mss_temperature: float
     mss_cycle: str
     trend: str
+    trend_quality: str
     position_advice: str
     neutrality: float
     mss_market_coefficient: float
@@ -228,10 +230,12 @@ class MssScoreResult:
             "mss_temperature": self.mss_temperature,
             "mss_cycle": self.mss_cycle,
             "mss_trend": self.trend,
+            "mss_trend_quality": self.trend_quality,
             "mss_position_advice": self.position_advice,
             "temperature": self.mss_temperature,
             "cycle": self.mss_cycle,
             "trend": self.trend,
+            "trend_quality": self.trend_quality,
             "position_advice": self.position_advice,
             "neutrality": self.neutrality,
             "mss_market_coefficient": self.mss_market_coefficient,
@@ -249,16 +253,72 @@ class MssScoreResult:
         }
 
 
-def detect_trend(temperature_history: Sequence[float]) -> str:
-    if len(temperature_history) < 3:
-        return "sideways"
+def _ema(values: Sequence[float], span: int) -> float:
+    if not values:
+        return 0.0
+    alpha = 2.0 / (float(span) + 1.0)
+    ema = float(values[0])
+    for item in values[1:]:
+        ema = alpha * float(item) + (1.0 - alpha) * ema
+    return float(ema)
 
-    recent = [float(value) for value in temperature_history[-3:]]
+
+def _std(values: Sequence[float]) -> float:
+    if len(values) < 2:
+        return 0.0
+    mean = sum(float(item) for item in values) / float(len(values))
+    variance = sum((float(item) - mean) ** 2 for item in values) / float(len(values))
+    return float(math.sqrt(max(variance, 0.0)))
+
+
+def _trend_from_monotonic(history: Sequence[float]) -> str:
+    if len(history) < 3:
+        return "sideways"
+    recent = [float(value) for value in history[-3:]]
     if recent[0] < recent[1] < recent[2]:
         return "up"
     if recent[0] > recent[1] > recent[2]:
         return "down"
     return "sideways"
+
+
+def _detect_trend_and_quality(temperature_history: Sequence[float]) -> tuple[str, str]:
+    normalized: list[float] = []
+    for item in temperature_history:
+        try:
+            parsed = float(item)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(parsed):
+            normalized.append(parsed)
+
+    if len(normalized) < 3:
+        return ("sideways", "degraded")
+    if len(normalized) < 8:
+        return (_trend_from_monotonic(normalized), "cold_start")
+
+    ema_short = _ema(normalized[-20:], span=3)
+    ema_long = _ema(normalized[-20:], span=8)
+    if len(normalized) >= 6:
+        slope_5d = (normalized[-1] - normalized[-6]) / 5.0
+    else:
+        slope_5d = (normalized[-1] - normalized[0]) / max(float(len(normalized) - 1), 1.0)
+    std_20 = _std(normalized[-20:])
+    trend_band = max(0.8, 0.15 * std_20)
+
+    trend = "sideways"
+    if ema_short > ema_long and slope_5d >= trend_band:
+        trend = "up"
+    elif ema_short < ema_long and slope_5d <= -trend_band:
+        trend = "down"
+
+    quality = "normal" if len(normalized) >= 20 else "degraded"
+    return (trend, quality)
+
+
+def detect_trend(temperature_history: Sequence[float]) -> str:
+    trend, _ = _detect_trend_and_quality(temperature_history)
+    return trend
 
 
 def detect_cycle(
@@ -434,7 +494,7 @@ def calculate_mss_score(
     temperature = float(round(temperature, 4))
 
     history = [float(value) for value in (temperature_history or [])]
-    trend = detect_trend([*history, temperature])
+    trend, trend_quality = _detect_trend_and_quality([*history, temperature])
     cycle = detect_cycle(
         temperature,
         trend,
@@ -451,6 +511,7 @@ def calculate_mss_score(
         mss_temperature=temperature,
         mss_cycle=cycle,
         trend=trend,
+        trend_quality=trend_quality if trend_quality in VALID_TREND_QUALITIES else "degraded",
         position_advice=_position_advice_for_cycle(cycle),
         neutrality=float(round(neutrality, 4)),
         mss_market_coefficient=float(round(market_coefficient, 4)),

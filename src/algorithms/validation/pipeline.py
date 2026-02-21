@@ -429,6 +429,9 @@ def run_validation_gate(
     weight_report_frame = pd.DataFrame.from_records(weight_rows)
     selected_weight_plan = DEFAULT_WEIGHT_PLAN_ID
     weight_gate = "FAIL"
+    selected_tradability = 0.0
+    selected_turnover_cost = 0.0
+    selected_exec_gate = "FAIL"
     if not weight_report_frame.empty:
         baseline_row = weight_report_frame[weight_report_frame["plan_id"] == DEFAULT_WEIGHT_PLAN_ID]
         candidate_row = weight_report_frame[weight_report_frame["plan_id"] == CANDIDATE_WEIGHT_PLAN_ID]
@@ -442,6 +445,10 @@ def run_validation_gate(
 
         selected_row = weight_report_frame[weight_report_frame["plan_id"] == selected_weight_plan]
         weight_gate = str(selected_row.iloc[0]["gate"]) if not selected_row.empty else "FAIL"
+        if not selected_row.empty:
+            selected_tradability = float(selected_row.iloc[0].get("tradability_score", 0.0) or 0.0)
+            selected_turnover_cost = float(selected_row.iloc[0].get("turnover_cost", 0.0) or 0.0)
+            selected_exec_gate = str(selected_row.iloc[0].get("gate", "FAIL") or "FAIL")
 
     stale_days_values = [0]
     if not mss_frame.empty and "stale_days" in mss_frame.columns:
@@ -494,6 +501,19 @@ def run_validation_gate(
         position_cap_ratio = 0.80
         reason = "warn_but_allowed"
 
+    tradability_pass_ratio = (
+        round(_clip(selected_tradability, 0.0, 1.0), 4) if selected_weight_plan else 0.0
+    )
+    impact_cost_bps = (
+        round(max(0.0, selected_turnover_cost * 10000.0), 4) if selected_weight_plan else 0.0
+    )
+    candidate_exec_pass = bool(
+        selected_weight_plan
+        and selected_exec_gate in {"PASS", "WARN"}
+        and tradability_pass_ratio >= 0.50
+        and impact_cost_bps <= 80.0
+    )
+
     gate_frame = pd.DataFrame.from_records(
         [
             {
@@ -507,6 +527,9 @@ def run_validation_gate(
                 "failure_class": failure_class,
                 "fallback_plan": fallback_plan,
                 "position_cap_ratio": round(float(position_cap_ratio), 4),
+                "tradability_pass_ratio": tradability_pass_ratio,
+                "impact_cost_bps": impact_cost_bps,
+                "candidate_exec_pass": candidate_exec_pass,
                 "threshold_mode": effective_config.threshold_mode,
                 "regime": regime,
                 "stale_days": int(stale_days),
