@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**当前版本**: v4.25（S3b 入口兼容收口：`eq` 非仓库目录可直接执行）  
+**当前版本**: v4.26（S3/S3e 核心阻断修复：schema 兼容 + Validation decay 单调口径）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -19,6 +19,20 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-21，S3/S3e 核心阻断修复）
+
+1. 修复历史库 schema 兼容阻断：
+   - `src/backtest/pipeline.py`：`_persist` 支持旧表自动补列并按交集列写入，避免 `backtest_results` 列数不匹配崩溃。
+   - `src/trading/pipeline.py`：兼容旧 `backtest_results` 与 `trade_records` 缺列场景，避免 `quality_status/trade_id` 缺失触发 Binder 异常。
+2. 修复 Validation 核心算法口径：
+   - `src/algorithms/validation/pipeline.py` 将 `decay_5d` 代理改为随 `|IC|` 单调上升，消除“强信号反向 FAIL”。
+   - 新增测试 `tests/unit/algorithms/validation/test_decay_proxy_contract.py`，并通过 `pytest tests/unit/algorithms/validation -q`（9 passed）。
+3. S3b 实跑证据更新：
+   - 固定窗口 `20260210-20260213`：`S3 backtest` 不再崩溃，但仍因 `backtest_trade_records_empty` 阻断。
+   - 可交易窗口 `20260218-20260219`：`eq analysis` 三项产物齐备，`quality_status=WARN`、`go_nogo=GO`（见 `artifacts/spiral-s3b/20260219/*`）。
 
 ---
 
@@ -224,6 +238,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v4.26 | S3/S3e 核心阻断修复：回测/交易历史 schema 兼容落地；Validation `decay_5d` 口径改为单调正向并补测试；S3b 固定窗口仍因无成交记录阻断 |
 | 2026-02-21 | v4.25 | S3b 入口兼容收口：修复 `pyproject` 包发现配置并补齐契约测试，仓库外目录执行 `eq --help` 成功，清偿 TD-S3B-016 |
 | 2026-02-21 | v4.24 | S3d/S3e 阻断修复：落地 `eq validation` 与 MSS CLI 参数契约，补齐 5 条目标合同测试，执行卡切换为 Active |
 | 2026-02-21 | v4.23 | S3 审计对齐：落地 `backtest --repair s3r`，修正 S3c 命令口径，补齐 `spiral-s3r/s3c/s3d/s3e` specs 骨架并同步执行卡状态 |

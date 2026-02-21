@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**版本**: v2.24  
+**版本**: v2.25  
 **范围**: S0-S6
 
 ---
@@ -102,6 +102,10 @@
 | A-TEST-034 | S4 交易链路合同测试集 | `tests/unit/trading/support.py` + `tests/unit/trading/test_order_pipeline_contract.py` + `tests/unit/trading/test_position_lifecycle_contract.py` + `tests/unit/trading/test_risk_guard_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_trade_runs_paper_mode` | A | 保证 S4 订单、持仓生命周期与风控守卫契约稳定；收口样例证据见 `artifacts/spiral-s4/20260222/manual_test_summary.md` |
 | A-CODE-035 | DuckDB 锁恢复与 `trade_date` 幂等覆盖写入基座 | `src/data/repositories/base.py` + `src/data/l1_pipeline.py` | A | 在 L1 写入链路统一提供锁重试、PID 审计、等待时长统计与覆盖写入能力 |
 | A-TEST-036 | S3ar 锁恢复/幂等写入合同测试 | `tests/unit/data/test_duckdb_lock_recovery_contract.py` | A | 校验“锁冲突可恢复/耗尽可审计/同 trade_date 不重复写入”三类契约 |
+| A-CODE-039 | S3/S4 历史库 schema 兼容写入基座 | `src/backtest/pipeline.py` + `src/trading/pipeline.py` | A | 兼容旧 `backtest_results/trade_records` 缺列场景，避免实跑因表结构漂移崩溃 |
+| A-TEST-040 | S3/S4 schema 兼容合同测试集 | `tests/unit/backtest/test_backtest_schema_compat_contract.py` + `tests/unit/trading/test_backtest_status_schema_compat_contract.py` | A | 固化“旧表可读可写、缺列不崩溃”的兼容契约 |
+| A-CODE-041 | Validation decay 单调代理实现 | `src/algorithms/validation/pipeline.py` | A | 修复 `decay_5d` 与 `|IC|` 关系反向问题，确保强信号不会被反向惩罚 |
+| A-TEST-042 | Validation decay 单调性测试 | `tests/unit/algorithms/validation/test_decay_proxy_contract.py` | A | 固化 decay 代理与 `|IC|` 单调关系，防止回归 |
 
 ---
 
@@ -122,6 +126,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v2.25 | 新增 S3/S4 历史 schema 兼容资产（A-CODE-039、A-TEST-040）与 Validation decay 单调口径资产（A-CODE-041、A-TEST-042） |
 | 2026-02-21 | v2.24 | 新增 S2r 规格资产模板（S-GOV-018）；将 A-CODE-015 升级为完整语义口径（四模式 + 推荐硬约束） |
 | 2026-02-21 | v2.23 | 新增 S0c-R1 资产：`quality_store` 持久化基座（A-CODE-037）与门禁持久化/阈值合同测试集（A-TEST-038）；空缺项由 SW 映射聚合转为 IRS 全覆盖门禁审计器 |
 | 2026-02-20 | v2.22 | 新增 S3ar 实网验真证据样例集资产（A-QA-009），用于主备可用性/限速/窗口采集证据复用对照 |

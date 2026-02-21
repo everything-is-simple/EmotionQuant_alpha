@@ -87,8 +87,9 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
 
 ---
 
-## 9. 本轮进度（2026-02-19）
+## 9. 本轮进度（2026-02-21）
 
 - 已落地最小执行入口：`eq analysis`（A/B/C 对照、实盘-回测偏差、归因摘要）。
-- 已补齐 S3b 合同测试骨架：`tests/unit/analysis/*`。
-- 当前圈位状态维持 `Active`：需补齐实盘窗口证据后再收口。
+- 已补齐并通过 S3b 合同测试：`tests/unit/analysis/*`。
+- 已形成窗口证据：`artifacts/spiral-s3b/20260219/*`，结论 `quality_status=WARN`、`go_nogo=GO`。
+- 固定窗口 `20260210-20260213` 仍被 `backtest_trade_records_empty` 阻断，当前圈位维持 `Active` 并继续清障。

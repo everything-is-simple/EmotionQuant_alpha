@@ -211,12 +211,63 @@ def _persist(
     delete_value: str,
 ) -> None:
     with duckdb.connect(str(database_path)) as connection:
+        table_exists_row = connection.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+            [table_name],
+        ).fetchone()
+        table_exists = bool(table_exists_row and int(table_exists_row[0]) > 0)
+
+        if frame.empty:
+            if table_exists:
+                has_delete_key = bool(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+                        [table_name, delete_key],
+                    ).fetchone()[0]
+                )
+                if has_delete_key:
+                    connection.execute(f"DELETE FROM {table_name} WHERE {delete_key} = ?", [delete_value])
+            return
+
+        def quote_identifier(name: str) -> str:
+            return '"' + str(name).replace('"', '""') + '"'
+
         connection.register("incoming_df", frame)
         connection.execute(
             f"CREATE TABLE IF NOT EXISTS {table_name} AS SELECT * FROM incoming_df WHERE 1=0"
         )
-        connection.execute(f"DELETE FROM {table_name} WHERE {delete_key} = ?", [delete_value])
-        connection.execute(f"INSERT INTO {table_name} SELECT * FROM incoming_df")
+
+        table_columns = {
+            str(row[1]): str(row[2]).strip().upper()
+            for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
+        }
+        incoming_columns = list(frame.columns)
+        incoming_types = {
+            str(row[0]): str(row[1]).strip().upper()
+            for row in connection.execute("DESCRIBE incoming_df").fetchall()
+        }
+
+        for column_name in incoming_columns:
+            if column_name in table_columns:
+                continue
+            column_type = incoming_types.get(column_name, "VARCHAR")
+            connection.execute(
+                f"ALTER TABLE {table_name} ADD COLUMN {quote_identifier(column_name)} {column_type}"
+            )
+
+        table_columns = {
+            str(row[1]): str(row[2]).strip().upper()
+            for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
+        }
+        if delete_key in table_columns:
+            connection.execute(f"DELETE FROM {table_name} WHERE {delete_key} = ?", [delete_value])
+
+        insert_columns = [column_name for column_name in incoming_columns if column_name in table_columns]
+        if insert_columns:
+            quoted_columns = ", ".join(quote_identifier(column_name) for column_name in insert_columns)
+            connection.execute(
+                f"INSERT INTO {table_name} ({quoted_columns}) SELECT {quoted_columns} FROM incoming_df"
+            )
         connection.unregister("incoming_df")
 
 

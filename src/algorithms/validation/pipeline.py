@@ -177,6 +177,11 @@ def _safe_rank_corr(left: pd.Series, right: pd.Series) -> float:
     return float(corr)
 
 
+def _decay_proxy_from_ic(ic: float) -> float:
+    # Keep decay proxy monotonic: higher |IC| implies stronger expected persistence.
+    return _clip(abs(float(ic)) * 2.0, 0.0, 1.0)
+
+
 def _clip(value: float, low: float, high: float) -> float:
     return float(max(low, min(high, value)))
 
@@ -396,7 +401,7 @@ def run_validation_gate(
             rank_ic = _safe_rank_corr(left, right)
             dispersion = float(pd.Series(left).std(ddof=0) or 0.0)
             icir = ic / max(dispersion, 0.01)
-            decay_5d = max(0.0, 1.0 - abs(ic) * 2.0)
+            decay_5d = _decay_proxy_from_ic(ic)
             gates = [
                 _normalize_gate(ic, effective_config.ic_pass, effective_config.ic_warn),
                 _normalize_gate(rank_ic, effective_config.rank_ic_pass, effective_config.rank_ic_warn),
@@ -450,7 +455,7 @@ def run_validation_gate(
         future_rank_ic = _safe_rank_corr(left, right)
         future_dispersion = float(pd.Series(left).std(ddof=0) or 0.0)
         future_icir = future_ic / max(future_dispersion, 0.01)
-        future_decay = max(0.0, 1.0 - abs(future_ic) * 2.0)
+        future_decay = _decay_proxy_from_ic(future_ic)
         future_gates = [
             _normalize_gate(future_ic, effective_config.ic_pass, effective_config.ic_warn),
             _normalize_gate(future_rank_ic, effective_config.rank_ic_pass, effective_config.rank_ic_warn),

@@ -5,13 +5,25 @@
 
 ## 当前进展
 - 已落地 S3b 最小执行入口：`eq analysis`（A/B/C 对照、实盘-回测偏差、归因摘要）。
-- 已补齐 S3b 目标合同测试骨架（`tests/unit/analysis/*`）。
-- 已产出首批 S3b 证据样本：`artifacts/spiral-s3b/20260219/*`。
+- 已补齐并通过 S3b 目标测试：
+  - `pytest tests/unit/analysis/test_ab_benchmark_contract.py -q`
+  - `pytest tests/unit/analysis/test_live_backtest_deviation_contract.py -q`
+  - `pytest tests/unit/analysis/test_attribution_summary_contract.py -q`
+- 已形成可复核窗口证据（20260218-20260219）：
+  - `artifacts/spiral-s3b/20260219/ab_benchmark_report.md`
+  - `artifacts/spiral-s3b/20260219/live_backtest_deviation_report.md`
+  - `artifacts/spiral-s3b/20260219/attribution_summary.json`
+  - `artifacts/spiral-s3b/20260219/consumption.md`
+  - `artifacts/spiral-s3b/20260219/gate_report.md`
+- 关键结论（20260219）：
+  - `quality_status=WARN`、`go_nogo=GO`
+  - A/B/C 结论为 `A_dominant`
+  - 偏差主导项为 `signal`
 
 ## 关键风险
-- 历史窗口不足会导致 A/B/C 对照结论不稳，影响“收益来源结论”可靠性。
-- 若 S4 交易侧样本覆盖不足，`execution/cost` 偏差可能被低估。
-- 若 S3ar 未稳定收口（主备切换、限速、锁恢复），S3b 窗口可复现性会受影响。
+- 固定窗口 `20260210-20260213` 仍未收口：`S3 backtest` 出现 `backtest_trade_records_empty`，导致该窗口无法完成偏差/归因三分解。
+- 20260219 归因样本量仍偏小（`attribution_small_sample_fallback`），需在下一窗口继续扩样复核。
+- `recommend` 在 bridge 样例侧仍可能出现 `mss_factor_intermediate_source_missing` 误报（不影响 integrated 输出，但会使命令返回 failed）。
 
 ## 复盘点
 - A/B/C 对照是否齐备且口径一致。

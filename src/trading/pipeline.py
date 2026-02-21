@@ -157,6 +157,15 @@ def _read_s3_backtest_status(database_path: Path, trade_date: str) -> tuple[bool
         if not row or int(row[0]) <= 0:
             return (False, "backtest_results_missing")
 
+        required_columns = {"backtest_id", "quality_status", "go_nogo", "end_date"}
+        missing_columns = [
+            column_name
+            for column_name in required_columns
+            if not _table_has_column(connection, "backtest_results", column_name)
+        ]
+        if missing_columns:
+            return (False, f"backtest_results_schema_legacy_missing_{','.join(sorted(missing_columns))}")
+
         rec = connection.execute(
             "SELECT backtest_id, quality_status, go_nogo, end_date "
             "FROM backtest_results WHERE end_date <= ? "
@@ -366,9 +375,17 @@ def _read_available_cash(database_path: Path, trade_date: str, initial_cash: flo
         ).fetchone()
         if not row or int(row[0]) <= 0:
             return round(initial_cash, 4)
+        has_trade_id = _table_has_column(connection, "trade_records", "trade_id")
+        has_created_at = _table_has_column(connection, "trade_records", "created_at")
+        if has_trade_id:
+            order_by = " ORDER BY trade_date, trade_id"
+        elif has_created_at:
+            order_by = " ORDER BY trade_date, created_at"
+        else:
+            order_by = " ORDER BY trade_date"
         frame = connection.execute(
             "SELECT direction, amount, total_fee FROM trade_records "
-            "WHERE trade_date < ? AND status = 'filled' ORDER BY trade_date, trade_id",
+            f"WHERE trade_date < ? AND status = 'filled'{order_by}",
             [trade_date],
         ).df()
 

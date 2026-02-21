@@ -11,6 +11,7 @@
 
 - CLI 阻断已解除：`eq validation` 子命令（`--threshold-mode/--wfa/--export-run-manifest`）已落地。
 - 对应合同测试已补齐：`test_factor_future_returns_alignment_contract.py`、`test_weight_validation_dual_window_contract.py`、`test_validation_oos_metrics_contract.py`。
+- 核心算法修复已落地：`decay_5d` 代理改为与 `|IC|` 单调正向关系，避免强信号被反向判定 FAIL（`test_decay_proxy_contract.py`）。
 - 当前进入执行态，待窗口级实证证据收口后再评估 Completed。
 
 ## 1. 目标
