@@ -43,3 +43,23 @@ def test_attribution_summary_generates_json_and_table(tmp_path: Path) -> None:
     assert row is not None
     assert str(row[0]) == trade_date
     assert int(row[1]) >= 0
+
+
+def test_attribution_summary_no_filled_trade_is_warn(tmp_path: Path) -> None:
+    config = build_analysis_config(tmp_path, ".env.s3b.attribution.empty")
+    trade_date = "20260219"
+    seed_attribution_tables(config, trade_date)
+    with duckdb.connect(str(database_path(config))) as connection:
+        connection.execute("DELETE FROM trade_records WHERE trade_date = ?", [trade_date])
+
+    result = run_analysis(
+        config=config,
+        trade_date=trade_date,
+        run_attribution_summary=True,
+    )
+    assert result.has_error is False
+    assert result.quality_status == "WARN"
+    assert result.go_nogo == "GO"
+    payload = json.loads(result.attribution_summary_path.read_text(encoding="utf-8"))
+    assert payload["attribution_method"] == "na_no_filled_trade"
+    assert int(payload["sample_count"]) == 0

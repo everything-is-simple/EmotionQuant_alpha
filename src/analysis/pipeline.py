@@ -371,10 +371,13 @@ def run_analysis(
                         [trade_date],
                     ).df()
 
-                    if live_frame.empty:
-                        add_error("P1", "deviation", "live_trade_records_empty_for_trade_date")
-                    if bt_frame.empty:
-                        add_error("P1", "deviation", "backtest_trade_records_empty_for_trade_date")
+                    if live_frame.empty and bt_frame.empty:
+                        warnings.append("deviation_not_applicable_no_filled_trade")
+                    else:
+                        if live_frame.empty:
+                            add_error("P1", "deviation", "live_trade_records_empty_for_trade_date")
+                        if bt_frame.empty:
+                            add_error("P1", "deviation", "backtest_trade_records_empty_for_trade_date")
 
                     live_exec = pd.to_numeric(
                         (live_frame["filled_price"] - live_frame["entry"]) / live_frame["entry"],
@@ -419,7 +422,7 @@ def run_analysis(
                         "execution_deviation": execution_deviation,
                         "cost_deviation": cost_deviation,
                         "total_deviation": total_deviation,
-                        "dominant_component": dominant_component,
+                        "dominant_component": dominant_component if not (live_frame.empty and bt_frame.empty) else "none",
                     }
                     deviation_frame = pd.DataFrame.from_records(
                         [
@@ -446,7 +449,21 @@ def run_analysis(
                         [trade_date],
                     ).df()
                     if joined.empty:
-                        add_error("P1", "attribution", "no_filled_trade_for_attribution")
+                        warnings.append("attribution_not_applicable_no_filled_trade")
+                        attribution_payload = {
+                            "trade_date": trade_date,
+                            "mss_attribution": 0.0,
+                            "irs_attribution": 0.0,
+                            "pas_attribution": 0.0,
+                            "sample_count": 0,
+                            "raw_sample_count": 0,
+                            "trimmed_sample_count": 0,
+                            "trim_ratio": 0.0,
+                            "attribution_method": "na_no_filled_trade",
+                        }
+                        attribution_frame = pd.DataFrame.from_records(
+                            [attribution_payload | {"created_at": created_at}]
+                        )
                     else:
                         exec_dev_series = pd.to_numeric(
                             (joined["filled_price"] - joined["entry"]) / joined["entry"],

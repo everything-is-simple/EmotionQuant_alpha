@@ -21,7 +21,7 @@
   - 偏差主导项为 `signal`
 
 ## 关键风险
-- 固定窗口 `20260210-20260213` 仍未收口：`S3 backtest` 出现 `backtest_trade_records_empty`，导致该窗口无法完成偏差/归因三分解。
+- 固定窗口 `20260210-20260213` 已从阻断改为可审计降级：`S3 backtest` 输出 `no_long_entry_signal_in_window`（WARN/GO），`S3b` 在无成交样本场景输出 N/A 警告（WARN/GO）。
 - 20260219 归因样本量仍偏小（`attribution_small_sample_fallback`），需在下一窗口继续扩样复核。
 - `recommend` 在 bridge 样例侧仍可能出现 `mss_factor_intermediate_source_missing` 误报（不影响 integrated 输出，但会使命令返回 failed）。
 

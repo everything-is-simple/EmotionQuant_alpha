@@ -79,6 +79,11 @@ def test_backtest_applies_t1_and_limit_rules(tmp_path: Path) -> None:
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE integrated_recommendation "
+            "SET recommendation='BUY', position_size=0.5, final_score=75.0 "
+            "WHERE trade_date IN ('20260218', '20260219') AND stock_code='000001'"
+        )
         # Make first execute day hit main-board +10% limit-up to force buy rejection.
         connection.execute(
             "UPDATE raw_daily "
@@ -120,6 +125,11 @@ def test_backtest_rejects_buy_when_liquidity_dryup(tmp_path: Path) -> None:
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE integrated_recommendation "
+            "SET recommendation='BUY', position_size=0.5, final_score=75.0 "
+            "WHERE trade_date IN ('20260218', '20260219') AND stock_code='000001'"
+        )
         connection.execute(
             "UPDATE raw_daily "
             "SET vol=10, amount=1000, open=10.1, high=10.2, low=10.0, close=10.1 "

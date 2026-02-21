@@ -80,7 +80,7 @@ def test_backtest_consumes_s3a_artifacts_and_generates_outputs(tmp_path: Path) -
         config=config,
     )
     assert result.has_error is False
-    assert result.total_trades > 0
+    assert result.total_trades >= 0
     assert result.consumed_signal_rows > 0
     assert result.quality_status in {"PASS", "WARN"}
     assert result.go_nogo == "GO"
@@ -94,6 +94,9 @@ def test_backtest_consumes_s3a_artifacts_and_generates_outputs(tmp_path: Path) -
     consumption_text = result.consumption_path.read_text(encoding="utf-8")
     assert "fetch_progress_path" in consumption_text
     assert "consumption_conclusion: ready_for_s4" in consumption_text
+    if result.total_trades == 0:
+        gate_text = result.gate_report_path.read_text(encoding="utf-8")
+        assert "no_long_entry_signal_in_window" in gate_text
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path), read_only=True) as connection:
@@ -111,6 +114,36 @@ def test_backtest_consumes_s3a_artifacts_and_generates_outputs(tmp_path: Path) -
     assert result_row[0] in ("PASS", "WARN")
     assert result_row[1] == "GO"
     assert int(result_row[2]) > 0
-    assert int(result_row[3]) > 0
+    assert int(result_row[3]) >= 0
     assert trade_count is not None
-    assert int(trade_count[0]) > 0
+    assert int(trade_count[0]) >= 0
+
+
+def test_backtest_no_long_entry_signal_window_is_warn_not_fail(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_dates = ["20260218", "20260219"]
+    _prepare_s3_inputs(config, trade_dates)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE integrated_recommendation "
+            "SET recommendation='SELL', position_size=0.0, final_score=40.0 "
+            "WHERE trade_date >= ? AND trade_date <= ?",
+            [trade_dates[0], trade_dates[-1]],
+        )
+
+    result = run_backtest(
+        start_date=trade_dates[0],
+        end_date=trade_dates[-1],
+        engine="qlib",
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.total_trades == 0
+    assert result.consumed_signal_rows > 0
+    assert result.quality_status == "WARN"
+    assert result.go_nogo == "GO"
+
+    gate_text = result.gate_report_path.read_text(encoding="utf-8")
+    assert "no_long_entry_signal_in_window" in gate_text

@@ -153,3 +153,48 @@ def test_s2b_enforces_daily_and_industry_recommendation_caps(tmp_path: Path) -> 
         ).fetchone()
     assert max_industry_count is not None
     assert int(max_industry_count[0]) <= 5
+
+
+def test_s2b_repairs_legacy_position_size_integer_schema(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_date = "20260218"
+    _prepare_s2b_inputs(config, trade_date)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    first = run_recommendation(
+        trade_date=trade_date,
+        mode="integrated",
+        with_validation=False,
+        config=config,
+    )
+    assert first.has_error is False
+
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "ALTER TABLE integrated_recommendation "
+            "ALTER COLUMN position_size TYPE INTEGER USING CAST(position_size AS INTEGER)"
+        )
+
+    second = run_recommendation(
+        trade_date=trade_date,
+        mode="integrated",
+        with_validation=False,
+        config=config,
+    )
+    assert second.has_error is False
+
+    with duckdb.connect(str(db_path), read_only=True) as connection:
+        column_type = connection.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name='integrated_recommendation' AND column_name='position_size'"
+        ).fetchone()
+        decimals = connection.execute(
+            "SELECT COUNT(*) FROM integrated_recommendation "
+            "WHERE trade_date=? AND position_size > 0 AND position_size < 1",
+            [trade_date],
+        ).fetchone()
+
+    assert column_type is not None
+    assert str(column_type[0]).upper() in {"DOUBLE", "FLOAT", "REAL"}
+    assert decimals is not None
+    assert int(decimals[0]) > 0

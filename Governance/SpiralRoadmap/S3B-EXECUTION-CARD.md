@@ -11,7 +11,8 @@
 
 - 本卡仍为执行中，不得标记为 `Completed`。
 - `eq analysis` 最小闭环已落地，但窗口级归因证据尚未收口。
-- S3b 未收口前，不得推进 S3c/S3d/S3e 的完成声明。
+- 固定窗口 `20260210-20260213` 已从 `FAIL` 解锁为 `WARN/GO`（无成交样本按 N/A 口径记警告，不再硬阻断）。
+- S3b 未收口前，仍不得推进 S3c/S3d/S3e 的完成声明。
 
 ---
 
@@ -92,4 +93,4 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
 - 已落地最小执行入口：`eq analysis`（A/B/C 对照、实盘-回测偏差、归因摘要）。
 - 已补齐并通过 S3b 合同测试：`tests/unit/analysis/*`。
 - 已形成窗口证据：`artifacts/spiral-s3b/20260219/*`，结论 `quality_status=WARN`、`go_nogo=GO`。
-- 固定窗口 `20260210-20260213` 仍被 `backtest_trade_records_empty` 阻断，当前圈位维持 `Active` 并继续清障。
+- 固定窗口 `20260210-20260213` 已形成可复核证据：`S3 backtest` 为 `WARN/GO`（`no_long_entry_signal_in_window`），`S3b analysis` 为 `WARN/GO`（`deviation/attribution` N/A 警告），圈位继续 `Active` 进入下一收口项。

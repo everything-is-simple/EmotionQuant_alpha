@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**版本**: v2.26  
+**版本**: v2.27  
 **范围**: S0-S6
 
 ---
@@ -109,6 +109,12 @@
 | A-CODE-043 | S3c CLI 门禁/消费产物写入器 | `src/pipeline/main.py` | A | 在 `eq irs --require-sw31` 路径固化 `gate_report/consumption` 契约，保证执行卡产物与代码一致 |
 | A-CODE-044 | L2 质量上下文初始化受控回退 | `src/data/l2_pipeline.py` | A | 避免 `run --to-l2` 在质量上下文初始化阶段因 IO 异常直接抛栈中断 |
 | A-TEST-045 | S3c CLI 产物契约回归测试 | `tests/unit/pipeline/test_cli_entrypoint.py::test_main_irs_command_wires_to_pipeline` | A | 固化 `s3c_irs` 输出 `gate_status/go_nogo/gate_report_path/consumption_path` 契约 |
+| A-CODE-046 | S3 回测无可开仓窗口 WARN 语义实现 | `src/backtest/pipeline.py` | A | 将“无可开仓信号”从 P0 阻断改为可审计 WARN，固定窗口不再被误阻断 |
+| A-CODE-047 | S3b 空样本 N/A 警告实现 | `src/analysis/pipeline.py` | A | 对 live/backtest 双侧无成交样本输出 N/A 警告并保持 GO，避免误判 FAIL |
+| A-CODE-048 | Integration 旧表数值列类型修复器 | `src/integration/pipeline.py` | A | 自动修复 `integrated_recommendation` 旧表数值列为 DOUBLE（含 `position_size`），避免整型截断 |
+| A-TEST-049 | S3 回测无可开仓窗口合同测试 | `tests/unit/backtest/test_backtest_contract.py::test_backtest_no_long_entry_signal_window_is_warn_not_fail` | A | 固化固定窗口 `total_trades=0` 时的 WARN/GO 契约 |
+| A-TEST-050 | S3b 空样本 N/A 语义测试 | `tests/unit/analysis/test_live_backtest_deviation_contract.py::test_live_backtest_deviation_empty_both_sides_is_warn` + `tests/unit/analysis/test_attribution_summary_contract.py::test_attribution_summary_no_filled_trade_is_warn` | A | 固化偏差/归因在无成交样本场景的 WARN/GO 契约 |
+| A-TEST-051 | Integration 旧表类型修复回归测试 | `tests/unit/integration/test_integration_contract.py::test_s2b_repairs_legacy_position_size_integer_schema` | A | 固化 `position_size` 旧整型表自动修复并恢复小数仓位能力 |
 
 ---
 
@@ -129,6 +135,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v2.27 | 新增 S3/S3b 固定窗口解锁资产（A-CODE-046、A-CODE-047）与 Integration 旧表类型修复资产（A-CODE-048），并补齐对应合同测试（A-TEST-049~051） |
 | 2026-02-21 | v2.26 | 新增 S3c CLI 产物契约资产（A-CODE-043、A-TEST-045）与 L2 初始化受控回退资产（A-CODE-044） |
 | 2026-02-21 | v2.25 | 新增 S3/S4 历史 schema 兼容资产（A-CODE-039、A-TEST-040）与 Validation decay 单调口径资产（A-CODE-041、A-TEST-042） |
 | 2026-02-21 | v2.24 | 新增 S2r 规格资产模板（S-GOV-018）；将 A-CODE-015 升级为完整语义口径（四模式 + 推荐硬约束） |

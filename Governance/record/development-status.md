@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-21  
-**当前版本**: v4.27（S3c 启动：SW31/IRS 门禁证据落地 + CLI 产物契约补齐）  
+**当前版本**: v4.28（S3 固定窗口解锁：无可开仓信号改 WARN 语义 + S3b 空样本 N/A）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：当前推进 S3b 固定窗口清障，并并行推进 S3c/S3d/S3e 窗口收口**
+**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：S3b 固定窗口已解锁，当前转入扩窗补样并并行推进 S3c/S3d/S3e 窗口收口**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -19,6 +19,27 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-21，S3 固定窗口阻断解锁）
+
+1. 回测语义修订：
+   - `src/backtest/pipeline.py` 将“无可开仓信号窗口”从 `P0` 阻断改为 `WARN/GO`，输出 `no_long_entry_signal_in_window` 警告并保留审计字段。
+   - 回测仅消费多头开仓信号（`recommendation in {BUY, STRONG_BUY}` 且 `position_size > 0`），避免 `SELL/HOLD` 被误当作买入候选。
+2. 分析语义修订：
+   - `src/analysis/pipeline.py` 对“live/backtest 同时无成交样本”输出 N/A 警告（`WARN/GO`），不再硬失败。
+   - 归因无样本时输出 `attribution_method=na_no_filled_trade`，保证产物合同完整。
+3. 集成持久化兼容修订：
+   - `src/integration/pipeline.py` 增强 `integrated_recommendation` 旧表类型修复，自动将 `position_size` 等关键数值列迁移为 `DOUBLE`，避免整型截断。
+4. 固定窗口复跑结论（`20260210-20260213`）：
+   - `eq backtest` => `quality_status=WARN`, `go_nogo=GO`, `total_trades=0`，`gate_report` 含 `no_long_entry_signal_in_window`。
+   - `eq analysis --ab-benchmark --deviation --attribution-summary` => `quality_status=WARN`, `go_nogo=GO`，无 P0/P1 错误，仅 N/A 警告。
+5. 回归验证：
+   - `pytest tests/unit/backtest -q` 通过（13 passed）
+   - `pytest tests/unit/analysis -q` 通过（6 passed）
+   - `pytest tests/unit/integration/test_integration_contract.py -q` 通过（4 passed）
+   - `python -m scripts.quality.local_quality_check --contracts --governance` 通过
 
 ---
 
@@ -223,7 +244,7 @@
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
 | S3r | 回测修复子圈（条件触发） | 📋 未开始 | 修复命令已落地（`backtest --repair s3r`），待 FAIL 场景触发 |
-| S3b | 收益归因验证专项圈 | 🔄 进行中 | 已落地 `eq analysis` 与三类归因产物，待窗口级收口 |
+| S3b | 收益归因验证专项圈 | 🔄 进行中 | 固定窗口已从阻断转为 WARN/GO，当前进入扩窗补样与收益来源稳定性复核 |
 | S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 🔄 进行中 | `20260219` 窗口已通过 SW31/IRS 门禁并补齐 `gate/consumption` 产物，待与 S3b 固定窗口节奏对齐后收口 |
 | S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
@@ -236,10 +257,10 @@
 
 ## 下一步（S3b/S3c -> S3d/S3e）
 
-1. 固定窗口 `20260210-20260213` 执行 S3b 三条命令：`ab-benchmark`、`live-backtest deviation`、`attribution-summary`。
-2. 产出并审计 S3b 五件套：`ab_benchmark_report.md`、`live_backtest_deviation_report.md`、`attribution_summary.json`、`consumption.md`、`gate_report.md`。
+1. 在 `S3b` 执行扩窗补样（提高有效成交样本），复核 `signal/execution/cost` 三分解稳定性。
+2. 固化固定窗口 N/A 警告口径到 `spiral-s3b/review/final`（避免再次误判为阻断）。
 3. 基于 `20260219` 已有 S3c 证据，补跑固定窗口并完成 `spiral-s3c final` 收口。
-4. 在 S3c 语义校准收口后，对 S3d/S3e 执行固定窗口实证并固化 `review/final`。
+4. 在 S3c 语义校准收口后，对 S3d/S3e 执行窗口级实证并固化 `review/final`。
 5. 仅当 S3d/S3e 完成窗口证据收口后，再进入 S4b（极端防御）。
 
 ---
@@ -257,6 +278,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-21 | v4.28 | S3 固定窗口解锁：回测“无可开仓信号”改 WARN 语义；S3b 在双侧无成交样本场景输出 N/A 警告（WARN/GO）；补齐 integration 旧表数值列类型修复 |
 | 2026-02-21 | v4.27 | S3c 启动：`20260219` 窗口通过 SW31/IRS 门禁；补齐 `s3c_irs` 的 `gate_report/consumption` 契约；`run --to-l2` 初始化异常改为受控回退 |
 | 2026-02-21 | v4.26 | S3/S3e 核心阻断修复：回测/交易历史 schema 兼容落地；Validation `decay_5d` 口径改为单调正向并补测试；S3b 固定窗口仍因无成交记录阻断 |
 | 2026-02-21 | v4.25 | S3b 入口兼容收口：修复 `pyproject` 包发现配置并补齐契约测试，仓库外目录执行 `eq --help` 成功，清偿 TD-S3B-016 |

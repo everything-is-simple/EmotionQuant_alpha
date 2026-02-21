@@ -35,6 +35,7 @@ LIMIT_PRICE_TOLERANCE_RATIO = 0.001
 MIN_FILL_PROBABILITY = 0.35
 QUEUE_PARTICIPATION_RATE = 0.15
 LIQUIDITY_DRYUP_VOLUME_THRESHOLD = 50_000.0
+LONG_ENTRY_RECOMMENDATIONS = {"STRONG_BUY", "BUY"}
 CORE_SIGNAL_COLUMNS = ("mss_score", "irs_score", "pas_score")
 WINDOW_TABLE_DATE_COLUMNS = {
     "raw_trade_cal": "trade_date",
@@ -218,6 +219,11 @@ def _persist(
         table_exists = bool(table_exists_row and int(table_exists_row[0]) > 0)
 
         if frame.empty:
+            connection.register("incoming_df", frame)
+            connection.execute(
+                f"CREATE TABLE IF NOT EXISTS {table_name} AS SELECT * FROM incoming_df WHERE 1=0"
+            )
+            connection.unregister("incoming_df")
             if table_exists:
                 has_delete_key = bool(
                     connection.execute(
@@ -680,6 +686,7 @@ def run_backtest(
     error_manifest_path = artifacts_dir / "error_manifest_sample.json"
 
     errors: list[dict[str, str]] = []
+    warnings: list[str] = []
 
     def add_error(level: str, step: str, message: str) -> None:
         errors.append(
@@ -691,6 +698,9 @@ def run_backtest(
                 "message": message,
             }
         )
+
+    def add_warning(message: str) -> None:
+        warnings.append(str(message))
 
     fetch_status = read_fetch_status(config=config)
     if fetch_status.status != "completed":
@@ -842,13 +852,23 @@ def run_backtest(
 
     positions: dict[str, dict[str, object]] = {}
     signals_by_execute_date: dict[str, list[dict[str, object]]] = {}
+    long_entry_signal_count = 0
+    mapped_long_entry_signal_count = 0
     if not errors:
         for _, row in integrated_frame.iterrows():
+            recommendation = str(row.get("recommendation", "")).strip().upper()
+            if recommendation not in LONG_ENTRY_RECOMMENDATIONS:
+                continue
+            position_size = float(row.get("position_size", 0.0) or 0.0)
+            if position_size <= 0.0:
+                continue
+            long_entry_signal_count += 1
             signal_date = str(row.get("trade_date", ""))
             execute_date = _next_trade_day(replay_days, signal_date)
             if execute_date is None or execute_date > end_date:
                 signal_out_of_window_count += 1
                 continue
+            mapped_long_entry_signal_count += 1
             signals_by_execute_date.setdefault(execute_date, []).append(row.to_dict())
 
         for replay_day in replay_days:
@@ -1143,7 +1163,12 @@ def run_backtest(
 
         filled_rows = [row for row in trade_rows if str(row.get("status", "")) == "filled"]
         if not filled_rows:
-            add_error("P0", "trade_generation", "backtest_trade_records_empty")
+            if long_entry_signal_count <= 0:
+                add_warning("no_long_entry_signal_in_window")
+            elif mapped_long_entry_signal_count <= 0:
+                add_warning("long_entry_signal_out_of_window")
+            else:
+                add_warning("no_filled_trade_after_execution_guards")
 
     trade_frame = (
         pd.DataFrame.from_records(trade_rows)
@@ -1171,32 +1196,37 @@ def run_backtest(
         gate_quality_status = "FAIL"
         gate_go_nogo = "NO_GO"
         gate_quality_message = ";".join(item["message"] for item in errors)
-    elif any(
-        count > 0
-        for count in (
-            limit_up_blocked_count,
-            limit_down_blocked_count,
-            t1_guard_blocked_count,
-            low_fill_prob_blocked_count,
-            zero_fill_blocked_count,
-            missing_price_entry_count,
-            missing_price_exit_count,
-            signal_out_of_window_count,
-        )
-    ):
-        if gate_quality_status == "PASS":
-            gate_quality_status = "WARN"
-        gate_quality_message = (
-            f"{gate_quality_message};"
-            f"limit_up_blocked={limit_up_blocked_count};"
-            f"limit_down_blocked={limit_down_blocked_count};"
-            f"t1_guard_blocked={t1_guard_blocked_count};"
-            f"low_fill_prob_blocked={low_fill_prob_blocked_count};"
-            f"zero_fill_blocked={zero_fill_blocked_count};"
-            f"missing_price_entry={missing_price_entry_count};"
-            f"missing_price_exit={missing_price_exit_count};"
-            f"signal_out_of_window={signal_out_of_window_count}"
-        )
+    else:
+        warning_segments: list[str] = []
+        if any(
+            count > 0
+            for count in (
+                limit_up_blocked_count,
+                limit_down_blocked_count,
+                t1_guard_blocked_count,
+                low_fill_prob_blocked_count,
+                zero_fill_blocked_count,
+                missing_price_entry_count,
+                missing_price_exit_count,
+                signal_out_of_window_count,
+            )
+        ):
+            warning_segments.append(
+                f"limit_up_blocked={limit_up_blocked_count};"
+                f"limit_down_blocked={limit_down_blocked_count};"
+                f"t1_guard_blocked={t1_guard_blocked_count};"
+                f"low_fill_prob_blocked={low_fill_prob_blocked_count};"
+                f"zero_fill_blocked={zero_fill_blocked_count};"
+                f"missing_price_entry={missing_price_entry_count};"
+                f"missing_price_exit={missing_price_exit_count};"
+                f"signal_out_of_window={signal_out_of_window_count}"
+            )
+        if warnings:
+            warning_segments.append(f"warnings={','.join(warnings)}")
+        if warning_segments:
+            if gate_quality_status == "PASS":
+                gate_quality_status = "WARN"
+            gate_quality_message = f"{gate_quality_message};" + ";".join(warning_segments)
 
     bridge_check_status = (
         "PASS"
@@ -1309,6 +1339,8 @@ def run_backtest(
         f"- backtest_id: {backtest_id}",
         f"- quality_status: {gate_quality_status}",
         f"- go_nogo: {gate_go_nogo}",
+        f"- warning_count: {len(warnings)}",
+        f"- warnings: {warnings}",
         f"- gate_message: {gate_quality_message}",
         f"- bridge_check_status: {bridge_check_status}",
         f"- limit_up_blocked_count: {limit_up_blocked_count}",
@@ -1332,6 +1364,8 @@ def run_backtest(
         "backtest_id": backtest_id,
         "start_date": start_date,
         "end_date": end_date,
+        "warning_count": len(warnings),
+        "warnings": warnings,
         "error_count": len(errors),
         "errors": errors,
     }

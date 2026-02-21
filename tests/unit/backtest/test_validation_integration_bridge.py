@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import duckdb
+
 from src.algorithms.mss.pipeline import run_mss_scoring
 from src.backtest.pipeline import run_backtest
 from src.config.config import Config
@@ -70,6 +72,12 @@ def test_backtest_blocks_when_validation_bridge_is_missing(tmp_path: Path) -> No
     config = _build_config(tmp_path)
     trade_dates = ["20260218", "20260219"]
     _prepare_inputs_without_bridge(config, trade_dates)
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "DELETE FROM validation_weight_plan WHERE trade_date >= ? AND trade_date <= ?",
+            [trade_dates[0], trade_dates[-1]],
+        )
 
     result = run_backtest(
         start_date=trade_dates[0],
@@ -83,4 +91,4 @@ def test_backtest_blocks_when_validation_bridge_is_missing(tmp_path: Path) -> No
     assert result.bridge_check_status == "FAIL"
     gate_text = result.gate_report_path.read_text(encoding="utf-8")
     assert "bridge_check_status: FAIL" in gate_text
-    assert "weight_plan_id_baseline_not_allowed_for_s3" in gate_text
+    assert "validation_weight_plan_bridge_unresolved" in gate_text

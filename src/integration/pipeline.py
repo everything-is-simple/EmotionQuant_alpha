@@ -61,6 +61,22 @@ INTEGRATED_TEXT_COLUMNS = {
     "contract_version",
     "created_at",
 }
+INTEGRATED_NUMERIC_COLUMNS = {
+    "mss_score",
+    "irs_score",
+    "pas_score",
+    "final_score",
+    "w_mss",
+    "w_irs",
+    "w_pas",
+    "position_size",
+    "entry",
+    "stop",
+    "target",
+    "risk_reward_ratio",
+    "neutrality",
+}
+INTEGRATED_BOOLEAN_COLUMNS = {"t1_restriction_hit"}
 
 INTEGRATED_COLUMNS = [
     "trade_date",
@@ -158,6 +174,31 @@ def _persist(
                 if column_name in INTEGRATED_TEXT_COLUMNS and column_type != "VARCHAR":
                     connection.execute(
                         f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE VARCHAR USING CAST({column_name} AS VARCHAR)"
+                    )
+                    continue
+                if column_name in INTEGRATED_NUMERIC_COLUMNS and column_type in {
+                    "TINYINT",
+                    "SMALLINT",
+                    "INTEGER",
+                    "BIGINT",
+                    "HUGEINT",
+                    "UTINYINT",
+                    "USMALLINT",
+                    "UINTEGER",
+                    "UBIGINT",
+                    "UHUGEINT",
+                    "DECIMAL",
+                    "FLOAT",
+                    "REAL",
+                    "NUMERIC",
+                } and column_type != "DOUBLE":
+                    connection.execute(
+                        f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE DOUBLE USING CAST({column_name} AS DOUBLE)"
+                    )
+                    continue
+                if column_name in INTEGRATED_BOOLEAN_COLUMNS and column_type != "BOOLEAN":
+                    connection.execute(
+                        f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE BOOLEAN USING CAST({column_name} AS BOOLEAN)"
                     )
         connection.register("incoming_df", frame)
         connection.execute(

@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.4.5  
+**版本**: v7.4.6  
 **最后更新**: 2026-02-21  
 **适用对象**: 个人开发、个人使用
 
@@ -102,7 +102,7 @@
 1. 桥接硬门禁与语义回归：已完成（Integration + Validation 合同测试通过）。
 2. 证据冲突清障：已完成（S2c 正式证据统一为 release 车道，PASS/GO 口径一致）。
 3. 收口文档与同步：已完成（`s2c_semantics_traceability_matrix.md`、`s2c_algorithm_closeout.md` 已归档并同步）。
-4. 下一圈状态：S3 持续执行中；S4 与 S3ar 已按 6A 收口完成；S3b 已形成 `20260218-20260219` 归因证据（WARN/GO），但固定窗口 `20260210-20260213` 仍因无成交记录阻断，当前继续留在 S3b 清障。
+4. 下一圈状态：S3 持续执行中；S4 与 S3ar 已按 6A 收口完成；S3b 已形成 `20260218-20260219` 与 `20260210-20260213` 双窗口证据（固定窗口口径为 N/A 警告，`WARN/GO`），当前进入扩窗补样与结论稳健性复核。
 5. 债务执行编排参考：`docs/design/enhancements/debt-clearance-plan-v1.md`（辅助文档，不替代本主控入口）。
 
 ### 4.4 核心设计 full 完成点（按实现深度口径）
@@ -222,6 +222,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.4.6 | 2026-02-21 | S3 固定窗口阻断解锁：回测无可开仓信号改 WARN 语义，S3b 空样本按 N/A 警告处理并保持 GO；状态口径由“固定窗口阻断”更新为“扩窗补样复核” |
 | v7.4.5 | 2026-02-21 | S3c 启动同步：`20260219` 窗口通过 SW31/IRS 门禁，S3c 状态切换为 `in_progress`，并补齐 `gate/consumption` 产物契约 |
 | v7.4.4 | 2026-02-21 | S3/S3e 阻断修复同步：回测/交易历史 schema 兼容落地；Validation decay 单调口径修复；S3b 形成可交易窗口证据但固定窗口仍阻断 |
 | v7.4.3 | 2026-02-21 | S3d/S3e 阻断修复同步：`eq validation` 与 MSS `threshold-mode/return-series-source` 契约落地；S3d/S3e 状态切换为 `in_progress` |

@@ -1,4 +1,4 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.4）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.5）
 
 **状态**: Active  
 **更新时间**: 2026-02-21  
@@ -18,7 +18,7 @@
   - `S3r` 修复命令已落地：`eq backtest --repair s3r` 可执行并产出 `s3r_patch_note/s3r_delta_report`。
   - `S3d/S3e` 命令阻断已解除：`eq mss --threshold-mode`、`eq mss-probe --return-series-source`、`eq validation --threshold-mode/--wfa/--export-run-manifest` 已落地。
 - 仍需补齐后方可声明“核心设计 full 实现完成”：
-  - `S3c`：与 S3b 固定窗口证据节奏对齐后完成最终收口。
+  - `S3c`：在 S3b 扩窗补样后完成跨窗口稳定性复核并收口。
   - `S3d/S3e`：窗口级实证证据收口（非 CLI 契约层）。
 
 ## 0. 文档定位（先对齐 SoT）
@@ -46,7 +46,7 @@
 4. 已存在且可复用的门禁测试主路径：`tests/unit/config/*`、`tests/unit/integration/*`、`tests/unit/scripts/test_local_quality_check.py`、`tests/unit/scripts/test_contract_behavior_regression.py`、`tests/unit/scripts/test_governance_consistency_check.py`。
 5. 阶段B执行卡已补齐并挂接：`S3A/S3/S3R/S4/S3AR/S4R/S3B/S3C/S3D/S3E/S4B/S4BR-EXECUTION-CARD.md`。
 6. 现实新增阻断：采集阶段出现过 DuckDB 文件锁导致批次失败；当前已落地双 TuShare 主备（10000 网关主 + 5000 官方兜底），AKShare/BaoStock 仅为后续底牌预留，需先完成 S3ar 稳定性收口再推进 S3b。
-7. 核心算法“实现深度”缺口仍存在：`S3c` 已启动并在 `20260219` 通过 SW31/IRS 门禁，但尚待与 S3b 固定窗口证据节奏对齐收口；`S3d/S3e` 虽已解除 CLI 阻断并落地契约测试，但窗口级生产证据仍待收口；因此在 S4b 前继续保持 `S3c/S3d/S3e` 三圈硬前置。
+7. 核心算法“实现深度”缺口仍存在：`S3c` 已启动并通过窗口门禁，但仍需结合 S3b 扩窗补样结果完成稳定性收口；`S3d/S3e` 虽已解除 CLI 阻断并落地契约测试，但窗口级生产证据仍待收口；因此在 S4b 前继续保持 `S3c/S3d/S3e` 三圈硬前置。
 
 执行口径采用双层：
 
@@ -430,6 +430,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.5 | 2026-02-21 | S3 固定窗口口径更新：`20260210-20260213` 由阻断改为 WARN/N/A 可审计语义，阶段B下步从“清障”切换为“扩窗补样稳健性复核” |
 | v1.4 | 2026-02-21 | S3c 启动同步：状态切换到执行中；补齐 `s3c_irs` 的 `gate/consumption` 产物契约；将实现深度缺口修订为“窗口收口未完成” |
 | v1.3 | 2026-02-21 | S3d/S3e 阻断修复：落地 `eq validation` 子命令与 MSS `threshold-mode/return-series-source` 契约；补齐 S3d/S3e 合同测试并将圈位状态切换为 Active |
 | v1.2 | 2026-02-21 | S3 审计对齐：新增“完成态复核”与实现差距清单；修正 S3c 命令为 `--to-l2`；接入并确认 `backtest --repair s3r` 命令与产物契约 |
