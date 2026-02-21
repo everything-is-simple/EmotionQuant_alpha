@@ -18,6 +18,25 @@ DESIGN_TRACE = {
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 BASELINE_WEIGHT = round(1.0 / 3.0, 4)
+INTEGRATED_TEXT_COLUMNS = {
+    "trade_date",
+    "stock_code",
+    "industry_code",
+    "industry_name",
+    "direction",
+    "consistency",
+    "integration_mode",
+    "weight_plan_id",
+    "validation_gate",
+    "integration_state",
+    "recommendation",
+    "mss_cycle",
+    "opportunity_grade",
+    "limit_guard_result",
+    "session_guard_result",
+    "contract_version",
+    "created_at",
+}
 
 INTEGRATED_COLUMNS = [
     "trade_date",
@@ -106,6 +125,15 @@ def _persist(
     trade_date: str,
 ) -> None:
     with duckdb.connect(str(database_path)) as connection:
+        if table_name == "integrated_recommendation" and _table_exists(connection, table_name):
+            column_info = connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
+            for row in column_info:
+                column_name = str(row[1])
+                column_type = str(row[2]).strip().upper()
+                if column_name in INTEGRATED_TEXT_COLUMNS and column_type != "VARCHAR":
+                    connection.execute(
+                        f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE VARCHAR USING CAST({column_name} AS VARCHAR)"
+                    )
         connection.register("incoming_df", frame)
         connection.execute(
             f"CREATE TABLE IF NOT EXISTS {table_name} AS SELECT * FROM incoming_df WHERE 1=0"

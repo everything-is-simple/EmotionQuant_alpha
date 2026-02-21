@@ -305,6 +305,7 @@ def run_validation_gate(
         ("pas_internal_stability", pas_scores, pas_scores.shift(1).fillna(pas_scores)),
     ):
         sample_size = int(len(left))
+        low_information_fallback = False
         if sample_size < 2:
             # Cold-start fallback: keep neutral-pass baseline instead of hard-failing tiny samples.
             ic = effective_config.ic_pass
@@ -312,6 +313,14 @@ def run_validation_gate(
             icir = effective_config.icir_pass
             decay_5d = effective_config.decay_pass
             gates = ["PASS", "PASS", "PASS", "PASS"]
+        elif int(pd.Series(left).nunique(dropna=True)) < 2 or int(pd.Series(right).nunique(dropna=True)) < 2:
+            # Low-information fallback: constant/near-constant inputs are not enough for stable correlation judgment.
+            low_information_fallback = True
+            ic = effective_config.ic_warn
+            rank_ic = effective_config.rank_ic_warn
+            icir = effective_config.icir_warn
+            decay_5d = effective_config.decay_pass
+            gates = ["WARN", "WARN", "WARN", "PASS"]
         else:
             ic = _safe_corr(left, right)
             rank_ic = _safe_rank_corr(left, right)
@@ -343,6 +352,7 @@ def run_validation_gate(
                         "icir_gate": gates[2],
                         "decay_gate": gates[3],
                         "cold_start_fallback": sample_size < 2,
+                        "low_information_fallback": low_information_fallback,
                     },
                     ensure_ascii=False,
                 ),

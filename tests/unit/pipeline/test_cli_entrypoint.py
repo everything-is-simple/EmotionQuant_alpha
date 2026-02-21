@@ -122,6 +122,44 @@ def test_main_analysis_command_wires_to_pipeline(
     assert payload["quality_status"] == "PASS"
 
 
+def test_main_irs_command_wires_to_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s3c.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_irs_daily(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3c" / "20260213"
+        return SimpleNamespace(
+            trade_date="20260213",
+            count=31,
+            factor_intermediate_sample_path=artifacts_dir / "irs_factor_intermediate_sample.parquet",
+            coverage_report_path=artifacts_dir / "irs_allocation_coverage_report.md",
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_irs_daily", _fake_run_irs_daily)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "irs",
+            "--date",
+            "20260213",
+            "--require-sw31",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3c_irs"
+    assert payload["require_sw31"] is True
+    assert payload["irs_industry_count"] == 31
+    assert payload["status"] == "ok"
+
+
 def test_main_mss_runs_after_l1_and_l2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     data_root = tmp_path / "eq_data"
     env_file = tmp_path / ".env.s1a.cli"

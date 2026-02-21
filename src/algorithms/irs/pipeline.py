@@ -22,6 +22,7 @@ DESIGN_TRACE = {
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 EPS = 1e-9
+SW31_EXPECTED_COUNT = 31
 
 FACTOR_WEIGHTS = {
     "relative_strength": 0.25,
@@ -46,6 +47,7 @@ class IrsRunResult:
     frame: pd.DataFrame
     factor_intermediate_frame: pd.DataFrame
     factor_intermediate_sample_path: Path
+    coverage_report_path: Path
 
 
 def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
@@ -267,6 +269,38 @@ def _allocation_advice(
     return "回避"
 
 
+def _write_coverage_report(
+    *,
+    path: Path,
+    trade_date: str,
+    require_sw31: bool,
+    source_industry_count: int,
+    source_has_all: bool,
+    output_industry_count: int,
+    output_has_all: bool,
+    allocation_missing_count: int,
+    gate_status: str,
+    gate_reason: str,
+) -> None:
+    lines = [
+        "# IRS SW31 Coverage Report",
+        "",
+        f"- trade_date: {trade_date}",
+        f"- require_sw31: {str(require_sw31).lower()}",
+        f"- source_industry_count: {source_industry_count}",
+        f"- source_has_all: {str(source_has_all).lower()}",
+        f"- output_industry_count: {output_industry_count}",
+        f"- output_has_all: {str(output_has_all).lower()}",
+        f"- allocation_missing_count: {allocation_missing_count}",
+        f"- expected_sw31_count: {SW31_EXPECTED_COUNT}",
+        f"- gate_status: {gate_status}",
+        f"- gate_reason: {gate_reason}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _load_baseline_map(config: Config) -> dict[str, tuple[float, float]]:
     baseline_path = Path(config.data_path) / "config" / "irs_zscore_baseline.parquet"
     if not baseline_path.exists():
@@ -318,6 +352,7 @@ def run_irs_daily(
     trade_date: str,
     config: Config,
     artifacts_dir: Path | None = None,
+    require_sw31: bool = False,
 ) -> IrsRunResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
@@ -359,6 +394,20 @@ def run_irs_daily(
 
     if source.empty:
         raise ValueError("industry_snapshot_empty_for_trade_date")
+
+    target_artifacts_dir = artifacts_dir or (
+        Path("artifacts") / ("spiral-s3c" if require_sw31 else "spiral-s2c") / trade_date
+    )
+    coverage_report_path = target_artifacts_dir / "irs_allocation_coverage_report.md"
+
+    source_codes = sorted(
+        {
+            str(code).strip()
+            for code in source.get("industry_code", pd.Series([], dtype="object")).tolist()
+            if str(code).strip()
+        }
+    )
+    source_has_all = "ALL" in source_codes
 
     for column in (
         "industry_pct_chg",
@@ -636,6 +685,47 @@ def run_irs_daily(
     frame["recommendation"] = frame["industry_score"].map(_to_recommendation)
     frame["created_at"] = pd.Timestamp.utcnow().isoformat()
 
+    output_codes = sorted(
+        {
+            str(code).strip()
+            for code in frame.get("industry_code", pd.Series([], dtype="object")).tolist()
+            if str(code).strip()
+        }
+    )
+    output_has_all = "ALL" in output_codes
+    allocation_missing_count = int(
+        (frame["allocation_advice"].astype(str).str.strip() == "").sum()
+    )
+    sw31_pass = (
+        (not output_has_all)
+        and len(output_codes) == SW31_EXPECTED_COUNT
+        and allocation_missing_count == 0
+    )
+    gate_status = "PASS" if sw31_pass else "FAIL"
+    gate_reason = (
+        "ok"
+        if sw31_pass
+        else (
+            f"output_industry_count={len(output_codes)}, "
+            f"output_has_all={str(output_has_all).lower()}, "
+            f"allocation_missing_count={allocation_missing_count}"
+        )
+    )
+    _write_coverage_report(
+        path=coverage_report_path,
+        trade_date=trade_date,
+        require_sw31=require_sw31,
+        source_industry_count=len(source_codes),
+        source_has_all=source_has_all,
+        output_industry_count=len(output_codes),
+        output_has_all=output_has_all,
+        allocation_missing_count=allocation_missing_count,
+        gate_status=gate_status,
+        gate_reason=gate_reason,
+    )
+    if require_sw31 and not sw31_pass:
+        raise ValueError(f"irs_sw31_coverage_gate_failed: {gate_reason}")
+
     frame = frame[
         [
             "trade_date",
@@ -682,7 +772,6 @@ def run_irs_daily(
         trade_date=trade_date,
     )
 
-    target_artifacts_dir = artifacts_dir or (Path("artifacts") / "spiral-s2c" / trade_date)
     artifact_path = target_artifacts_dir / "irs_factor_intermediate_sample.parquet"
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     factor_frame.to_parquet(artifact_path, index=False)
@@ -693,4 +782,5 @@ def run_irs_daily(
         frame=frame,
         factor_intermediate_frame=factor_frame,
         factor_intermediate_sample_path=artifact_path,
+        coverage_report_path=coverage_report_path,
     )

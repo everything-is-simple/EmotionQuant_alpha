@@ -9,6 +9,7 @@ from typing import Sequence
 from src.backtest.pipeline import run_backtest
 from src.analysis.pipeline import run_analysis
 from src import __version__
+from src.algorithms.irs.pipeline import run_irs_daily
 from src.algorithms.mss.pipeline import run_mss_scoring
 from src.algorithms.mss.probe import run_mss_probe
 from src.config.config import Config
@@ -89,12 +90,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run S0c L2 snapshot generation from existing L1 tables.",
     )
     run_parser.add_argument(
+        "--strict-sw31",
+        action="store_true",
+        help="Require SW31 coverage when running --to-l2.",
+    )
+    run_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Do not execute downstream tasks; only validate entry and config injection.",
     )
     mss_parser = subparsers.add_parser("mss", help="Run MSS minimal scoring for a trade date.")
     mss_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    irs_parser = subparsers.add_parser("irs", help="Run IRS scoring for a trade date.")
+    irs_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    irs_parser.add_argument(
+        "--require-sw31",
+        action="store_true",
+        help="Enable SW31 full coverage gate (S3c strict mode).",
+    )
     probe_parser = subparsers.add_parser("mss-probe", help="Run MSS-only probe on date range.")
     probe_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
     probe_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
@@ -223,6 +236,7 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "dry_run": bool(args.dry_run),
                 "l1_only": bool(args.l1_only),
                 "to_l2": bool(args.to_l2),
+                "strict_sw31": bool(args.strict_sw31),
             },
             ensure_ascii=True,
             sort_keys=True,
@@ -264,6 +278,7 @@ def _run_stub(ctx: PipelineContext, args: argparse.Namespace) -> int:
             trade_date=args.date,
             source=args.source,
             config=ctx.config,
+            strict_sw31=bool(args.strict_sw31),
         )
         print(
             json.dumps(
@@ -321,6 +336,47 @@ def _run_mss(ctx: PipelineContext, args: argparse.Namespace) -> int:
         )
     )
     return 1 if result.has_error else 0
+
+
+def _run_irs(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    print(
+        json.dumps(
+            {
+                "event": "irs_start",
+                "command": ctx.command,
+                "trade_date": args.date,
+                "require_sw31": bool(args.require_sw31),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    try:
+        result = run_irs_daily(
+            trade_date=args.date,
+            config=ctx.config,
+            require_sw31=bool(args.require_sw31),
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+
+    print(
+        json.dumps(
+            {
+                "event": "s3c_irs",
+                "trade_date": args.date,
+                "require_sw31": bool(args.require_sw31),
+                "irs_industry_count": result.count,
+                "factor_intermediate_sample_path": str(result.factor_intermediate_sample_path),
+                "coverage_report_path": str(result.coverage_report_path),
+                "status": "ok",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 0
 
 
 def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
@@ -684,6 +740,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_stub(ctx, args)
     if command == "mss":
         return _run_mss(ctx, args)
+    if command == "irs":
+        return _run_irs(ctx, args)
     if command == "mss-probe":
         return _run_mss_probe(ctx, args)
     if command == "recommend":

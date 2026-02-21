@@ -104,6 +104,8 @@ class IndustrySnapshot:
     industry_pct_chg: float = 0.0
     industry_amount: float = 0.0
     industry_turnover: float = 0.0
+    market_amount_total: float = 0.0
+    style_bucket: str = "balanced"
     industry_pe_ttm: float = 0.0
     industry_pb: float = 0.0
     limit_up_count: int = 0
@@ -142,6 +144,8 @@ class IndustrySnapshot:
             "industry_pct_chg": self.industry_pct_chg,
             "industry_amount": self.industry_amount,
             "industry_turnover": self.industry_turnover,
+            "market_amount_total": self.market_amount_total,
+            "style_bucket": self.style_bucket,
             "industry_pe_ttm": self.industry_pe_ttm,
             "industry_pb": self.industry_pb,
             "limit_up_count": self.limit_up_count,

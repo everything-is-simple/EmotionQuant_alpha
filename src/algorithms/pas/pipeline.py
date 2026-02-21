@@ -147,6 +147,10 @@ def _score_from_history(value: float, series: pd.Series) -> float:
     return _clip(((z + 3.0) / 6.0) * 100.0, 0.0, 100.0)
 
 
+def _series_clip(series: pd.Series, low: float, high: float) -> pd.Series:
+    return pd.to_numeric(series, errors="coerce").fillna(0.0).clip(lower=low, upper=high)
+
+
 def _coalesce_float(value: float | int | None, fallback: float) -> float:
     if value is None:
         return float(fallback)
@@ -259,29 +263,49 @@ def run_pas_daily(
         else:
             direction = "neutral"
 
-        limit_up_ratio_120d = float((pct_chg_series.tail(120) >= 0.095).sum()) / max(
-            float(min(len(stock_hist), 120)),
+        limit_up_ratio_series = (pct_chg_series >= 0.095).astype(float).rolling(
+            window=120, min_periods=1
+        ).mean()
+        rolling_high_60 = close_series.rolling(window=60, min_periods=1).max()
+        new_high_ratio_series = (close_series >= rolling_high_60).astype(float).rolling(
+            window=60, min_periods=1
+        ).mean()
+        max_pct_norm_series = _series_clip(
+            pct_chg_series.clip(lower=0.0).rolling(window=120, min_periods=1).max() / 0.30,
+            0.0,
             1.0,
         )
-        rolling_high_60 = close_series.rolling(window=60, min_periods=1).max()
-        new_high_count_60d = float((close_series.tail(60) >= rolling_high_60.tail(60)).sum())
-        new_high_ratio_60d = new_high_count_60d / max(float(min(len(stock_hist), 60)), 1.0)
-        max_pct_chg_history = float(max(pct_chg_series.tail(120).max(), 0.0))
-        max_pct_norm = _clip(max_pct_chg_history / 0.30, 0.0, 1.0)
-        bull_gene_raw_series = pd.Series(
-            [0.4 * limit_up_ratio_120d + 0.4 * new_high_ratio_60d + 0.2 * max_pct_norm]
+        bull_gene_raw_series = (
+            0.4 * limit_up_ratio_series + 0.4 * new_high_ratio_series + 0.2 * max_pct_norm_series
         )
         bull_gene_raw = float(bull_gene_raw_series.iloc[-1])
 
-        window_high = _coalesce_float(high_series.tail(adaptive_window).max(), high)
-        window_low = _coalesce_float(low_series.tail(adaptive_window).min(), low)
+        window_high_series = high_series.rolling(window=adaptive_window, min_periods=1).max()
+        window_low_series = low_series.rolling(window=adaptive_window, min_periods=1).min()
+        window_high = _coalesce_float(window_high_series.iloc[-1], high)
+        window_low = _coalesce_float(window_low_series.iloc[-1], low)
         range_span = max(window_high - window_low, EPS)
         position = _clip((close - window_low) / range_span, 0.0, 1.0)
         breakout_ref = max(high_20d_prev, high_60d_prev)
         breakout_strength = _clip((close - breakout_ref) / max(abs(breakout_ref), EPS), -0.2, 0.2)
         breakout_strength_norm = _clip((breakout_strength + 0.2) / 0.4, 0.0, 1.0)
         structure_raw = 0.7 * position + 0.3 * breakout_strength_norm
-        structure_raw_series = pd.Series([structure_raw])
+        range_span_series = (window_high_series - window_low_series).clip(lower=EPS)
+        position_series = _series_clip((close_series - window_low_series) / range_span_series, 0.0, 1.0)
+        high_20d_prev_series = high_series.shift(1).rolling(window=20, min_periods=1).max()
+        high_60d_prev_series = high_series.shift(1).rolling(window=60, min_periods=1).max()
+        breakout_ref_series = pd.concat(
+            [high_20d_prev_series, high_60d_prev_series],
+            axis=1,
+        ).max(axis=1)
+        breakout_strength_series = _series_clip(
+            (close_series - breakout_ref_series)
+            / breakout_ref_series.abs().replace(0.0, EPS),
+            -0.2,
+            0.2,
+        )
+        breakout_strength_norm_series = _series_clip((breakout_strength_series + 0.2) / 0.4, 0.0, 1.0)
+        structure_raw_series = 0.7 * position_series + 0.3 * breakout_strength_norm_series
 
         volume_avg_20d = float(vol_series.tail(20).mean() or 0.0)
         volume_quality = _clip(vol / max(volume_avg_20d, EPS), 0.0, 2.0) / 2.0
@@ -292,7 +316,20 @@ def run_pas_daily(
             1.0,
         )
         behavior_raw = 0.4 * volume_quality + 0.4 * pct_component + 0.2 * trend_component
-        behavior_raw_series = pd.Series([behavior_raw])
+        volume_quality_series = _series_clip(
+            vol_series / vol_series.rolling(window=20, min_periods=1).mean().clip(lower=EPS),
+            0.0,
+            2.0,
+        ) / 2.0
+        pct_component_series = _series_clip((return_ratio_series + 0.1) / 0.2, 0.0, 1.0)
+        trend_component_series = (pct_chg_series > 0.0).astype(float).rolling(
+            window=trend_window, min_periods=1
+        ).mean()
+        behavior_raw_series = (
+            0.4 * volume_quality_series
+            + 0.4 * pct_component_series
+            + 0.2 * _series_clip(trend_component_series, 0.0, 1.0)
+        )
 
         bull_gene_score = _score_from_history(bull_gene_raw, bull_gene_raw_series)
         structure_score = _score_from_history(structure_raw, structure_raw_series)
