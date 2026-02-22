@@ -20,11 +20,11 @@
 ## 1. 本轮已确认决议（来自代码实况）
 
 1. 主干实现已覆盖 `S0A~S4` 主链，CLI 入口已接通（`run/mss/irs/pas/mss-probe/recommend/fetch-batch/fetch-status/fetch-retry/backtest/trade/analysis/validation`）。
-2. 全量测试当前实况：`170 passed / 0 failed`（`TDL-S3-001`、`TDL-S3-007`、`TDL-S3-008`、`TDL-S3-009`、`TDL-S3-010`、`TDL-S3-011` 已完成）。
-3. 当前主阻塞是“语义冲突”而非链路断裂：
-   - 回测只接收 `BUY/STRONG_BUY` 入场（`src/backtest/pipeline.py`）。
-   - 当前集成推荐在部分窗口可全为 `HOLD`（`src/integration/pipeline.py` 分档）。
-   - 结果是 `GO/WARN` 但 `total_trades=0`，与单测断言冲突。
+2. 全量测试当前实况：`174 passed / 0 failed`（`TDL-S3-001`~`TDL-S3-014` 主线回归已覆盖）。
+3. 当前主阻塞已从“语义冲突”切换为“窗口消费前置条件”：
+   - `S3` 的硬阻塞是 `fetch_progress_range_not_cover_backtest_window`（`S3a` 消费契约），不是 `S3b` 算法本身。
+   - `backtest/analysis` 并发会触发 DuckDB 文件锁；同一库写入必须串行执行。
+   - 以上两项已完成修复/固化：全窗口 `fetch-batch(20260102~20260213)` 可复跑通过，`S3` 与 `S3b` 均恢复 `GO`。
 4. `S4B` 之后（`S4BR/S4R/S5/S5R/S6/S6R/S7A/S7AR`）暂无实质实现入口与测试覆盖。
 
 ---
@@ -73,11 +73,15 @@
 
 ## 3.4 S3b
 
-- 卡状态：`Active`
+- 卡状态：`Completed`（2026-02-22，跨窗口复核收口）
 - 代码/测试证据：analysis 最小闭环已落地，测试存在
+- 硬前置条件（代码口径）：
+  - [x] `ab_benchmark` 依赖 `backtest_results` 且窗口内必须存在目标回测行；否则 `P0/backtest_results_not_found_in_window`。
+  - [x] `deviation/attribution` 依赖表存在：`trade_records`、`backtest_trade_records`、`integrated_recommendation`；缺表即 `P0`。
+  - [x] 若存在表但当日无成交样本，则降级为 `WARN`（`deviation_not_applicable_no_filled_trade` / `attribution_not_applicable_no_filled_trade`），不阻断 `GO`。
 - 未完成项（执行卡/规格层面）：
-  - [ ] 窗口级归因证据收口（卡片明确未 completed）
-  - [ ] `signal/execution/cost` 三分解结论稳定性复核（不仅单窗口）
+  - [x] 窗口级归因证据收口（跨窗口 `W1~W4`，证据已固化到 `artifacts/spiral-s3b/20260213/cross_window/*`）
+  - [x] `signal/execution/cost` 三分解结论稳定性复核（跨窗口分布稳定：`dominant_component=none`，并已记录样本边界）
 - 关键一致性漂移（必须处理）：
   - [x] 已完成事实口径统一：`Governance/specs/spiral-s3b/final.md`、`Governance/record/development-status.md`、`Governance/record/debts.md` 已同步为 `remaining_failures=0`、`integrated_days=20`（证据：`artifacts/spiral-s3b/20260213/s3e_targeted_clearance_summary.json`）。
 
@@ -117,8 +121,8 @@
 
 ## 4. 下一步执行顺序（与现有路线图不冲突）
 
-1. `S3`：推进未收口条目（细撮合规则、绩效指标、成本/滑点）并保持“有效交易日前置校验”。
-2. `S3b`：完成口径统一与窗口级归因收口（含 20/20 覆盖事实同步）。
+1. `S3`：推进 `final/review` 收口，固化 canary 窗口 `20260102~20260213` 的 run/test/artifact 证据。
+2. `S3b`：已完成跨窗口归因稳定性复核与收口，后续仅在新增 live filled 样本时按同框架重跑复核。
 3. `S3c`：完成跨窗口稳定性复核并收口。
 4. `S3d`：补齐 probe 真实收益窗口证据并收口。
 5. `S3e`：补齐生产校准窗口证据并收口。
@@ -141,6 +145,10 @@
 - [x] TDL-S3-009：补齐 S3 更细撮合规则（一字板/流动性枯竭）并新增对应回测契约测试（已落地 `REJECT_ONE_WORD_BOARD` + `REJECT_LIQUIDITY_DRYUP`）。
 - [x] TDL-S3-010：补齐 S3 更完整绩效指标（回撤、收益分布、换手稳定性）并落库/产物化。
 - [x] TDL-S3-011：补齐 S3 成本/滑点模型细化（分层费率与冲击成本）并完成回归对账。
+- [x] TDL-S3-012：修复 S3 质量门与信号日期错位问题（仅对存在 `integrated_recommendation` 的日期判定 `quality_gate`，缺门禁日期仍按 P0 拦截），并补回归测试。
+- [x] TDL-S3-013：修复 `fetch-batch` 窗口交易日历加载语义（按窗口一次性读取 `trade_cal`，只跑开市日；真实链路强制串行写库），并将 CLI 默认 `batch-size` 调整为 `30`。
+- [x] TDL-S3-014：修复 `fetch_progress` 缩窗导致的 S3 误阻断（当本地 L1 已覆盖窗口时，`fetch_progress` 未覆盖降级为 WARN，不再 P0 阻断）。
+- [x] TDL-S3-015：完成 S3b 跨窗口（W1~W4）三分解稳定性复核与收口，固化窗口级快照证据并更新 `spiral-s3b/final` 为 `completed`。
 
 ---
 
@@ -158,3 +166,7 @@
 - 2026-02-22：完成 `TDL-S3-009`。`src/backtest/pipeline.py` 已补齐一字板与流动性枯竭显式拒单（`REJECT_ONE_WORD_BOARD`、`REJECT_LIQUIDITY_DRYUP`）与审计计数（`one_word_board_blocked_count`、`liquidity_dryup_blocked_count`），并新增回归测试 `test_backtest_rejects_buy_when_one_word_board`、`test_backtest_rejects_buy_when_low_fill_probability`。
 - 2026-02-22：完成 `TDL-S3-010`。`src/backtest/pipeline.py` 已新增绩效指标落库字段（`max_drawdown_days`、`daily_return_*`、`turnover_*`）与产物 `performance_metrics_report.md`；并通过 backtest/CLI 回归与全量测试（`167 passed`）。
 - 2026-02-22：完成 `TDL-S3-011`。`src/backtest/pipeline.py` 已新增分层费率（`S/M/L`）与冲击成本模型（按 `liquidity_tier + queue_pressure`），并将 `commission/stamp/transfer/impact/total_fee/cost_bps` 落库到 `backtest_results`；新增 `tests/unit/backtest/test_backtest_cost_model_contract.py`，验证结果：全量 `170 passed`。
+- 2026-02-22：完成 `TDL-S3-012`。`src/backtest/pipeline.py` 新增 `quality_gate` 按信号日期过滤逻辑（避免无信号历史 FAIL 误阻断当前窗口），同时保留“信号日期缺门禁即 P0”契约；新增 `tests/unit/backtest/test_backtest_contract.py::test_backtest_ignores_gate_fail_for_dates_without_integrated_signals`，并实跑 `backtest 20260102~20260213` 恢复 `bridge_check_status=PASS / go_nogo=GO / total_trades=36`。
+- 2026-02-22：完成 `TDL-S3-013`。`src/data/fetch_batch_pipeline.py` 改为窗口级一次性读取 `trade_cal` 并仅执行开市日采集，真实链路写库固定 `workers=1`；`src/pipeline/main.py` 将 `fetch-batch` 默认 `batch-size` 下调到 `30` 并补 CLI 契约测试。新增实测速率脚本 `scripts/data/benchmark_tushare_l1_channels_window.py`（含中文注释），实测 `20260101~20260213`：`primary` 约 `38~57 calls/min`，`fallback` 约 `197~206 calls/min`。
+- 2026-02-22：完成 `TDL-S3-014`。`src/backtest/pipeline.py` 对 `s3a_consumption` 新增“本地 L1 覆盖兜底”语义：当 `fetch_progress` 状态/窗口不满足，但 `raw_trade_cal + raw_daily` 在目标窗口存在覆盖时，改为 `WARN`（`fetch_progress_*_but_local_l1_covered`）而非 `P0`；新增契约测试 `tests/unit/backtest/test_backtest_contract.py::test_backtest_uses_local_l1_coverage_when_fetch_progress_range_is_narrow`。验证：`pytest -q` 全量 `174 passed`。
+- 2026-02-22：完成 `TDL-S3-015`。已串行复跑四个窗口（`W1:20260102-20260213`、`W2:20260119-20260213`、`W3:20260210-20260213`、`W4:20260212-20260213`）的 `backtest + analysis(AB+deviation+attribution)`，四窗均 `GO`；结论分布稳定：`A_not_dominant=4`、`dominant_component=none=4`。已固化总览与快照证据：`artifacts/spiral-s3b/20260213/s3b_cross_window_stability_summary.{json,md}`、`artifacts/spiral-s3b/20260213/cross_window/*`，并将 `Governance/specs/spiral-s3b/final.md` 更新为 `completed`。

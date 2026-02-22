@@ -419,6 +419,36 @@ def _to_quality_status(gate_frame: pd.DataFrame) -> tuple[str, str, str]:
     return ("FAIL", "NO_GO", "quality_gate_status_invalid")
 
 
+def _filter_quality_gate_by_signal_dates(
+    *,
+    gate_frame: pd.DataFrame,
+    integrated_frame: pd.DataFrame,
+) -> tuple[pd.DataFrame, list[str]]:
+    if gate_frame.empty or integrated_frame.empty:
+        return (gate_frame, [])
+    if "trade_date" not in gate_frame.columns or "trade_date" not in integrated_frame.columns:
+        return (gate_frame, [])
+
+    signal_dates = {
+        str(item).strip()
+        for item in integrated_frame["trade_date"].tolist()
+        if str(item).strip()
+    }
+    if not signal_dates:
+        return (gate_frame, [])
+
+    filtered_gate = gate_frame[
+        gate_frame["trade_date"].astype(str).str.strip().isin(signal_dates)
+    ].copy()
+    gate_dates = {
+        str(item).strip()
+        for item in filtered_gate["trade_date"].tolist()
+        if str(item).strip()
+    }
+    missing_gate_dates = sorted(signal_dates - gate_dates)
+    return (filtered_gate, missing_gate_dates)
+
+
 def _read_trading_days(*, database_path: Path, start_date: str, end_date: str) -> list[str]:
     with duckdb.connect(str(database_path), read_only=True) as connection:
         row = connection.execute(
@@ -867,15 +897,6 @@ def run_backtest(
     def add_warning(message: str) -> None:
         warnings.append(str(message))
 
-    fetch_status = read_fetch_status(config=config)
-    if fetch_status.status != "completed":
-        add_error("P0", "s3a_consumption", "fetch_progress_not_completed")
-    elif (
-        fetch_status.start_date > start_date
-        or fetch_status.end_date < end_date
-    ):
-        add_error("P0", "s3a_consumption", "fetch_progress_range_not_cover_backtest_window")
-
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     if not database_path.exists():
         add_error("P0", "database", "duckdb_not_found")
@@ -886,6 +907,25 @@ def run_backtest(
             start_date=start_date,
             end_date=end_date,
         )
+    has_local_l1_window_coverage = (
+        int(window_table_counts.get("raw_trade_cal", 0)) > 0
+        and int(window_table_counts.get("raw_daily", 0)) > 0
+    )
+
+    fetch_status = read_fetch_status(config=config)
+    if fetch_status.status != "completed":
+        if has_local_l1_window_coverage:
+            add_warning("fetch_progress_not_completed_but_local_l1_covered")
+        else:
+            add_error("P0", "s3a_consumption", "fetch_progress_not_completed")
+    elif (
+        fetch_status.start_date > start_date
+        or fetch_status.end_date < end_date
+    ):
+        if has_local_l1_window_coverage:
+            add_warning("fetch_progress_range_not_cover_backtest_window_but_local_l1_covered")
+        else:
+            add_error("P0", "s3a_consumption", "fetch_progress_range_not_cover_backtest_window")
 
     integrated_frame = _empty_frame(
         [
@@ -941,6 +981,13 @@ def run_backtest(
             for table_name in CORE_INPUT_TABLES:
                 if int(window_table_counts.get(table_name, 0)) <= 0:
                     add_error("P0", "signal_input", f"{table_name}_missing_for_backtest_window")
+
+        gate_frame, missing_gate_dates = _filter_quality_gate_by_signal_dates(
+            gate_frame=gate_frame,
+            integrated_frame=integrated_frame,
+        )
+        if missing_gate_dates:
+            add_error("P0", "quality_gate", "quality_gate_missing_for_integrated_signal_dates")
 
         quality_status, go_nogo, quality_message = _to_quality_status(gate_frame)
         if quality_status == "FAIL":

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from src.config.config import Config
+import src.data.fetch_batch_pipeline as fetch_batch_pipeline
 from src.data.fetch_batch_pipeline import FetchBatchProgressEvent, run_fetch_batch
 
 
@@ -66,3 +68,60 @@ def test_fetch_batch_emits_realtime_progress_events(tmp_path: Path, monkeypatch)
     assert last_event.total_batches == result.total_batches
     assert last_event.completed_batches == result.completed_batches
     assert last_event.failed_batches == result.failed_batches
+
+
+def test_fetch_batch_uses_trade_cal_window_once_and_runs_only_open_days(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = Config.from_env(env_file=None)
+    called_trade_dates: list[str] = []
+
+    class _FakeFetcher:
+        instances: list["_FakeFetcher"] = []
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            del args, kwargs
+            self.calls: list[tuple[str, dict[str, str]]] = []
+            _FakeFetcher.instances.append(self)
+
+        def fetch_with_retry(self, api_name: str, params: dict[str, str]) -> list[dict[str, object]]:
+            self.calls.append((api_name, dict(params)))
+            assert api_name == "trade_cal"
+            return [
+                {"trade_date": "20260101", "is_open": 0},
+                {"trade_date": "20260102", "is_open": 1},
+                {"trade_date": "20260103", "is_open": 0},
+                {"trade_date": "20260104", "is_open": 1},
+            ]
+
+    def _fake_run_l1_collection(**kwargs: object) -> SimpleNamespace:
+        called_trade_dates.append(str(kwargs["trade_date"]))
+        return SimpleNamespace(
+            has_error=False,
+            error_manifest_path=Path("artifacts/error_manifest_sample.json"),
+        )
+
+    monkeypatch.setattr(fetch_batch_pipeline, "_has_live_tushare_token", lambda _cfg: True)
+    monkeypatch.setattr(fetch_batch_pipeline, "TuShareFetcher", _FakeFetcher)
+    monkeypatch.setattr(fetch_batch_pipeline, "run_l1_collection", _fake_run_l1_collection)
+
+    result = run_fetch_batch(
+        start_date="20260101",
+        end_date="20260104",
+        batch_size=30,
+        workers=3,
+        config=config,
+    )
+
+    assert result.status == "completed"
+    assert result.workers == 1
+    assert called_trade_dates == ["20260102", "20260104"]
+    assert len(_FakeFetcher.instances) == 1
+    calls = _FakeFetcher.instances[0].calls
+    assert calls == [
+        (
+            "trade_cal",
+            {"start_date": "20260101", "end_date": "20260104"},
+        )
+    ]

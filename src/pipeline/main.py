@@ -207,8 +207,8 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_batch_parser.add_argument(
         "--batch-size",
         type=int,
-        default=365,
-        help="Batch size by calendar days, default 365.",
+        default=30,
+        help="Batch size by calendar days, default 30.",
     )
     fetch_batch_parser.add_argument(
         "--workers",

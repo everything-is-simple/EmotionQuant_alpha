@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import duckdb
@@ -162,3 +163,109 @@ def test_backtest_no_long_entry_signal_window_is_warn_not_fail(tmp_path: Path) -
 
     gate_text = result.gate_report_path.read_text(encoding="utf-8")
     assert "no_long_entry_signal_in_window" in gate_text
+
+
+def test_backtest_ignores_gate_fail_for_dates_without_integrated_signals(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_dates = latest_open_trade_days(2)
+    _prepare_s3_inputs(config, trade_dates)
+
+    stale_fail_date = trade_dates[0]
+    active_signal_date = trade_dates[-1]
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "DELETE FROM integrated_recommendation WHERE trade_date = ?",
+            [stale_fail_date],
+        )
+        connection.execute(
+            "DELETE FROM validation_weight_plan WHERE trade_date = ?",
+            [stale_fail_date],
+        )
+        connection.execute(
+            "UPDATE quality_gate_report SET status='FAIL', go_nogo='NO_GO', message='validation_gate_fail' "
+            "WHERE trade_date = ?",
+            [stale_fail_date],
+        )
+        connection.execute(
+            "UPDATE quality_gate_report SET status='WARN', go_nogo='GO', message='warn_data_cold_start' "
+            "WHERE trade_date = ?",
+            [active_signal_date],
+        )
+
+    result = run_backtest(
+        start_date=trade_dates[0],
+        end_date=trade_dates[-1],
+        engine="qlib",
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.quality_status in {"PASS", "WARN"}
+    assert result.go_nogo == "GO"
+    assert result.bridge_check_status == "PASS"
+    gate_text = result.gate_report_path.read_text(encoding="utf-8")
+    assert "quality_gate_fail" not in gate_text
+
+
+def test_backtest_uses_local_l1_coverage_when_fetch_progress_range_is_narrow(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_dates = latest_open_trade_days(2)
+    _prepare_s3_inputs(config, trade_dates)
+
+    state_path = Path("artifacts") / "spiral-s3a" / "_state" / "fetch_progress.json"
+    artifact_progress_path = Path("artifacts") / "spiral-s3a" / trade_dates[-1] / "fetch_progress.json"
+    state_original = state_path.read_text(encoding="utf-8") if state_path.exists() else ""
+    state_existed = state_path.exists()
+    artifact_original = artifact_progress_path.read_text(encoding="utf-8") if artifact_progress_path.exists() else ""
+    artifact_existed = artifact_progress_path.exists()
+
+    try:
+        payload = json.loads(state_original if state_existed else "{}")
+        payload.update(
+            {
+                "contract_version": "nc-v1",
+                "start_date": trade_dates[-1],
+                "end_date": trade_dates[-1],
+                "batch_size": 365,
+                "workers": 1,
+                "total_batches": 1,
+                "completed_batch_ids": [1],
+                "failed_batch_ids": [],
+                "failed_batch_errors": {},
+                "failure_injected_batch_ids": [],
+                "last_success_batch_id": 1,
+                "completed_batches": 1,
+                "failed_batches": 0,
+                "pending_batches": 0,
+                "status": "completed",
+                "updated_at": "2026-02-22T00:00:00+00:00",
+            }
+        )
+        serialized = json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(serialized, encoding="utf-8")
+        artifact_progress_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_progress_path.write_text(serialized, encoding="utf-8")
+
+        result = run_backtest(
+            start_date=trade_dates[0],
+            end_date=trade_dates[-1],
+            engine="qlib",
+            config=config,
+        )
+    finally:
+        if state_existed:
+            state_path.write_text(state_original, encoding="utf-8")
+        elif state_path.exists():
+            state_path.unlink()
+        if artifact_existed:
+            artifact_progress_path.write_text(artifact_original, encoding="utf-8")
+        elif artifact_progress_path.exists():
+            artifact_progress_path.unlink()
+
+    assert result.has_error is False
+    assert result.quality_status in {"PASS", "WARN"}
+    assert result.go_nogo == "GO"
+    assert result.bridge_check_status == "PASS"
+    gate_text = result.gate_report_path.read_text(encoding="utf-8")
+    assert "fetch_progress_range_not_cover_backtest_window_but_local_l1_covered" in gate_text

@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-22  
-**当前版本**: v4.39（TDL-S3-011 成本/滑点模型落地）  
+**当前版本**: v4.41（TDL-S3-012/013/014：S3 消费契约修复 + S3a 抓取窗口语义修复 + 本地覆盖兜底）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -19,6 +19,28 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-012/013/014：S3/S3b 解锁与 S3a 语义修复）
+
+1. S3 阻塞根因修复：
+   - `src/backtest/pipeline.py` 新增 `quality_gate` 与信号日期对齐过滤，避免“无信号历史 FAIL”误阻断当前窗口。
+   - 保留硬约束：若存在 `integrated_recommendation` 但缺对应 `quality_gate_report`，仍按 P0 拦截（`quality_gate_missing_for_integrated_signal_dates`）。
+2. S3a 抓取语义与吞吐修复：
+   - `src/data/fetch_batch_pipeline.py` 改为窗口级一次性读取 `trade_cal`，仅对开市日执行采集。
+   - 真实链路写库固定 `workers=1`，避免多进程并发写 DuckDB 造成锁冲突。
+   - `src/pipeline/main.py` 将 `fetch-batch` 默认 `batch-size` 调整为 `30`。
+3. S3 消费兜底修复（TDL-S3-014）：
+   - `src/backtest/pipeline.py` 在 `fetch_progress` 未覆盖窗口时新增本地覆盖兜底：若 `raw_trade_cal + raw_daily` 在窗口内已覆盖，降级为 `WARN`（不再 `P0` 阻断）。
+   - 新增测试：`tests/unit/backtest/test_backtest_contract.py::test_backtest_uses_local_l1_coverage_when_fetch_progress_range_is_narrow`。
+4. 实跑验证（canary 窗口 `20260102~20260213`）：
+   - `fetch-batch` 完成：`status=completed`，`total_batches=2`，`workers=1`。
+   - `backtest` 完成：`bridge_check_status=PASS`，`quality_status=WARN`，`go_nogo=GO`，`total_trades=36`。
+   - `analysis --ab-benchmark --deviation live-backtest --attribution-summary` 完成：`quality_status=WARN`，`go_nogo=GO`。
+5. 质量验证：
+   - `pytest -q` => `174 passed, 0 failed`。
+   - `python -m scripts.quality.local_quality_check --contracts --governance` => 全 PASS。
 
 ---
 

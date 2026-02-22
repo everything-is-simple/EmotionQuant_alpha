@@ -18,6 +18,12 @@ def test_build_parser_uses_eq_as_program_name() -> None:
     assert parser.prog == "eq"
 
 
+def test_build_parser_fetch_batch_default_size_is_30_days() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["fetch-batch", "--start", "20260102", "--end", "20260213"])
+    assert args.batch_size == 30
+
+
 def test_main_help_exits_with_zero() -> None:
     with pytest.raises(SystemExit) as exc_info:
         main(["--help"])

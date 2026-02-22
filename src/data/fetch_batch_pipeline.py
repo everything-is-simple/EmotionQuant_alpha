@@ -389,20 +389,33 @@ def _iter_trade_dates(start_date: str, end_date: str) -> list[str]:
     return dates
 
 
-def _is_open_trade_date(fetcher: TuShareFetcher, trade_date: str) -> bool:
+def _is_open_marker(marker: Any) -> bool:
+    if marker is None:
+        return True
+    marker_text = str(marker).strip().lower()
+    return marker_text in {"1", "true", "y", "yes"}
+
+
+def _load_open_trade_dates_for_window(
+    *,
+    fetcher: TuShareFetcher,
+    start_date: str,
+    end_date: str,
+) -> list[str]:
     rows = fetcher.fetch_with_retry(
         "trade_cal",
-        {"start_date": trade_date, "end_date": trade_date},
+        {"start_date": start_date, "end_date": end_date},
     )
+    open_days: list[str] = []
     for row in rows:
-        if str(row.get("trade_date", "")) != trade_date:
+        trade_date = str(row.get("trade_date", row.get("cal_date", ""))).strip()
+        if not trade_date:
             continue
-        marker = row.get("is_open", row.get("is_trading"))
-        if marker is None:
-            return True
-        marker_text = str(marker).strip().lower()
-        return marker_text in {"1", "true", "y", "yes"}
-    return False
+        if trade_date < start_date or trade_date > end_date:
+            continue
+        if _is_open_marker(row.get("is_open", row.get("is_trading"))):
+            open_days.append(trade_date)
+    return sorted(set(open_days))
 
 
 def _read_error_manifest_text(path: Path) -> str:
@@ -444,10 +457,13 @@ def _execute_batch_window(window: BatchWindow, *, config: Config) -> BatchExecut
     fetcher = TuShareFetcher(config=config, max_retries=3)
     open_trade_dates = 0
     try:
-        for trade_date in trade_dates:
-            if not _is_open_trade_date(fetcher, trade_date):
-                continue
-            open_trade_dates += 1
+        open_dates = _load_open_trade_dates_for_window(
+            fetcher=fetcher,
+            start_date=window.start_date,
+            end_date=window.end_date,
+        )
+        open_trade_dates = len(open_dates)
+        for trade_date in open_dates:
             result = run_l1_collection(
                 trade_date=trade_date,
                 source="tushare",
@@ -525,15 +541,17 @@ def run_fetch_batch(
     stop_after_batches: int | None = None,
     progress_callback: Callable[[FetchBatchProgressEvent], None] | None = None,
 ) -> FetchBatchRunResult:
+    requested_workers = max(1, int(workers))
     execution_mode = (
         "real_tushare_sequential_write_safe" if _has_live_tushare_token(config) else "simulated_offline"
     )
+    effective_workers = 1 if execution_mode == "real_tushare_sequential_write_safe" else requested_workers
     windows = _build_batches(start_date, end_date, batch_size)
     state = _resolve_state(
         start_date=start_date,
         end_date=end_date,
         batch_size=batch_size,
-        workers=workers,
+        workers=effective_workers,
         total_batches=len(windows),
     )
 
