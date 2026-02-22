@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-22  
-**当前版本**: v4.44（TDL-S3-018：S3d 跨窗口收口完成）  
+**当前版本**: v4.45（TDL-S3-019：S3e 跨窗口收口完成）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3e 执行中，S3/S3b/S3c/S3d 与 S4/S3ar 已收口完成：当前聚焦 S3e 窗口证据闭环**
+**S3/S3b/S3c/S3d/S3e 与 S4/S3ar 已收口完成：当前聚焦 S4b 参数校准闭环**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -19,6 +19,27 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-019：S3e 跨窗口收口）
+
+1. 跨窗口实跑（生产口径）：
+   - `eq validation --trade-date 20260210/20260211/20260212/20260213 --threshold-mode regime --wfa dual-window --export-run-manifest` 全部成功。
+2. 跨窗口结论：
+   - 四窗均 `status=ok`、`final_gate=WARN`、`go_nogo=GO`。
+   - `selected_weight_plan` 稳定为 `vp_balanced_v1`（4/4）。
+   - `vote_detail` 一致：`factor_gate_raw=FAIL` 经中性状态软化后 `factor_gate=WARN`，符合 S3e 软门语义。
+3. 证据固化：
+   - `artifacts/spiral-s3e/20260213/s3e_cross_window_summary.json`
+   - `artifacts/spiral-s3e/20260213/s3e_cross_window_summary.md`
+   - `artifacts/spiral-s3e/20260213/cross_window/*`
+4. 文档收口：
+   - `Governance/specs/spiral-s3e/requirements.md` -> `completed`
+   - `Governance/specs/spiral-s3e/review.md` -> `completed`
+   - `Governance/specs/spiral-s3e/final.md` -> `completed`
+5. 目标测试：
+   - `pytest tests/unit/algorithms/validation/test_factor_future_returns_alignment_contract.py tests/unit/algorithms/validation/test_weight_validation_dual_window_contract.py tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py tests/unit/algorithms/validation/test_decay_proxy_contract.py tests/unit/pipeline/test_cli_entrypoint.py::test_main_validation_command_wires_to_pipeline tests/unit/pipeline/test_cli_entrypoint.py::test_main_validation_runs_s3e_mode -q` -> `6 passed`
 
 ---
 

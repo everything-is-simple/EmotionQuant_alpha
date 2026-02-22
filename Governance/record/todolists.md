@@ -103,10 +103,10 @@
 
 ## 3.7 S3e
 
-- 卡状态：`Active`
+- 卡状态：`Completed`（2026-02-22，跨窗口复核收口）
 - 代码/测试证据：validation 子命令、dual-window、OOS、run_manifest 已落地
 - 未完成项：
-  - [ ] 窗口级证据收口与 `final.md` 由 `in_progress` 转完成
+  - [x] 窗口级证据收口与 `final.md` 由 `in_progress` 转完成
   - [x] 与 S3b 的“残留 FAIL 是否清零”口径统一（同 3.4，已同步 `remaining_failures=0`）
 
 ## 3.8 S3r
@@ -125,7 +125,7 @@
 2. `S3b`：已完成跨窗口归因稳定性复核与收口，后续仅在新增 live filled 样本时按同框架重跑复核。
 3. `S3c`：已完成跨窗口稳定性复核并收口。
 4. `S3d`：已完成跨窗口证据并收口；后续仅在 return series 定义变化时重开。
-5. `S3e`：补齐生产校准窗口证据并收口（当前主线下一项）。
+5. `S3e`：已完成生产校准窗口证据并收口。
 6. `S4b`：以上三圈收口后再进入防御参数校准。
 7. `S3r`：仅条件触发（S3 FAIL 时插入，不单独抢占主线）。
 8. `S4BR -> S4R -> S5 -> S5R -> S6 -> S6R -> S7A -> S7AR`：按主路线继续。
@@ -152,6 +152,7 @@
 - [x] TDL-S3-016：完成 S3c 跨窗口（20260210/11/12/13）SW31 语义与 IRS 覆盖稳定性复核，并更新 `spiral-s3c/final`、`spiral-s3c/review` 为 `completed`。
 - [x] TDL-S3-017：完成 S3 跨窗口（W1~W4）run/test/artifact/review/sync 收口，并更新 `spiral-s3/requirements`、`spiral-s3/review`、`spiral-s3/final` 为 completed 口径。
 - [x] TDL-S3-018：完成 S3d 跨窗口（adaptive + future_returns probe）复核收口，并更新 `spiral-s3d/requirements`、`spiral-s3d/review`、`spiral-s3d/final` 为 completed。
+- [x] TDL-S3-019：完成 S3e 跨窗口（20260210/11/12/13）Validation 生产口径复核收口，并更新 `spiral-s3e/requirements`、`spiral-s3e/review`、`spiral-s3e/final` 为 completed。
 
 ---
 
@@ -176,3 +177,4 @@
 - 2026-02-22：完成 `TDL-S3-016`。已串行复跑四个交易日（`20260210/20260211/20260212/20260213`）的 `run --to-l2 --strict-sw31 + irs --require-sw31`，四窗均满足 `industry_snapshot_count=31`、`irs_industry_count=31`、`gate_status=PASS`、`go_nogo=GO`。证据已固化：`artifacts/spiral-s3c/20260213/s3c_cross_window_sw31_summary.{json,md}` 与 `artifacts/spiral-s3c/20260213/cross_window/*`；`Governance/specs/spiral-s3c/final.md`、`Governance/specs/spiral-s3c/review.md` 已更新为 `completed`。
 - 2026-02-22：完成 `TDL-S3-017`。已基于 `W1~W4` 快照固化 S3 跨窗口汇总：`artifacts/spiral-s3/20260213/s3_cross_window_summary.{json,md}`（`all_windows_go=true`），并同步 `Governance/specs/spiral-s3/requirements.md`、`Governance/specs/spiral-s3/review.md`、`Governance/specs/spiral-s3/final.md` 为 completed 口径（含 `fetch_progress` 本地覆盖兜底语义）。
 - 2026-02-22：完成 `TDL-S3-018`。已串行完成 S3d 跨窗口复核：adaptive 日期窗 `20260210/11/12/13` 全部 `gate_result=PASS`；future_returns probe 窗口 `20260119-20260213`、`20260126-20260213`、`20260203-20260213`、`20260206-20260213` 均成功落盘并可解释（结论分布：2x positive / 1x negative warn / 1x flat warn）。边界 `20260210-20260213` 的 `P1/future_returns_series_missing` 已固化为短窗样本不足证据。已落盘：`artifacts/spiral-s3d/20260213/s3d_cross_window_summary.{json,md}` 与 `artifacts/spiral-s3d/20260213/cross_window/*`；并同步 `Governance/specs/spiral-s3d/requirements.md`、`Governance/specs/spiral-s3d/review.md`、`Governance/specs/spiral-s3d/final.md` 为 completed。
+- 2026-02-22：完成 `TDL-S3-019`。已串行复跑四个交易日（`20260210/20260211/20260212/20260213`）`eq validation --trade-date {trade_date} --threshold-mode regime --wfa dual-window --export-run-manifest`，四窗均 `status=ok`、`final_gate=WARN`、`go_nogo=GO`、`selected_weight_plan=vp_balanced_v1`。已固化总览与快照证据：`artifacts/spiral-s3e/20260213/s3e_cross_window_summary.{json,md}` 与 `artifacts/spiral-s3e/20260213/cross_window/*`；并同步 `Governance/specs/spiral-s3e/requirements.md`、`Governance/specs/spiral-s3e/review.md`、`Governance/specs/spiral-s3e/final.md` 为 completed。
