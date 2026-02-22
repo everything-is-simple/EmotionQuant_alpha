@@ -13,6 +13,7 @@ from src.data.fetcher import TuShareFetcher
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
+from tests.unit.trade_day_guard import assert_all_valid_trade_days, latest_open_trade_days
 
 
 def _build_config(tmp_path: Path) -> Config:
@@ -28,6 +29,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 def _prepare_inputs(config: Config, signal_dates: list[str], extra_dates: list[str]) -> None:
     all_dates = sorted(set(signal_dates + extra_dates))
+    assert_all_valid_trade_days(all_dates, context="s3_t1_limit_inputs")
     run_fetch_batch(
         start_date=all_dates[0],
         end_date=all_dates[-1],
@@ -73,8 +75,9 @@ def _prepare_inputs(config: Config, signal_dates: list[str], extra_dates: list[s
 
 def test_backtest_applies_t1_and_limit_rules(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    signal_dates = ["20260218", "20260219"]
-    extra_dates = ["20260220"]
+    rolling_dates = latest_open_trade_days(3)
+    signal_dates = rolling_dates[:2]
+    extra_dates = [rolling_dates[2]]
     _prepare_inputs(config, signal_dates, extra_dates)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -82,18 +85,20 @@ def test_backtest_applies_t1_and_limit_rules(tmp_path: Path) -> None:
         connection.execute(
             "UPDATE integrated_recommendation "
             "SET recommendation='BUY', position_size=0.5, final_score=75.0 "
-            "WHERE trade_date IN ('20260218', '20260219') AND stock_code='000001'"
+            "WHERE trade_date IN (?, ?) AND stock_code='000001'",
+            [signal_dates[0], signal_dates[1]],
         )
         # Make first execute day hit main-board +10% limit-up to force buy rejection.
         connection.execute(
             "UPDATE raw_daily "
             "SET open=close*1.1, high=close*1.1 "
-            "WHERE trade_date='20260219' AND stock_code='000001'"
+            "WHERE trade_date=? AND stock_code='000001'",
+            [signal_dates[1]],
         )
 
     result = run_backtest(
-        start_date="20260218",
-        end_date="20260220",
+        start_date=signal_dates[0],
+        end_date=extra_dates[0],
         engine="qlib",
         config=config,
     )
@@ -117,10 +122,11 @@ def test_backtest_applies_t1_and_limit_rules(tmp_path: Path) -> None:
     assert not rejected_limit_up.empty
 
 
-def test_backtest_rejects_buy_when_liquidity_dryup(tmp_path: Path) -> None:
+def test_backtest_rejects_buy_when_one_word_board(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    signal_dates = ["20260218", "20260219"]
-    extra_dates = ["20260220"]
+    rolling_dates = latest_open_trade_days(3)
+    signal_dates = rolling_dates[:2]
+    extra_dates = [rolling_dates[2]]
     _prepare_inputs(config, signal_dates, extra_dates)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -128,17 +134,100 @@ def test_backtest_rejects_buy_when_liquidity_dryup(tmp_path: Path) -> None:
         connection.execute(
             "UPDATE integrated_recommendation "
             "SET recommendation='BUY', position_size=0.5, final_score=75.0 "
-            "WHERE trade_date IN ('20260218', '20260219') AND stock_code='000001'"
+            "WHERE trade_date IN (?, ?) AND stock_code='000001'",
+            [signal_dates[0], signal_dates[1]],
+        )
+        connection.execute(
+            "UPDATE raw_daily "
+            "SET open=10.05, high=10.05, low=10.05, close=10.05, vol=800000, amount=8040000 "
+            "WHERE trade_date=? AND stock_code='000001'",
+            [signal_dates[1]],
+        )
+
+    result = run_backtest(
+        start_date=signal_dates[0],
+        end_date=extra_dates[0],
+        engine="qlib",
+        config=config,
+    )
+    assert result.has_error is False
+
+    frame = pd.read_parquet(result.backtest_trade_records_path)
+    rejected_one_word = frame[
+        (frame["status"] == "rejected") & (frame["reject_reason"] == "REJECT_ONE_WORD_BOARD")
+    ]
+    assert not rejected_one_word.empty
+
+    gate_report = result.gate_report_path.read_text(encoding="utf-8")
+    assert "one_word_board_blocked_count:" in gate_report
+
+
+def test_backtest_rejects_buy_when_liquidity_dryup(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    rolling_dates = latest_open_trade_days(3)
+    signal_dates = rolling_dates[:2]
+    extra_dates = [rolling_dates[2]]
+    _prepare_inputs(config, signal_dates, extra_dates)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE integrated_recommendation "
+            "SET recommendation='BUY', position_size=0.5, final_score=75.0 "
+            "WHERE trade_date IN (?, ?) AND stock_code='000001'",
+            [signal_dates[0], signal_dates[1]],
         )
         connection.execute(
             "UPDATE raw_daily "
             "SET vol=10, amount=1000, open=10.1, high=10.2, low=10.0, close=10.1 "
-            "WHERE trade_date='20260219' AND stock_code='000001'"
+            "WHERE trade_date=? AND stock_code='000001'",
+            [signal_dates[1]],
         )
 
     result = run_backtest(
-        start_date="20260218",
-        end_date="20260220",
+        start_date=signal_dates[0],
+        end_date=extra_dates[0],
+        engine="qlib",
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.quality_status in {"WARN", "PASS"}
+
+    frame = pd.read_parquet(result.backtest_trade_records_path)
+    rejected_dryup = frame[
+        (frame["status"] == "rejected") & (frame["reject_reason"] == "REJECT_LIQUIDITY_DRYUP")
+    ]
+    assert not rejected_dryup.empty
+
+    gate_report = result.gate_report_path.read_text(encoding="utf-8")
+    assert "liquidity_dryup_blocked_count:" in gate_report
+
+
+def test_backtest_rejects_buy_when_low_fill_probability(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    rolling_dates = latest_open_trade_days(3)
+    signal_dates = rolling_dates[:2]
+    extra_dates = [rolling_dates[2]]
+    _prepare_inputs(config, signal_dates, extra_dates)
+
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    with duckdb.connect(str(db_path)) as connection:
+        connection.execute(
+            "UPDATE integrated_recommendation "
+            "SET recommendation='BUY', position_size=0.5, final_score=75.0 "
+            "WHERE trade_date IN (?, ?) AND stock_code='000001'",
+            [signal_dates[0], signal_dates[1]],
+        )
+        connection.execute(
+            "UPDATE raw_daily "
+            "SET vol=200000, amount=3000000, open=10.1, high=10.2, low=10.0, close=10.1 "
+            "WHERE trade_date=? AND stock_code='000001'",
+            [signal_dates[1]],
+        )
+
+    result = run_backtest(
+        start_date=signal_dates[0],
+        end_date=extra_dates[0],
         engine="qlib",
         config=config,
     )

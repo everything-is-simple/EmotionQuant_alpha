@@ -45,7 +45,7 @@ def _prepare_inputs(config: Config, trade_date: str) -> tuple[int, int]:
 
 def test_validation_factor_metrics_contract(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     irs_count, pas_count = _prepare_inputs(config, trade_date)
 
     result = run_validation_gate(
@@ -82,3 +82,4 @@ def test_validation_factor_metrics_contract(tmp_path: Path) -> None:
             [trade_date],
         ).fetchone()[0]
     assert int(count) > 0
+

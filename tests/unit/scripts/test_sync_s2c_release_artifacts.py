@@ -16,7 +16,7 @@ def _prepare_root(tmp_path: Path, trade_date: str) -> tuple[Path, Path]:
 
 
 def test_sync_s2c_release_artifacts_success(tmp_path: Path) -> None:
-    trade_date = "20260218"
+    trade_date = "20260212"
     release_dir, spec_dir = _prepare_root(tmp_path, trade_date)
 
     (release_dir / "quality_gate_report.md").write_text(
@@ -73,7 +73,7 @@ def test_sync_s2c_release_artifacts_success(tmp_path: Path) -> None:
 
 
 def test_sync_s2c_release_artifacts_blocks_fail_status(tmp_path: Path) -> None:
-    trade_date = "20260218"
+    trade_date = "20260212"
     release_dir, spec_dir = _prepare_root(tmp_path, trade_date)
 
     (release_dir / "quality_gate_report.md").write_text(
@@ -118,3 +118,4 @@ def test_sync_s2c_release_artifacts_blocks_fail_status(tmp_path: Path) -> None:
     exit_code = sync_s2c_release_artifacts(trade_date=trade_date, root=tmp_path)
     assert exit_code == 1
     assert not (spec_dir / "quality_gate_report.md").exists()
+

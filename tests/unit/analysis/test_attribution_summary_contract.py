@@ -11,11 +11,12 @@ from tests.unit.analysis.support import (
     database_path,
     seed_attribution_tables,
 )
+from tests.unit.trade_day_guard import latest_open_trade_days
 
 
 def test_attribution_summary_generates_json_and_table(tmp_path: Path) -> None:
     config = build_analysis_config(tmp_path, ".env.s3b.attribution")
-    trade_date = "20260219"
+    trade_date = latest_open_trade_days(1)[0]
     seed_attribution_tables(config, trade_date)
 
     result = run_analysis(
@@ -47,7 +48,7 @@ def test_attribution_summary_generates_json_and_table(tmp_path: Path) -> None:
 
 def test_attribution_summary_no_filled_trade_is_warn(tmp_path: Path) -> None:
     config = build_analysis_config(tmp_path, ".env.s3b.attribution.empty")
-    trade_date = "20260219"
+    trade_date = latest_open_trade_days(1)[0]
     seed_attribution_tables(config, trade_date)
     with duckdb.connect(str(database_path(config))) as connection:
         connection.execute("DELETE FROM trade_records WHERE trade_date = ?", [trade_date])

@@ -7,7 +7,7 @@ from src.algorithms.mss.engine import MssInputSnapshot, calculate_mss_score
 
 def test_mss_temperature_matches_six_factor_weight_formula() -> None:
     snapshot = MssInputSnapshot(
-        trade_date="20260218",
+        trade_date="20260212",
         total_stocks=1200,
         rise_count=730,
         limit_up_count=48,
@@ -26,7 +26,7 @@ def test_mss_temperature_matches_six_factor_weight_formula() -> None:
         amount_volatility=280000.0,
         data_quality="normal",
         stale_days=0,
-        source_trade_date="20260218",
+        source_trade_date="20260212",
     )
 
     score = calculate_mss_score(snapshot, temperature_history=[44.0, 48.0, 51.0, 53.0])
@@ -55,7 +55,7 @@ def test_mss_temperature_matches_six_factor_weight_formula() -> None:
 
 def test_mss_missing_baseline_fallbacks_to_neutral_50() -> None:
     snapshot = MssInputSnapshot(
-        trade_date="20260218",
+        trade_date="20260212",
         total_stocks=0,
         rise_count=0,
         limit_up_count=0,
@@ -87,3 +87,4 @@ def test_mss_missing_baseline_fallbacks_to_neutral_50() -> None:
     assert score.mss_temperature == pytest.approx(50.0, abs=1e-6)
     assert score.mss_rank == 1
     assert score.mss_percentile == pytest.approx(100.0, abs=1e-6)
+

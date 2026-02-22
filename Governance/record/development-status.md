@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-22  
-**当前版本**: v4.29（S3b Option2 扩窗 20 日完成：Backtest WARN/GO + Analysis PASS/GO）  
+**当前版本**: v4.39（TDL-S3-011 成本/滑点模型落地）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：S3b 已完成 20 日扩窗证据，当前聚焦清零剩余 2 个 S3e 因子门失败日**
+**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：S3b 已确认 20/20 覆盖并清零残留失败日，当前聚焦窗口级归因稳定性收口**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -22,13 +22,120 @@
 
 ---
 
+## 本次同步（2026-02-22，TDL-S3-011：成本/滑点模型细化）
+
+1. 成本模型升级：
+   - `src/backtest/pipeline.py` 新增分层费率模型（`S/M/L` notional tier），佣金按 tier multiplier 计算。
+   - 新增冲击成本模型：基于 `liquidity_tier(L1/L2/L3)` + `queue_pressure` + `backtest_slippage_value` 计算 `impact_cost`。
+2. 成本指标落库：
+   - `backtest_results` 新增 `commission_total/stamp_tax_total/transfer_fee_total/impact_cost_total/total_fee/cost_bps/impact_cost_ratio`。
+   - `performance_metrics_report.md` 新增 `Cost & Slippage` 分节与 tier 计数审计字段。
+3. 契约测试补齐：
+   - 新增 `tests/unit/backtest/test_backtest_cost_model_contract.py`（费率分层、流动性冲击、排队压力三条合同）。
+   - 更新 `tests/unit/backtest/test_backtest_contract.py` 与 `tests/unit/backtest/test_backtest_schema_compat_contract.py` 校验新成本字段。
+4. 验证结果：
+   - `pytest -q tests/unit/backtest` => `18 passed`。
+   - `pytest -q` => `170 passed, 0 failed`。
+   - `python -m scripts.quality.local_quality_check --contracts --governance` => 全 PASS。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-010：绩效指标补齐）
+
+1. 回测结果落库增强：
+   - `src/backtest/pipeline.py` 的 `backtest_results` 新增 `max_drawdown_days`、`daily_return_mean/std/p05/p95/skew`、`turnover_mean/std/cv`。
+   - 保持旧表兼容：通过 `_persist` 自动补列完成 schema 演进。
+2. 绩效产物补齐：
+   - 新增 `performance_metrics_report.md`（路径：`artifacts/spiral-s3/{end_date}/performance_metrics_report.md`）。
+   - 报告包含回撤持续、收益分布、换手稳定性三组指标。
+3. CLI 兼容增强：
+   - `src/pipeline/main.py` 为 `performance_metrics_report_path` 增加可选输出，兼容旧 mock 返回对象。
+4. 契约与回归：
+   - 更新 `tests/unit/backtest/test_backtest_contract.py`（校验新报告存在与新字段落库）。
+   - 更新 `tests/unit/backtest/test_backtest_schema_compat_contract.py`（校验旧 schema 升级时新增指标列）。
+5. 验证结果：
+   - `pytest -q tests/unit/backtest tests/unit/pipeline/test_cli_entrypoint.py` => `38 passed`。
+   - `pytest -q` => `167 passed, 0 failed`。
+   - `python -m scripts.quality.local_quality_check --contracts --governance` => 全 PASS。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-009：细撮合规则补齐-第二步）
+
+1. 回测成交语义继续增强：
+   - `src/backtest/pipeline.py` 新增流动性枯竭显式拒单路径，拒单原因固定为 `REJECT_LIQUIDITY_DRYUP`。
+   - 新增审计计数 `liquidity_dryup_blocked_count`，并写入 `gate_report` 与质量消息片段。
+   - 保留并隔离 `REJECT_LOW_FILL_PROB`：当不属于流动性枯竭但排队成交概率不足时触发，避免语义混淆。
+2. 契约测试补齐：
+   - 更新 `tests/unit/backtest/test_backtest_t1_limit_rules.py::test_backtest_rejects_buy_when_liquidity_dryup`，改为断言 `REJECT_LIQUIDITY_DRYUP`。
+   - 新增 `tests/unit/backtest/test_backtest_t1_limit_rules.py::test_backtest_rejects_buy_when_low_fill_probability`，锁定低成交概率拒单路径。
+3. 验证结果：
+   - `pytest -q tests/unit/backtest tests/unit/data/test_fetcher_contract.py` => `25 passed`。
+   - `pytest -q` => `167 passed, 0 failed`。
+   - `python -m scripts.quality.local_quality_check --contracts --governance` => 全 PASS。
+4. 状态说明：
+   - `TDL-S3-009` 已完成（“一字板 + 流动性枯竭”细撮合规则均已落地并有契约测试覆盖）。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-009：细撮合规则补齐-第一步）
+
+1. 回测成交语义增强（S3 未收口项推进）：
+   - `src/backtest/pipeline.py` 新增一字板显式拒单路径，拒单原因固定为 `REJECT_ONE_WORD_BOARD`。
+   - 新增审计计数 `one_word_board_blocked_count`，并写入 `gate_report` 与质量消息片段，支持窗口级审计。
+2. 契约测试补齐：
+   - 新增 `tests/unit/backtest/test_backtest_t1_limit_rules.py::test_backtest_rejects_buy_when_one_word_board`。
+   - 覆盖“买入执行日一字板 -> 拒单”与 gate 报告字段存在性。
+3. 验证结果：
+   - `pytest -q tests/unit/backtest tests/unit/data/test_fetcher_contract.py` => `24 passed`。
+   - `pytest -q` => `166 passed, 0 failed`。
+   - `python -m scripts.quality.local_quality_check --contracts --governance` => 全 PASS。
+4. 状态说明：
+   - 该同步为 `TDL-S3-009` 第一阶段；第二阶段已补齐流动性枯竭细化并完成收口。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-008：离线 trade_cal 语义修复）
+
+1. 根因修复：
+   - `src/data/fetcher.py` 的 `SimulatedTuShareClient.trade_cal` 已从“默认 `is_open=1`”改为按日期判定。
+   - 新增离线判定逻辑：周末闭市 + 法定闭市日集合（含 `20260218/20260219`）闭市。
+   - `trade_cal` 返回从单日固定记录升级为 `start_date~end_date` 区间逐日记录。
+2. 契约测试补齐：
+   - 新增 `tests/unit/data/test_fetcher_contract.py::test_simulated_trade_cal_marks_lunar_new_year_closure_days_as_closed`。
+   - 锁定 `20260218/20260219 => is_open=0`，并保留 `20260212/20260213 => is_open=1` 作为对照。
+3. 验证结果：
+   - `pytest -q tests/unit/data` => `38 passed`。
+   - `pytest -q` => `166 passed, 0 failed`。
+   - `python -m scripts.quality.local_quality_check --contracts --governance` => 全 PASS。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-007：S3 窗口级桥接失败场景清理）
+
+1. 完成非交易日实况核对并定位污染源：
+   - 实网交易日历确认 `20260218/20260219` 为闭市日（`is_open=0`）。
+   - 本地 `raw_trade_cal` 存在 `is_open=1` 污染记录，已明确为后续修复关注点。
+2. 建立“有效交易日前置校验”金丝雀基线：
+   - 新增 `tests/fixtures/canary/a_share_open_trade_days_20260102_20260213.json`（`open_day_count=30`）。
+   - 新增 `tests/unit/trade_day_guard.py`：`latest_open_trade_days`、`assert_all_valid_trade_days`。
+   - 新增 `tests/unit/test_trade_day_guard_contract.py` 守卫契约测试（含无效日反例断言）。
+3. 清理测试硬编码无效交易日：
+   - 将 `tests/unit` 中 `20260218/20260219`（除守卫反例）统一替换到 canary 有效窗口；
+   - 对 S3/S4 关键链路测试补充“先校验有效交易日”的前置断言。
+4. 验证结果：
+   - 全量测试：`pytest -q` => `164 passed, 0 failed`。
+   - 治理门禁：`python -m scripts.quality.local_quality_check --contracts --governance` => 全 PASS。
+
+---
+
 ## 本次同步（2026-02-22，S3b Option2 扩窗 20 日）
 
 1. 按 `Option2` 完成缺失链路补齐：
    - 对缺失日串行执行 `run --to-l2 --strict-sw31 -> mss -> irs --require-sw31 -> pas`，补齐 15 天。
    - 产物：`artifacts/spiral-s3b/20260213/option2_refill_20d_results.json`（15/15 成功）。
 2. 完成 20 日信号补齐与残留识别：
-   - 通过 `recommend --mode integrated --with-validation-bridge` 快速补齐后，剩余失败日收敛为 2 天（`20260126`、`20260202`，`factor_validation_fail`）。
+   - 通过 `recommend --mode integrated --with-validation-bridge` 快速补齐后，初次收敛为 2 天（`20260126`、`20260202`，`factor_validation_fail`）；该残留已在后续 `TDL-S3-003` 同步中清零。
    - 产物：`artifacts/spiral-s3b/20260213/option2_signal_fill_20d_results.json`。
 3. 完成 20 日回测与分析收口证据：
    - `eq backtest --engine local_vectorized --start 20260119 --end 20260213` => `quality_status=WARN`, `go_nogo=GO`, `total_trades=36`, `consumed_signal_rows=288`。
@@ -37,6 +144,60 @@
    - `artifacts/spiral-s3b/20260213/option2_closure_summary.json`。
 5. 回归验证：
    - `pytest` 定向回归通过（4 passed）：S3e 软门契约、CLI `pas` 路由、validation 参数透传、S3e 默认模式透传。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-003：S3b 口径统一）
+
+1. 证据核对完成：
+   - `artifacts/spiral-s3b/20260213/s3e_targeted_clearance_summary.json` 已记录 `remaining_failures=0`、`integrated_days=20`、`missing_days=0`。
+2. 同步修订完成：
+   - `Governance/specs/spiral-s3b/final.md` 从“`18/20` + 残留 2 天 FAIL”更新为“`20/20` + `remaining_failures=0`”。
+   - `Governance/record/debts.md` 清偿 `TD-S3E-020` 并移出当前债务清单。
+3. 当前圈位结论：
+   - S3b 继续 `in_progress`，剩余收口项为“三分解结论稳定性复核 + review/final 同步”，不再包含 `factor_validation_fail` 清零阻塞。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-004：S3d probe 实跑补证）
+
+1. 完成实跑补证：
+   - 执行命令：`python -m src.pipeline.main --env-file .env mss-probe --start 20260119 --end 20260213 --return-series-source future_returns`。
+   - 结果：`event=s3d_mss_probe`，`status=ok`，`conclusion=PASS_POSITIVE_SPREAD`，`top_bottom_spread_5d=0.0120704975`。
+2. 固化产物：
+   - `artifacts/spiral-s3d/20260119_20260213/mss_probe_return_series_report.md`
+   - `artifacts/spiral-s3d/20260119_20260213/gate_report.md`
+   - `artifacts/spiral-s3d/20260119_20260213/consumption.md`
+   - `artifacts/spiral-s3d/20260119_20260213/error_manifest_sample.json`
+3. 定向回归：
+   - `pytest -q tests/unit/algorithms/mss/test_mss_probe_return_series_contract.py`
+   - `pytest -q tests/unit/pipeline/test_cli_entrypoint.py::test_main_mss_probe_supports_future_returns_source`
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-005：S3a artifact 清单对齐）
+
+1. 修订执行卡：`Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md`
+   - 移除错误产物：`artifacts/spiral-s3a/{trade_date}/quality_gate_report.md`
+   - 补充真实续传游标：`artifacts/spiral-s3a/_state/fetch_progress.json`
+   - 保持 S3a 三件套产物不变：`fetch_progress` / `throughput_benchmark` / `fetch_retry_report`
+2. 对齐结论：
+   - S3a 执行卡 artifact 口径与 `src/data/fetch_batch_pipeline.py` 实际落盘逻辑一致。
+   - 本次为文档口径修订，不改变圈位状态与代码行为。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-006：S3~S3e 全链路对账归档）
+
+1. 已完成一次 S3~S3e 全链路 `run/test/artifact/review/sync` 对账并归档：
+   - 归档文件：`Governance/record/s3-s3e-fullchain-reconciliation-20260222.md`
+2. run 对账结论：
+   - `S3d/S3c/S3e/S3b` 目标命令可执行并产物齐备。
+   - `S3 backtest` 在 `20260218-20260219` 首次复核出现 `bridge_check_status=FAIL`（`consumed_signal_rows=0`），补跑后在 `20260219-20260219` 复核通过（`WARN/GO`）。
+3. test 对账结论：
+   - 目标测试集合执行结果：`34 passed`（含 S3~S3e 的 backtest/analysis/irs/mss/validation/CLI 关键用例）。
+4. 口径说明：
+   - 本次“对账归档完成”不等于“圈位全部收口完成”；S3/S3b/S3c/S3d/S3e 仍按各自 `final/review` 保持 `in_progress` 直到窗口级证据闭环完成。
 
 ---
 
@@ -262,9 +423,9 @@
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
 | S3r | 回测修复子圈（条件触发） | 📋 未开始 | 修复命令已落地（`backtest --repair s3r`），待 FAIL 场景触发 |
-| S3b | 收益归因验证专项圈 | 🔄 进行中 | 已完成 20 日扩窗证据（backtest WARN/GO + analysis PASS/GO），剩余 2 个 factor_validation_fail 日期待 S3e 清零 |
+| S3b | 收益归因验证专项圈 | 🔄 进行中 | 已完成 20 日扩窗证据并确认 `20/20` 覆盖（`remaining_failures=0`）；待完成三分解稳定性复核与收口同步 |
 | S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 🔄 进行中 | `20260219` 窗口已通过 SW31/IRS 门禁并补齐 `gate/consumption` 产物，待与 S3b 固定窗口节奏对齐后收口 |
-| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
+| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | 已补齐 `future_returns` probe 实跑证据，待完成剩余窗口五件套收口 |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
 | S4b | 极端防御专项圈 | 📋 未开始 | 依赖 S3e 收口结论输入防御参数 |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4b 完成 |
@@ -273,13 +434,12 @@
 
 ---
 
-## 下一步（S3b/S3c -> S3d/S3e）
+## 下一步（S3b/S3c/S3d/S3e）
 
-1. 在 `S3e` 优先清零剩余两天 `factor_validation_fail`（`20260126`、`20260202`），再回到 `S3b` 复跑 20 日闭环确认 `20/20` 覆盖。
-2. 固化固定窗口 N/A 警告口径到 `spiral-s3b/review/final`（避免再次误判为阻断）。
-3. 基于 `20260219` 已有 S3c 证据，补跑固定窗口并完成 `spiral-s3c final` 收口。
-4. 在 S3c 语义校准收口后，对 S3d/S3e 执行窗口级实证并固化 `review/final`。
-5. 仅当 S3d/S3e 完成窗口证据收口后，再进入 S4b（极端防御）。
+1. 在 S3b 固化 `20/20` 覆盖与 N/A 警告语义到 `spiral-s3b/review/final`，完成窗口级归因稳定性复核。
+2. 基于 `20260219` 已有 S3c 证据，补跑固定窗口并完成 `spiral-s3c final` 收口。
+3. 对 S3d/S3e 执行窗口级实证并固化 `review/final`。
+4. 仅当 S3d/S3e 完成窗口证据收口后，再进入 S4b（极端防御）。
 
 ---
 
@@ -296,6 +456,16 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-22 | v4.39 | 完成 TDL-S3-011：回测落地分层费率与冲击成本模型，新增成本指标落库与成本契约测试，验证全量 `170 passed` |
+| 2026-02-22 | v4.38 | 完成 TDL-S3-010：回测新增收益分布/换手稳定性指标落库与 `performance_metrics_report.md` 产物，兼容 CLI 输出并验证全量 `167 passed` |
+| 2026-02-22 | v4.37 | 完成 TDL-S3-009 第二步：回测新增 `REJECT_LIQUIDITY_DRYUP` 与审计计数，补齐低成交概率独立拒单回归，验证全量 `167 passed` |
+| 2026-02-22 | v4.36 | 启动 TDL-S3-009：回测新增一字板显式拒单与审计计数，补齐对应契约测试并验证全量 `166 passed` |
+| 2026-02-22 | v4.35 | 执行 TDL-S3-008：修复离线 `trade_cal` 默认开市语义，新增法定闭市日契约测试并验证全量 `165 passed` |
+| 2026-02-22 | v4.34 | 执行 TDL-S3-007：完成 S3 窗口级桥接失败场景清理，建立 canary 有效交易日守卫（`20260102-20260213`）并清理测试硬编码无效日期；全量回归 `164 passed` |
+| 2026-02-22 | v4.33 | 执行 TDL-S3-006：完成 S3~S3e 一次 `run/test/artifact/review/sync` 全链路对账并归档（`Governance/record/s3-s3e-fullchain-reconciliation-20260222.md`） |
+| 2026-02-22 | v4.32 | 执行 TDL-S3-005：修正 `S3A-EXECUTION-CARD` artifact 清单（移除 `quality_gate_report.md`，补充 `_state/fetch_progress.json`），与 S3a 实际产物对齐 |
+| 2026-02-22 | v4.31 | 执行 TDL-S3-004：补跑并固化 S3d `mss_probe_return_series_report` 实跑证据（`20260119_20260213`），并通过 S3d 目标测试回归 |
+| 2026-02-22 | v4.30 | 执行 TDL-S3-003：统一 S3b 口径为 `20/20` 覆盖、`remaining_failures=0`；同步修订 `spiral-s3b final` 与 `debts`，并将 S3b 剩余项收敛为“稳定性复核 + 收口同步” |
 | 2026-02-22 | v4.29 | 完成 S3b Option2 扩窗 20 日：补齐 15 天链路、回测 `WARN/GO`（36 trades）、分析 `PASS/GO`（A_not_dominant），并定位残留 2 天 `factor_validation_fail` 进入 S3e 清零 |
 | 2026-02-21 | v4.28 | S3 固定窗口解锁：回测“无可开仓信号”改 WARN 语义；S3b 在双侧无成交样本场景输出 N/A 警告（WARN/GO）；补齐 integration 旧表数值列类型修复 |
 | 2026-02-21 | v4.27 | S3c 启动：`20260219` 窗口通过 SW31/IRS 门禁；补齐 `s3c_irs` 的 `gate_report/consumption` 契约；`run --to-l2` 初始化异常改为受控回退 |

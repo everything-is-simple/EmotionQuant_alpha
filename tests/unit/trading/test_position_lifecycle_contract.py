@@ -6,15 +6,17 @@ import duckdb
 import pandas as pd
 
 from src.trading.pipeline import run_paper_trade
+from tests.unit.trade_day_guard import latest_open_trade_days
 from tests.unit.trading.support import build_config, prepare_s4_inputs
 
 
 def test_position_lifecycle_has_t1_freeze_fields(tmp_path) -> None:
     config = build_config(tmp_path, ".env.s4.position")
+    dates = latest_open_trade_days(3)
     trade_date = prepare_s4_inputs(
         config,
-        ["20260218", "20260219", "20260220"],
-        trade_date_for_s4="20260219",
+        dates,
+        trade_date_for_s4=dates[1],
     )
 
     result = run_paper_trade(
@@ -35,14 +37,16 @@ def test_position_lifecycle_has_t1_freeze_fields(tmp_path) -> None:
 
 def test_position_lifecycle_retries_limit_down_sell_next_day(tmp_path) -> None:
     config = build_config(tmp_path, ".env.s4.position.retry")
+    dates = latest_open_trade_days(4)
+    day0, day1, day2, day3 = dates
     prepare_s4_inputs(
         config,
-        ["20260218", "20260219", "20260220", "20260221"],
-        trade_date_for_s4="20260219",
+        dates,
+        trade_date_for_s4=day1,
     )
 
     first_day = run_paper_trade(
-        trade_date="20260219",
+        trade_date=day1,
         mode="paper",
         config=config,
     )
@@ -56,11 +60,11 @@ def test_position_lifecycle_retries_limit_down_sell_next_day(tmp_path) -> None:
         connection.execute(
             "UPDATE raw_daily SET open=1.0, high=1.01, low=1.0, close=1.0 "
             "WHERE trade_date=? AND stock_code=?",
-            ["20260220", stock_code],
+            [day2, stock_code],
         )
 
     blocked_day = run_paper_trade(
-        trade_date="20260220",
+        trade_date=day2,
         mode="paper",
         config=config,
     )
@@ -81,11 +85,11 @@ def test_position_lifecycle_retries_limit_down_sell_next_day(tmp_path) -> None:
         connection.execute(
             "UPDATE raw_daily SET open=10.0, high=10.2, low=9.8, close=10.1 "
             "WHERE trade_date=? AND stock_code=?",
-            ["20260221", stock_code],
+            [day3, stock_code],
         )
 
     retry_day = run_paper_trade(
-        trade_date="20260221",
+        trade_date=day3,
         mode="paper",
         config=config,
     )

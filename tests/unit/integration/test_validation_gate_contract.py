@@ -44,7 +44,7 @@ def _prepare_s2a_inputs(config: Config, trade_date: str) -> None:
 
 def test_s2a_recommend_generates_validation_gate_with_nc_v1(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2a_inputs(config, trade_date)
 
     result = run_recommendation(
@@ -70,9 +70,9 @@ def test_s2a_recommend_generates_validation_gate_with_nc_v1(tmp_path: Path) -> N
 
 def test_validation_fail_contains_prescription(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    _prepare_s2a_inputs(config, "20260218")
+    _prepare_s2a_inputs(config, "20260212")
     gate = run_validation_gate(
-        trade_date="20260218",
+        trade_date="20260212",
         config=config,
         irs_count=0,
         pas_count=0,
@@ -81,3 +81,4 @@ def test_validation_fail_contains_prescription(tmp_path: Path) -> None:
     assert gate.final_gate == "FAIL"
     prescription = str(gate.frame.iloc[0]["validation_prescription"])
     assert prescription != ""
+

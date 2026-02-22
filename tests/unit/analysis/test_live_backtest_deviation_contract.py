@@ -11,11 +11,12 @@ from tests.unit.analysis.support import (
     database_path,
     seed_deviation_tables,
 )
+from tests.unit.trade_day_guard import latest_open_trade_days
 
 
 def test_live_backtest_deviation_generates_report_and_table(tmp_path: Path) -> None:
     config = build_analysis_config(tmp_path, ".env.s3b.deviation")
-    trade_date = "20260219"
+    trade_date = latest_open_trade_days(1)[0]
     seed_deviation_tables(config, trade_date)
 
     result = run_analysis(
@@ -46,7 +47,7 @@ def test_live_backtest_deviation_generates_report_and_table(tmp_path: Path) -> N
 
 def test_live_backtest_deviation_missing_integrated_table_returns_nogo(tmp_path: Path) -> None:
     config = build_analysis_config(tmp_path, ".env.s3b.deviation.missing.ir")
-    trade_date = "20260219"
+    trade_date = latest_open_trade_days(1)[0]
     seed_deviation_tables(config, trade_date)
     with duckdb.connect(str(database_path(config))) as connection:
         connection.execute("DROP TABLE integrated_recommendation")
@@ -74,7 +75,7 @@ def test_live_backtest_deviation_missing_integrated_table_returns_nogo(tmp_path:
 
 def test_live_backtest_deviation_empty_both_sides_is_warn(tmp_path: Path) -> None:
     config = build_analysis_config(tmp_path, ".env.s3b.deviation.empty")
-    trade_date = "20260219"
+    trade_date = latest_open_trade_days(1)[0]
     seed_deviation_tables(config, trade_date)
     with duckdb.connect(str(database_path(config))) as connection:
         connection.execute("DELETE FROM trade_records WHERE trade_date = ?", [trade_date])

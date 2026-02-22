@@ -52,7 +52,7 @@ def _prepare_s2a_inputs(config: Config, trade_date: str) -> None:
 
 def test_s2c_bridge_writes_release_and_debug_lanes_separately(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2a_inputs(config, trade_date)
 
     release_result = run_recommendation(
@@ -103,7 +103,7 @@ def test_recommend_rejects_unknown_evidence_lane(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
     with pytest.raises(ValueError, match="unsupported evidence_lane"):
         run_recommendation(
-            trade_date="20260218",
+            trade_date="20260212",
             mode="integrated",
             with_validation=False,
             with_validation_bridge=True,
@@ -198,3 +198,4 @@ def test_integrated_bridge_validation_defaults_to_s3e_modes(
     assert captured["validation_threshold_mode"] == "regime"
     assert captured["validation_wfa_mode"] == "dual-window"
     assert captured["validation_export_run_manifest"] is True
+

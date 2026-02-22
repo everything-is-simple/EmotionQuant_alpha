@@ -51,7 +51,7 @@ def _prepare_s2a_inputs(config: Config, trade_date: str) -> None:
 
 def test_bridge_mode_blocks_on_fail_gate(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2a_inputs(config, trade_date)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -80,7 +80,7 @@ def test_bridge_mode_blocks_on_fail_gate(tmp_path: Path) -> None:
 
 def test_unknown_cycle_caps_positive_signal_to_hold_in_bridge_mode(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2a_inputs(config, trade_date)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -119,3 +119,4 @@ def test_unknown_cycle_caps_positive_signal_to_hold_in_bridge_mode(tmp_path: Pat
         ).fetchall()
     assert recommendations
     assert all(str(row[0]) == "HOLD" for row in recommendations)
+

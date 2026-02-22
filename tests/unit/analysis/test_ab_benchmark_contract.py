@@ -10,11 +10,12 @@ from tests.unit.analysis.support import (
     database_path,
     seed_ab_benchmark_tables,
 )
+from tests.unit.trade_day_guard import latest_open_trade_days
 
 
 def test_ab_benchmark_generates_report_and_metrics_table(tmp_path: Path) -> None:
     config = build_analysis_config(tmp_path, ".env.s3b.ab")
-    trade_dates = ["20260218", "20260219"]
+    trade_dates = latest_open_trade_days(2)
     seed_ab_benchmark_tables(config, trade_dates[0], trade_dates[-1])
 
     result = run_analysis(

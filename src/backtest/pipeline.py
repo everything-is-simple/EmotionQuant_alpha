@@ -35,6 +35,13 @@ LIMIT_PRICE_TOLERANCE_RATIO = 0.001
 MIN_FILL_PROBABILITY = 0.35
 QUEUE_PARTICIPATION_RATE = 0.15
 LIQUIDITY_DRYUP_VOLUME_THRESHOLD = 50_000.0
+LIQUIDITY_DRYUP_AMOUNT_THRESHOLD = 1_500_000.0
+FEE_TIER_SMALL_NOTIONAL_THRESHOLD = 100_000.0
+FEE_TIER_LARGE_NOTIONAL_THRESHOLD = 500_000.0
+FEE_TIER_SMALL_MULTIPLIER = 1.15
+FEE_TIER_MEDIUM_MULTIPLIER = 1.0
+FEE_TIER_LARGE_MULTIPLIER = 0.90
+IMPACT_MULTIPLIER_BY_LIQUIDITY_TIER = {"L1": 0.70, "L2": 1.00, "L3": 1.50}
 LONG_ENTRY_RECOMMENDATIONS = {"STRONG_BUY", "BUY"}
 CORE_SIGNAL_COLUMNS = ("mss_score", "irs_score", "pas_score")
 WINDOW_TABLE_DATE_COLUMNS = {
@@ -61,6 +68,22 @@ BACKTEST_RESULT_COLUMNS = [
     "win_rate",
     "total_return",
     "max_drawdown",
+    "max_drawdown_days",
+    "daily_return_mean",
+    "daily_return_std",
+    "daily_return_p05",
+    "daily_return_p95",
+    "daily_return_skew",
+    "turnover_mean",
+    "turnover_std",
+    "turnover_cv",
+    "commission_total",
+    "stamp_tax_total",
+    "transfer_fee_total",
+    "impact_cost_total",
+    "total_fee",
+    "cost_bps",
+    "impact_cost_ratio",
     "source_fetch_progress_path",
     "source_fetch_start_date",
     "source_fetch_end_date",
@@ -107,6 +130,7 @@ class BacktestRunResult:
     backtest_results_path: Path
     backtest_trade_records_path: Path
     ab_metric_summary_path: Path
+    performance_metrics_report_path: Path
     gate_report_path: Path
     consumption_path: Path
     error_manifest_path: Path
@@ -637,6 +661,58 @@ def _resolve_liquidity_tier(volume: float) -> str:
     return "L3"
 
 
+def _estimate_turnover(price: dict[str, float]) -> float:
+    volume = max(0.0, float(price.get("vol", 0.0) or 0.0))
+    amount = max(0.0, float(price.get("amount", 0.0) or 0.0))
+    ref_price = float(price.get("close", 0.0) or 0.0)
+    if ref_price <= 0.0:
+        ref_price = float(price.get("open", 0.0) or 0.0)
+    implied_amount = volume * max(0.0, ref_price)
+    return max(amount, implied_amount)
+
+
+def _is_liquidity_dryup(price: dict[str, float]) -> bool:
+    volume = max(0.0, float(price.get("vol", 0.0) or 0.0))
+    turnover = _estimate_turnover(price)
+    return (
+        volume < LIQUIDITY_DRYUP_VOLUME_THRESHOLD
+        or turnover < LIQUIDITY_DRYUP_AMOUNT_THRESHOLD
+    )
+
+
+def _resolve_fee_tier(notional: float) -> tuple[str, float]:
+    value = max(0.0, float(notional))
+    if value <= FEE_TIER_SMALL_NOTIONAL_THRESHOLD:
+        return ("S", FEE_TIER_SMALL_MULTIPLIER)
+    if value >= FEE_TIER_LARGE_NOTIONAL_THRESHOLD:
+        return ("L", FEE_TIER_LARGE_MULTIPLIER)
+    return ("M", FEE_TIER_MEDIUM_MULTIPLIER)
+
+
+def _resolve_impact_multiplier(liquidity_tier: str) -> float:
+    return float(IMPACT_MULTIPLIER_BY_LIQUIDITY_TIER.get(str(liquidity_tier), 1.0))
+
+
+def _estimate_impact_cost(
+    *,
+    price: dict[str, float],
+    order_shares: int,
+    amount: float,
+    slippage_rate: float,
+) -> tuple[float, str, float]:
+    normalized_amount = max(0.0, float(amount))
+    if normalized_amount <= 0.0:
+        return (0.0, "L3", 0.0)
+    volume = max(0.0, float(price.get("vol", 0.0) or 0.0))
+    liquidity_tier = _resolve_liquidity_tier(volume)
+    queue_capacity = max(1.0, volume * QUEUE_PARTICIPATION_RATE)
+    queue_ratio = min(1.0, max(0.0, float(order_shares)) / queue_capacity)
+    impact_multiplier = _resolve_impact_multiplier(liquidity_tier)
+    base_slippage = max(0.0, float(slippage_rate))
+    impact_cost = normalized_amount * base_slippage * impact_multiplier * (0.5 + queue_ratio)
+    return (round(float(impact_cost), 6), str(liquidity_tier), round(float(queue_ratio), 8))
+
+
 def _estimate_fill(
     *, price: dict[str, float], order_shares: int
 ) -> tuple[float, float, str]:
@@ -650,10 +726,98 @@ def _estimate_fill(
         return (0.0, 0.0, liquidity_tier)
     queue_capacity = max(1.0, volume * QUEUE_PARTICIPATION_RATE)
     queue_ratio = min(1.0, float(order_shares) / queue_capacity)
-    dryup_penalty = 0.70 if volume < LIQUIDITY_DRYUP_VOLUME_THRESHOLD else 0.0
-    fill_probability = _clip(1.0 - queue_ratio - dryup_penalty, 0.0, 1.0)
-    fill_ratio = _clip(1.0 - 0.50 * queue_ratio - dryup_penalty, 0.0, 1.0)
+    fill_probability = _clip(1.0 - queue_ratio, 0.0, 1.0)
+    fill_ratio = _clip(1.0 - 0.50 * queue_ratio, 0.0, 1.0)
     return (fill_probability, fill_ratio, liquidity_tier)
+
+
+def _compute_max_drawdown_days(equity_curve: list[float]) -> int:
+    if not equity_curve:
+        return 0
+    peak = float(equity_curve[0])
+    current_drawdown_days = 0
+    max_drawdown_days = 0
+    for equity in equity_curve:
+        value = float(equity)
+        if value >= peak:
+            peak = value
+            current_drawdown_days = 0
+            continue
+        current_drawdown_days += 1
+        if current_drawdown_days > max_drawdown_days:
+            max_drawdown_days = current_drawdown_days
+    return int(max_drawdown_days)
+
+
+def _compute_daily_return_distribution(equity_curve: list[float]) -> dict[str, float]:
+    if len(equity_curve) <= 1:
+        return {
+            "daily_return_mean": 0.0,
+            "daily_return_std": 0.0,
+            "daily_return_p05": 0.0,
+            "daily_return_p95": 0.0,
+            "daily_return_skew": 0.0,
+        }
+    series = pd.Series(equity_curve, dtype=float)
+    daily_returns = series.pct_change().replace([float("inf"), float("-inf")], 0.0).fillna(0.0).iloc[1:]
+    if daily_returns.empty:
+        return {
+            "daily_return_mean": 0.0,
+            "daily_return_std": 0.0,
+            "daily_return_p05": 0.0,
+            "daily_return_p95": 0.0,
+            "daily_return_skew": 0.0,
+        }
+    skew_value = float(daily_returns.skew()) if len(daily_returns) >= 3 else 0.0
+    if pd.isna(skew_value):
+        skew_value = 0.0
+    return {
+        "daily_return_mean": round(float(daily_returns.mean()), 8),
+        "daily_return_std": round(float(daily_returns.std(ddof=0)), 8),
+        "daily_return_p05": round(float(daily_returns.quantile(0.05)), 8),
+        "daily_return_p95": round(float(daily_returns.quantile(0.95)), 8),
+        "daily_return_skew": round(skew_value, 8),
+    }
+
+
+def _compute_turnover_stability(
+    *,
+    trade_frame: pd.DataFrame,
+    replay_days: list[str],
+    initial_cash: float,
+) -> dict[str, float]:
+    if initial_cash <= 0.0 or not replay_days:
+        return {
+            "turnover_mean": 0.0,
+            "turnover_std": 0.0,
+            "turnover_cv": 0.0,
+        }
+    if trade_frame.empty:
+        return {
+            "turnover_mean": 0.0,
+            "turnover_std": 0.0,
+            "turnover_cv": 0.0,
+        }
+    filled = trade_frame[trade_frame["status"] == "filled"].copy()
+    if filled.empty:
+        return {
+            "turnover_mean": 0.0,
+            "turnover_std": 0.0,
+            "turnover_cv": 0.0,
+        }
+    filled["amount"] = pd.to_numeric(filled["amount"], errors="coerce").fillna(0.0)
+    turnover_by_day = (
+        filled.groupby("trade_date")["amount"].sum().reindex(replay_days, fill_value=0.0).astype(float)
+        / max(1.0, initial_cash)
+    )
+    turnover_mean = float(turnover_by_day.mean()) if not turnover_by_day.empty else 0.0
+    turnover_std = float(turnover_by_day.std(ddof=0)) if not turnover_by_day.empty else 0.0
+    turnover_cv = turnover_std / max(1e-12, abs(turnover_mean)) if turnover_mean > 0.0 else 0.0
+    return {
+        "turnover_mean": round(turnover_mean, 8),
+        "turnover_std": round(turnover_std, 8),
+        "turnover_cv": round(turnover_cv, 8),
+    }
 
 
 def run_backtest(
@@ -681,6 +845,7 @@ def run_backtest(
     backtest_results_path = artifacts_dir / "backtest_results.parquet"
     backtest_trade_records_path = artifacts_dir / "backtest_trade_records.parquet"
     ab_metric_summary_path = artifacts_dir / "ab_metric_summary.md"
+    performance_metrics_report_path = artifacts_dir / "performance_metrics_report.md"
     gate_report_path = artifacts_dir / "gate_report.md"
     consumption_path = artifacts_dir / "consumption.md"
     error_manifest_path = artifacts_dir / "error_manifest_sample.json"
@@ -804,6 +969,8 @@ def run_backtest(
 
     limit_up_blocked_count = 0
     limit_down_blocked_count = 0
+    one_word_board_blocked_count = 0
+    liquidity_dryup_blocked_count = 0
     t1_guard_blocked_count = 0
     low_fill_prob_blocked_count = 0
     zero_fill_blocked_count = 0
@@ -836,9 +1003,10 @@ def run_backtest(
             add_error("P0", "market_data", "raw_daily_missing_for_backtest_window")
 
     def calc_fees(amount: float, direction: str) -> tuple[float, float, float, float]:
+        fee_tier_label, fee_tier_multiplier = _resolve_fee_tier(amount)
         commission = max(
             float(config.backtest_min_commission),
-            amount * float(config.backtest_commission_rate),
+            amount * float(config.backtest_commission_rate) * fee_tier_multiplier,
         )
         stamp_tax = amount * float(config.backtest_stamp_duty_rate) if direction == "sell" else 0.0
         transfer_fee = amount * float(config.backtest_transfer_fee_rate)
@@ -848,7 +1016,16 @@ def run_backtest(
             round(stamp_tax, 6),
             round(transfer_fee, 6),
             round(total_fee, 6),
+            fee_tier_label,
         )
+
+    fee_tier_counts = {"S": 0, "M": 0, "L": 0}
+    liquidity_tier_counts = {"L1": 0, "L2": 0, "L3": 0}
+    commission_total = 0.0
+    stamp_tax_total = 0.0
+    transfer_fee_total = 0.0
+    impact_cost_total = 0.0
+    executed_notional_total = 0.0
 
     positions: dict[str, dict[str, object]] = {}
     signals_by_execute_date: dict[str, list[dict[str, object]]] = {}
@@ -898,7 +1075,20 @@ def run_backtest(
 
                 shares = int(pos.get("shares", 0))
                 amount = round(filled_price * shares, 4)
-                _, stamp_tax, transfer_fee, total_fee = calc_fees(amount, "sell")
+                (
+                    commission,
+                    stamp_tax,
+                    transfer_fee,
+                    total_fee,
+                    fee_tier_label,
+                ) = calc_fees(amount, "sell")
+                impact_cost, liquidity_tier, _ = _estimate_impact_cost(
+                    price=price,
+                    order_shares=shares,
+                    amount=amount,
+                    slippage_rate=float(config.backtest_slippage_value),
+                )
+                total_fee = round(total_fee + impact_cost, 6)
                 cash = round(cash + amount - total_fee, 4)
                 buy_amount = float(pos.get("buy_amount", 0.0) or 0.0)
                 buy_fee = float(pos.get("buy_fee", 0.0) or 0.0)
@@ -935,6 +1125,13 @@ def run_backtest(
                         "created_at": created_at,
                     }
                 )
+                commission_total += commission
+                stamp_tax_total += stamp_tax
+                transfer_fee_total += transfer_fee
+                impact_cost_total += impact_cost
+                executed_notional_total += amount
+                fee_tier_counts[fee_tier_label] = fee_tier_counts.get(fee_tier_label, 0) + 1
+                liquidity_tier_counts[liquidity_tier] = liquidity_tier_counts.get(liquidity_tier, 0) + 1
                 del positions[stock_code]
 
             # 2) Execute buys mapped from signal_date -> execute_date(T+1).
@@ -982,6 +1179,38 @@ def run_backtest(
                 stock_name = str(stock_profile_lookup.get(stock_code, {}).get("stock_name", "")).strip()
                 limit_ratio = _resolve_limit_ratio(stock_code=stock_code, stock_name=stock_name)
                 prev_close = prev_close_lookup.get((replay_day, stock_code))
+                if _is_one_word_board(price):
+                    one_word_board_blocked_count += 1
+                    trade_rows.append(
+                        {
+                            "backtest_id": backtest_id,
+                            "trade_date": replay_day,
+                            "signal_date": str(signal.get("trade_date", replay_day)),
+                            "execute_date": replay_day,
+                            "stock_code": stock_code,
+                            "direction": "buy",
+                            "filled_price": 0.0,
+                            "shares": 0,
+                            "amount": 0.0,
+                            "pnl": 0.0,
+                            "pnl_pct": 0.0,
+                            "recommendation": str(signal.get("recommendation", "HOLD")),
+                            "final_score": round(float(signal.get("final_score", 50.0) or 50.0), 4),
+                            "risk_reward_ratio": round(
+                                float(signal.get("risk_reward_ratio", 0.0) or 0.0), 4
+                            ),
+                            "integration_mode": str(signal.get("integration_mode", "top_down")),
+                            "weight_plan_id": str(signal.get("weight_plan_id", "")),
+                            "status": "rejected",
+                            "reject_reason": "REJECT_ONE_WORD_BOARD",
+                            "t1_restriction_hit": False,
+                            "limit_guard_result": "PASS",
+                            "session_guard_result": "PASS",
+                            "contract_version": str(signal.get("contract_version", "")),
+                            "created_at": created_at,
+                        }
+                    )
+                    continue
                 if _is_limit_up(price=price, prev_close=prev_close, limit_ratio=limit_ratio):
                     limit_up_blocked_count += 1
                     trade_rows.append(
@@ -1008,6 +1237,38 @@ def run_backtest(
                             "reject_reason": "REJECT_LIMIT_UP",
                             "t1_restriction_hit": False,
                             "limit_guard_result": "REJECT_LIMIT_UP",
+                            "session_guard_result": "PASS",
+                            "contract_version": str(signal.get("contract_version", "")),
+                            "created_at": created_at,
+                        }
+                    )
+                    continue
+                if _is_liquidity_dryup(price):
+                    liquidity_dryup_blocked_count += 1
+                    trade_rows.append(
+                        {
+                            "backtest_id": backtest_id,
+                            "trade_date": replay_day,
+                            "signal_date": str(signal.get("trade_date", replay_day)),
+                            "execute_date": replay_day,
+                            "stock_code": stock_code,
+                            "direction": "buy",
+                            "filled_price": 0.0,
+                            "shares": 0,
+                            "amount": 0.0,
+                            "pnl": 0.0,
+                            "pnl_pct": 0.0,
+                            "recommendation": str(signal.get("recommendation", "HOLD")),
+                            "final_score": round(float(signal.get("final_score", 50.0) or 50.0), 4),
+                            "risk_reward_ratio": round(
+                                float(signal.get("risk_reward_ratio", 0.0) or 0.0), 4
+                            ),
+                            "integration_mode": str(signal.get("integration_mode", "top_down")),
+                            "weight_plan_id": str(signal.get("weight_plan_id", "")),
+                            "status": "rejected",
+                            "reject_reason": "REJECT_LIQUIDITY_DRYUP",
+                            "t1_restriction_hit": False,
+                            "limit_guard_result": "PASS",
                             "session_guard_result": "PASS",
                             "contract_version": str(signal.get("contract_version", "")),
                             "created_at": created_at,
@@ -1097,7 +1358,20 @@ def run_backtest(
                     continue
 
                 amount = round(filled_price * filled_shares, 4)
-                _, _, _, buy_total_fee = calc_fees(amount, "buy")
+                (
+                    commission,
+                    _,
+                    transfer_fee,
+                    buy_total_fee,
+                    fee_tier_label,
+                ) = calc_fees(amount, "buy")
+                impact_cost, liquidity_tier, _ = _estimate_impact_cost(
+                    price=price,
+                    order_shares=filled_shares,
+                    amount=amount,
+                    slippage_rate=float(config.backtest_slippage_value),
+                )
+                buy_total_fee = round(buy_total_fee + impact_cost, 6)
                 required_cash = amount + buy_total_fee
                 if required_cash > cash:
                     continue
@@ -1148,6 +1422,12 @@ def run_backtest(
                         "created_at": created_at,
                     }
                 )
+                commission_total += commission
+                transfer_fee_total += transfer_fee
+                impact_cost_total += impact_cost
+                executed_notional_total += amount
+                fee_tier_counts[fee_tier_label] = fee_tier_counts.get(fee_tier_label, 0) + 1
+                liquidity_tier_counts[liquidity_tier] = liquidity_tier_counts.get(liquidity_tier, 0) + 1
 
             # 3) Mark-to-market equity for max drawdown tracking.
             market_value = 0.0
@@ -1190,6 +1470,23 @@ def run_backtest(
     max_equity = max(equity_curve) if equity_curve else initial_cash
     min_equity = min(equity_curve) if equity_curve else initial_cash
     max_drawdown = round((max_equity - min_equity) / max(1.0, max_equity), 8)
+    commission_total = round(float(commission_total), 6)
+    stamp_tax_total = round(float(stamp_tax_total), 6)
+    transfer_fee_total = round(float(transfer_fee_total), 6)
+    impact_cost_total = round(float(impact_cost_total), 6)
+    total_fee = round(commission_total + stamp_tax_total + transfer_fee_total + impact_cost_total, 6)
+    cost_bps = round(total_fee / max(1.0, executed_notional_total) * 10_000.0, 6)
+    impact_cost_ratio = round(
+        impact_cost_total / max(1e-12, total_fee),
+        8,
+    ) if total_fee > 0.0 else 0.0
+    max_drawdown_days = _compute_max_drawdown_days(equity_curve)
+    daily_return_distribution = _compute_daily_return_distribution(equity_curve)
+    turnover_stability = _compute_turnover_stability(
+        trade_frame=trade_frame,
+        replay_days=replay_days,
+        initial_cash=initial_cash,
+    )
 
     gate_quality_status, gate_go_nogo, gate_quality_message = _to_quality_status(gate_frame)
     if errors:
@@ -1203,6 +1500,8 @@ def run_backtest(
             for count in (
                 limit_up_blocked_count,
                 limit_down_blocked_count,
+                one_word_board_blocked_count,
+                liquidity_dryup_blocked_count,
                 t1_guard_blocked_count,
                 low_fill_prob_blocked_count,
                 zero_fill_blocked_count,
@@ -1214,6 +1513,8 @@ def run_backtest(
             warning_segments.append(
                 f"limit_up_blocked={limit_up_blocked_count};"
                 f"limit_down_blocked={limit_down_blocked_count};"
+                f"one_word_board_blocked={one_word_board_blocked_count};"
+                f"liquidity_dryup_blocked={liquidity_dryup_blocked_count};"
                 f"t1_guard_blocked={t1_guard_blocked_count};"
                 f"low_fill_prob_blocked={low_fill_prob_blocked_count};"
                 f"zero_fill_blocked={zero_fill_blocked_count};"
@@ -1248,6 +1549,22 @@ def run_backtest(
                 "win_rate": win_rate,
                 "total_return": total_return,
                 "max_drawdown": max_drawdown,
+                "max_drawdown_days": max_drawdown_days,
+                "daily_return_mean": daily_return_distribution["daily_return_mean"],
+                "daily_return_std": daily_return_distribution["daily_return_std"],
+                "daily_return_p05": daily_return_distribution["daily_return_p05"],
+                "daily_return_p95": daily_return_distribution["daily_return_p95"],
+                "daily_return_skew": daily_return_distribution["daily_return_skew"],
+                "turnover_mean": turnover_stability["turnover_mean"],
+                "turnover_std": turnover_stability["turnover_std"],
+                "turnover_cv": turnover_stability["turnover_cv"],
+                "commission_total": commission_total,
+                "stamp_tax_total": stamp_tax_total,
+                "transfer_fee_total": transfer_fee_total,
+                "impact_cost_total": impact_cost_total,
+                "total_fee": total_fee,
+                "cost_bps": cost_bps,
+                "impact_cost_ratio": impact_cost_ratio,
                 "source_fetch_progress_path": str(fetch_status.progress_path),
                 "source_fetch_start_date": fetch_status.start_date,
                 "source_fetch_end_date": fetch_status.end_date,
@@ -1295,6 +1612,39 @@ def run_backtest(
         "",
     ]
     _write_markdown(ab_metric_summary_path, ab_lines)
+
+    performance_lines = [
+        "# S3 Performance Metrics",
+        "",
+        f"- backtest_id: {backtest_id}",
+        f"- max_drawdown: {max_drawdown}",
+        f"- max_drawdown_days: {max_drawdown_days}",
+        "",
+        "## Return Distribution",
+        f"- daily_return_mean: {daily_return_distribution['daily_return_mean']}",
+        f"- daily_return_std: {daily_return_distribution['daily_return_std']}",
+        f"- daily_return_p05: {daily_return_distribution['daily_return_p05']}",
+        f"- daily_return_p95: {daily_return_distribution['daily_return_p95']}",
+        f"- daily_return_skew: {daily_return_distribution['daily_return_skew']}",
+        "",
+        "## Turnover Stability",
+        f"- turnover_mean: {turnover_stability['turnover_mean']}",
+        f"- turnover_std: {turnover_stability['turnover_std']}",
+        f"- turnover_cv: {turnover_stability['turnover_cv']}",
+        "",
+        "## Cost & Slippage",
+        f"- commission_total: {commission_total}",
+        f"- stamp_tax_total: {stamp_tax_total}",
+        f"- transfer_fee_total: {transfer_fee_total}",
+        f"- impact_cost_total: {impact_cost_total}",
+        f"- total_fee: {total_fee}",
+        f"- cost_bps: {cost_bps}",
+        f"- impact_cost_ratio: {impact_cost_ratio}",
+        f"- fee_tier_counts: {fee_tier_counts}",
+        f"- liquidity_tier_counts: {liquidity_tier_counts}",
+        "",
+    ]
+    _write_markdown(performance_metrics_report_path, performance_lines)
 
     core_coverage_status = (
         "PASS"
@@ -1345,6 +1695,8 @@ def run_backtest(
         f"- bridge_check_status: {bridge_check_status}",
         f"- limit_up_blocked_count: {limit_up_blocked_count}",
         f"- limit_down_blocked_count: {limit_down_blocked_count}",
+        f"- one_word_board_blocked_count: {one_word_board_blocked_count}",
+        f"- liquidity_dryup_blocked_count: {liquidity_dryup_blocked_count}",
         f"- t1_guard_blocked_count: {t1_guard_blocked_count}",
         f"- low_fill_prob_blocked_count: {low_fill_prob_blocked_count}",
         f"- zero_fill_blocked_count: {zero_fill_blocked_count}",
@@ -1405,6 +1757,7 @@ def run_backtest(
         backtest_results_path=backtest_results_path,
         backtest_trade_records_path=backtest_trade_records_path,
         ab_metric_summary_path=ab_metric_summary_path,
+        performance_metrics_report_path=performance_metrics_report_path,
         gate_report_path=gate_report_path,
         consumption_path=consumption_path,
         error_manifest_path=error_manifest_path,

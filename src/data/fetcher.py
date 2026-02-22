@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 import importlib
 import time
 from typing import Any, Callable, Protocol
@@ -32,6 +33,19 @@ class FetchError(RuntimeError):
 class SimulatedTuShareClient:
     """Deterministic offline TuShare-like client for S0b contract tests."""
 
+    _SIMULATED_CLOSED_TRADE_DAYS = frozenset(
+        {
+            # New year closure.
+            "20260101",
+            # 2026 lunar new year closure window.
+            "20260216",
+            "20260217",
+            "20260218",
+            "20260219",
+            "20260220",
+        }
+    )
+
     @staticmethod
     def _sw31_pairs() -> list[tuple[str, str]]:
         return [
@@ -42,6 +56,35 @@ class SimulatedTuShareClient:
     @staticmethod
     def _stock_codes() -> list[str]:
         return [f"{idx + 1:06d}" for idx in range(31)]
+
+    @staticmethod
+    def _parse_trade_date(trade_date: str) -> date:
+        normalized = str(trade_date).strip()
+        if len(normalized) != 8 or not normalized.isdigit():
+            raise ValueError(f"invalid trade_date format: {trade_date!r}")
+        return date.fromisoformat(
+            f"{normalized[0:4]}-{normalized[4:6]}-{normalized[6:8]}"
+        )
+
+    @classmethod
+    def _iter_trade_dates(cls, start_date: str, end_date: str) -> list[str]:
+        start = cls._parse_trade_date(start_date)
+        end = cls._parse_trade_date(end_date)
+        if end < start:
+            raise ValueError(f"trade_cal end_date({end_date}) must be >= start_date({start_date})")
+        cursor = start
+        values: list[str] = []
+        while cursor <= end:
+            values.append(cursor.strftime("%Y%m%d"))
+            cursor += timedelta(days=1)
+        return values
+
+    @classmethod
+    def _is_open_trade_day(cls, trade_date: str) -> bool:
+        if trade_date in cls._SIMULATED_CLOSED_TRADE_DAYS:
+            return False
+        day = cls._parse_trade_date(trade_date)
+        return day.weekday() < 5
 
     def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         if api_name == "daily":
@@ -72,16 +115,21 @@ class SimulatedTuShareClient:
             return rows
 
         if api_name == "trade_cal":
-            trade_date = str(params.get("start_date") or params.get("end_date") or "")
-            if not trade_date:
+            start_date = str(params.get("start_date") or params.get("end_date") or "").strip()
+            end_date = str(params.get("end_date") or params.get("start_date") or "").strip()
+            if not start_date or not end_date:
                 raise ValueError("trade_cal requires start_date/end_date")
-            return [
-                {
-                    "exchange": "SSE",
-                    "trade_date": trade_date,
-                    "is_open": 1,
-                }
-            ]
+            exchange = str(params.get("exchange") or "SSE").strip() or "SSE"
+            rows: list[dict[str, Any]] = []
+            for trade_date in self._iter_trade_dates(start_date=start_date, end_date=end_date):
+                rows.append(
+                    {
+                        "exchange": exchange,
+                        "trade_date": trade_date,
+                        "is_open": 1 if self._is_open_trade_day(trade_date) else 0,
+                    }
+                )
+            return rows
 
         if api_name == "limit_list":
             trade_date = str(params.get("trade_date", ""))

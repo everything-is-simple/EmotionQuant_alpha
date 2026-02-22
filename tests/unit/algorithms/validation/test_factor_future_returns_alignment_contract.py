@@ -56,7 +56,7 @@ def test_validation_factor_report_contains_future_returns_alignment_factor(tmp_p
         "20260215",
         "20260216",
         "20260217",
-        "20260218",
+        "20260212",
     ]
     irs_count, pas_count = _prepare_inputs(config, trade_dates)
     trade_date = trade_dates[-1]
@@ -78,3 +78,4 @@ def test_validation_factor_report_contains_future_returns_alignment_factor(tmp_p
     assert not target_rows.empty
     vote_detail = json.loads(str(target_rows.iloc[0]["vote_detail"]))
     assert vote_detail["return_series_source"] == "future_returns"
+

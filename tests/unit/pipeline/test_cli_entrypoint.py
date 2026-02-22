@@ -10,6 +10,7 @@ import pytest
 from src import __version__
 from src.pipeline.main import build_parser, main
 import src.pipeline.main as cli_main_module
+from tests.unit.trade_day_guard import assert_all_valid_trade_days, latest_open_trade_days
 
 
 def test_build_parser_uses_eq_as_program_name() -> None:
@@ -86,11 +87,11 @@ def test_main_analysis_command_wires_to_pipeline(
     )
 
     def _fake_run_analysis(**_: object) -> SimpleNamespace:
-        artifacts_dir = tmp_path / "artifacts" / "spiral-s3b" / "20260219"
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3b" / "20260213"
         return SimpleNamespace(
-            trade_date="20260219",
-            start_date="20260218",
-            end_date="20260219",
+            trade_date="20260213",
+            start_date="20260212",
+            end_date="20260213",
             artifacts_dir=artifacts_dir,
             ab_benchmark_report_path=artifacts_dir / "ab_benchmark_report.md",
             live_backtest_deviation_report_path=artifacts_dir / "live_backtest_deviation_report.md",
@@ -110,9 +111,9 @@ def test_main_analysis_command_wires_to_pipeline(
             str(env_file),
             "analysis",
             "--start",
-            "20260218",
+            "20260212",
             "--end",
-            "20260219",
+            "20260213",
             "--ab-benchmark",
         ]
     )
@@ -137,7 +138,7 @@ def test_main_validation_command_wires_to_pipeline(
         return (31, 31, True)
 
     def _fake_run_validation_gate(**_: object) -> SimpleNamespace:
-        artifacts_dir = tmp_path / "artifacts" / "spiral-s3e" / "20260219"
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3e" / "20260213"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         factor_report = artifacts_dir / "validation_factor_report_sample.parquet"
         weight_report = artifacts_dir / "validation_weight_report_sample.parquet"
@@ -150,16 +151,16 @@ def test_main_validation_command_wires_to_pipeline(
         manifest.write_text("{}", encoding="utf-8")
         oos_report.write_text("# oos\n", encoding="utf-8")
         return SimpleNamespace(
-            trade_date="20260219",
+            trade_date="20260213",
             count=1,
-            frame=pd.DataFrame.from_records([{"trade_date": "20260219", "final_gate": "PASS"}]),
+            frame=pd.DataFrame.from_records([{"trade_date": "20260213", "final_gate": "PASS"}]),
             final_gate="PASS",
             selected_weight_plan="vp_balanced_v1",
             has_fail=False,
             factor_report_frame=pd.DataFrame.from_records([{"factor_name": "mss_future_returns_alignment"}]),
             weight_report_frame=pd.DataFrame.from_records([{"plan_id": "vp_balanced_v1"}]),
             weight_plan_frame=pd.DataFrame.from_records([{"plan_id": "vp_balanced_v1"}]),
-            run_manifest_payload={"trade_date": "20260219"},
+            run_manifest_payload={"trade_date": "20260213"},
             threshold_mode="regime",
             wfa_mode="dual-window",
             factor_report_sample_path=factor_report,
@@ -177,7 +178,7 @@ def test_main_validation_command_wires_to_pipeline(
             str(env_file),
             "validation",
             "--trade-date",
-            "20260219",
+            "20260213",
             "--threshold-mode",
             "regime",
             "--wfa",
@@ -328,7 +329,7 @@ def test_main_mss_supports_s3d_threshold_mode(
     )
 
     def _fake_run_mss_scoring(**_: object) -> SimpleNamespace:
-        artifacts_dir = tmp_path / "artifacts" / "spiral-s3d" / "20260218"
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3d" / "20260212"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         threshold_snapshot = artifacts_dir / "mss_regime_thresholds_snapshot.json"
         adaptive_report = artifacts_dir / "mss_adaptive_regression.md"
@@ -345,7 +346,7 @@ def test_main_mss_supports_s3d_threshold_mode(
         factor_trace.write_text("# trace\n", encoding="utf-8")
         factor_intermediate.write_text("sample", encoding="utf-8")
         return SimpleNamespace(
-            trade_date="20260218",
+            trade_date="20260212",
             artifacts_dir=artifacts_dir,
             mss_panorama_count=1,
             threshold_mode="adaptive",
@@ -367,7 +368,7 @@ def test_main_mss_supports_s3d_threshold_mode(
             str(env_file),
             "mss",
             "--date",
-            "20260218",
+            "20260212",
             "--threshold-mode",
             "adaptive",
         ]
@@ -461,7 +462,7 @@ def test_main_mss_probe_supports_future_returns_source(
     )
 
     def _fake_run_mss_probe(**_: object) -> SimpleNamespace:
-        artifacts_dir = tmp_path / "artifacts" / "spiral-s3d" / "20260210_20260219"
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3d" / "20260210_20260213"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         probe_report = artifacts_dir / "mss_probe_return_series_report.md"
         consumption = artifacts_dir / "consumption.md"
@@ -471,7 +472,7 @@ def test_main_mss_probe_supports_future_returns_source(
         gate_report.write_text("# gate\n", encoding="utf-8")
         return SimpleNamespace(
             start_date="20260210",
-            end_date="20260219",
+            end_date="20260213",
             artifacts_dir=artifacts_dir,
             return_series_source="future_returns",
             has_error=False,
@@ -492,7 +493,7 @@ def test_main_mss_probe_supports_future_returns_source(
             "--start",
             "20260210",
             "--end",
-            "20260219",
+            "20260213",
             "--return-series-source",
             "future_returns",
         ]
@@ -512,7 +513,7 @@ def test_main_recommend_runs_s2a_mode(tmp_path: Path, capsys: pytest.CaptureFixt
         "ENVIRONMENT=test\n",
         encoding="utf-8",
     )
-    trade_date = "20260218"
+    trade_date = "20260212"
 
     assert main(
         [
@@ -575,7 +576,7 @@ def test_main_validation_runs_s3e_mode(tmp_path: Path, capsys: pytest.CaptureFix
         "ENVIRONMENT=test\n",
         encoding="utf-8",
     )
-    trade_date = "20260218"
+    trade_date = "20260212"
 
     assert main(
         [
@@ -659,7 +660,7 @@ def test_main_recommend_runs_s2b_integrated_mode(
         "ENVIRONMENT=test\n",
         encoding="utf-8",
     )
-    trade_date = "20260218"
+    trade_date = "20260212"
 
     assert main(
         [
@@ -826,7 +827,7 @@ def test_main_recommend_runs_s2r_repair_mode(
         "ENVIRONMENT=test\n",
         encoding="utf-8",
     )
-    trade_date = "20260218"
+    trade_date = "20260212"
 
     assert main(
         [
@@ -953,7 +954,8 @@ def test_main_backtest_runs_with_s3a_consumption(
         "ENVIRONMENT=test\n",
         encoding="utf-8",
     )
-    trade_dates = ["20260218", "20260219"]
+    trade_dates = latest_open_trade_days(2)
+    assert_all_valid_trade_days(trade_dates, context="cli_backtest_e2e")
 
     assert main(
         [
@@ -1048,7 +1050,12 @@ def test_main_backtest_runs_with_s3a_consumption(
     assert payload["quality_status"] in {"PASS", "WARN"}
     assert payload["go_nogo"] == "GO"
     assert payload["bridge_check_status"] == "PASS"
-    assert payload["total_trades"] > 0
+    assert payload["total_trades"] >= 0
+    gate_report_path = Path(payload["gate_report_path"])
+    assert gate_report_path.exists()
+    if payload["total_trades"] == 0:
+        gate_text = gate_report_path.read_text(encoding="utf-8")
+        assert "no_long_entry_signal_in_window" in gate_text
 
 
 def test_main_backtest_runs_s3r_repair_mode(
@@ -1062,17 +1069,17 @@ def test_main_backtest_runs_s3r_repair_mode(
     )
 
     def _fake_run_backtest(**_: object) -> SimpleNamespace:
-        artifacts_dir = tmp_path / "artifacts" / "spiral-s3r" / "20260219"
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3r" / "20260213"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         patch_note = artifacts_dir / "s3r_patch_note.md"
         delta_report = artifacts_dir / "s3r_delta_report.md"
         patch_note.write_text("# patch\n", encoding="utf-8")
         delta_report.write_text("# delta\n", encoding="utf-8")
         return SimpleNamespace(
-            backtest_id="BTR_20260218_20260219_qlib",
+            backtest_id="BTR_20260212_20260213_qlib",
             engine="qlib",
-            start_date="20260218",
-            end_date="20260219",
+            start_date="20260212",
+            end_date="20260213",
             repair="s3r",
             consumed_signal_rows=10,
             total_trades=3,
@@ -1100,9 +1107,9 @@ def test_main_backtest_runs_s3r_repair_mode(
             "--engine",
             "qlib",
             "--start",
-            "20260218",
+            "20260212",
             "--end",
-            "20260219",
+            "20260213",
             "--repair",
             "s3r",
         ]
@@ -1116,6 +1123,73 @@ def test_main_backtest_runs_s3r_repair_mode(
     assert Path(payload["s3r_delta_report_path"]).exists()
 
 
+def test_main_backtest_warn_go_with_zero_trades_is_valid_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s3.warn0.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_backtest(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s3" / "20260213"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        gate_report = artifacts_dir / "gate_report.md"
+        gate_report.write_text(
+            "# gate\n- warnings: no_long_entry_signal_in_window\n",
+            encoding="utf-8",
+        )
+        return SimpleNamespace(
+            backtest_id="BT_20260212_20260213_qlib",
+            engine="qlib",
+            start_date="20260212",
+            end_date="20260213",
+            repair="",
+            consumed_signal_rows=12,
+            total_trades=0,
+            quality_status="WARN",
+            go_nogo="GO",
+            bridge_check_status="PASS",
+            artifacts_dir=artifacts_dir,
+            backtest_results_path=artifacts_dir / "backtest_results.parquet",
+            backtest_trade_records_path=artifacts_dir / "backtest_trade_records.parquet",
+            ab_metric_summary_path=artifacts_dir / "ab_metric_summary.md",
+            gate_report_path=gate_report,
+            consumption_path=artifacts_dir / "consumption.md",
+            error_manifest_path=artifacts_dir / "error_manifest_sample.json",
+            s3r_patch_note_path=None,
+            s3r_delta_report_path=None,
+            has_error=False,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_backtest", _fake_run_backtest)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "backtest",
+            "--engine",
+            "qlib",
+            "--start",
+            "20260212",
+            "--end",
+            "20260213",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s3_backtest"
+    assert payload["quality_status"] == "WARN"
+    assert payload["go_nogo"] == "GO"
+    assert payload["total_trades"] == 0
+    assert payload["bridge_check_status"] == "PASS"
+    assert payload["repair"] == ""
+    assert "s3r_patch_note_path" not in payload
+    assert "s3r_delta_report_path" not in payload
+
+
 def test_main_trade_runs_paper_mode(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1126,7 +1200,8 @@ def test_main_trade_runs_paper_mode(
         "ENVIRONMENT=test\n",
         encoding="utf-8",
     )
-    trade_dates = ["20260218", "20260219"]
+    trade_dates = latest_open_trade_days(2)
+    assert_all_valid_trade_days(trade_dates, context="cli_trade_e2e")
 
     assert main(
         [
@@ -1235,3 +1310,4 @@ def test_main_trade_runs_paper_mode(
     assert payload["quality_status"] in {"PASS", "WARN"}
     assert payload["go_nogo"] == "GO"
     assert payload["filled_orders"] > 0
+

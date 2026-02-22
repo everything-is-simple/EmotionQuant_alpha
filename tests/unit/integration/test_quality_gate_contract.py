@@ -51,7 +51,7 @@ def _prepare_s2b_inputs(config: Config, trade_date: str) -> None:
 
 def test_s2b_gate_fail_produces_no_go_and_blocks_recommendation(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2b_inputs(config, trade_date)
 
     run_validation_gate(
@@ -90,7 +90,7 @@ def test_s2b_gate_fail_produces_no_go_and_blocks_recommendation(tmp_path: Path) 
 
 def test_s2r_repair_emits_patch_and_delta_artifacts(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2b_inputs(config, trade_date)
 
     result = run_recommendation(
@@ -110,7 +110,7 @@ def test_s2r_repair_emits_patch_and_delta_artifacts(tmp_path: Path) -> None:
 
 def test_s2b_warns_and_fallbacks_when_candidate_exec_not_pass(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2b_inputs(config, trade_date)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -134,3 +134,4 @@ def test_s2b_warns_and_fallbacks_when_candidate_exec_not_pass(tmp_path: Path) ->
     assert result.go_nogo == "GO"
     quality_text = result.quality_gate_report_path.read_text(encoding="utf-8")
     assert "warn_candidate_exec" in quality_text
+

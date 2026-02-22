@@ -6,12 +6,13 @@ import duckdb
 import pandas as pd
 
 from src.trading.pipeline import run_paper_trade
+from tests.unit.trade_day_guard import latest_open_trade_days
 from tests.unit.trading.support import build_config, prepare_s4_inputs
 
 
 def test_risk_guard_rejects_limit_up_buy(tmp_path) -> None:
     config = build_config(tmp_path, ".env.s4.risk")
-    trade_date = prepare_s4_inputs(config, ["20260218", "20260219"])
+    trade_date = prepare_s4_inputs(config, latest_open_trade_days(2))
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path)) as connection:

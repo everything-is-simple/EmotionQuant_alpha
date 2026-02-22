@@ -46,8 +46,9 @@ def seed_ab_benchmark_tables(config: Config, start_date: str, end_date: str) -> 
         )
         connection.execute(
             "INSERT INTO integrated_recommendation VALUES "
-            "('20260218', '000001', 62, 58, 61, 10.0, 60), "
-            "('20260219', '000002', 64, 59, 63, 11.0, 62)"
+            "(?, '000001', 62, 58, 61, 10.0, 60), "
+            "(?, '000002', 64, 59, 63, 11.0, 62)",
+            [start_date, end_date],
         )
 
 

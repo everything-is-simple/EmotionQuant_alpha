@@ -32,8 +32,8 @@ def test_s3d_mss_probe_supports_future_returns_series_source(tmp_path: Path) -> 
         "20260215",
         "20260216",
         "20260217",
-        "20260218",
-        "20260219",
+        "20260212",
+        "20260213",
     ]
     for trade_date in trade_dates:
         run_l1_collection(
@@ -66,3 +66,4 @@ def test_s3d_mss_probe_supports_future_returns_series_source(tmp_path: Path) -> 
     assert result.consumption_case_path.exists()
     content = result.probe_report_path.read_text(encoding="utf-8")
     assert "return_series_source: future_returns" in content
+

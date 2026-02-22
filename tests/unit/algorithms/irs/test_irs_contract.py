@@ -25,19 +25,19 @@ def _build_config(tmp_path: Path) -> Config:
 def test_s2a_generates_irs_industry_daily(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
     run_l1_collection(
-        trade_date="20260218",
+        trade_date="20260212",
         source="tushare",
         config=config,
         fetcher=TuShareFetcher(max_retries=1),
     )
     run_l2_snapshot(
-        trade_date="20260218",
+        trade_date="20260212",
         source="tushare",
         config=config,
     )
 
     result = run_irs_daily(
-        trade_date="20260218",
+        trade_date="20260212",
         config=config,
     )
     assert result.count > 0
@@ -45,7 +45,7 @@ def test_s2a_generates_irs_industry_daily(tmp_path: Path) -> None:
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path), read_only=True) as connection:
         count = connection.execute(
-            "SELECT COUNT(*) FROM irs_industry_daily WHERE trade_date='20260218'"
+            "SELECT COUNT(*) FROM irs_industry_daily WHERE trade_date='20260212'"
         ).fetchone()[0]
         fields = set(
             connection.execute("SELECT * FROM irs_industry_daily LIMIT 1")
@@ -55,3 +55,4 @@ def test_s2a_generates_irs_industry_daily(tmp_path: Path) -> None:
 
     assert count > 0
     assert {"irs_score", "rotation_status", "recommendation", "contract_version"} <= fields
+

@@ -49,7 +49,7 @@ def _prepare_inputs(config: Config, trade_date: str) -> tuple[int, int]:
 
 def test_validation_gate_persists_selected_weight_plan_and_plan_row(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     irs_count, pas_count = _prepare_inputs(config, trade_date)
 
     gate = run_validation_gate(
@@ -97,7 +97,7 @@ def test_validation_gate_persists_selected_weight_plan_and_plan_row(tmp_path: Pa
 
 def test_validation_fail_keeps_prescription_and_no_selected_plan(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_inputs(config, trade_date)
 
     gate = run_validation_gate(
@@ -111,3 +111,4 @@ def test_validation_fail_keeps_prescription_and_no_selected_plan(tmp_path: Path)
     assert gate.selected_weight_plan == ""
     prescription = str(gate.frame.iloc[0]["validation_prescription"])
     assert prescription != ""
+

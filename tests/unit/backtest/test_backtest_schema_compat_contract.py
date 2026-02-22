@@ -23,7 +23,7 @@ def test_backtest_results_persist_upgrades_legacy_schema(tmp_path) -> None:
         )
         connection.execute(
             "INSERT INTO backtest_results VALUES "
-            "('legacy-001','20260218','20260219',2,0.5,0.01,0.02,'2026-02-19T00:00:00+00:00')"
+            "('legacy-001','20260212','20260213',2,0.5,0.01,0.02,'2026-02-19T00:00:00+00:00')"
         )
 
     incoming = pd.DataFrame.from_records(
@@ -40,6 +40,12 @@ def test_backtest_results_persist_upgrades_legacy_schema(tmp_path) -> None:
                 "win_rate": 0.6667,
                 "total_return": 0.0123,
                 "max_drawdown": 0.0345,
+                "max_drawdown_days": 2,
+                "daily_return_mean": 0.0012,
+                "turnover_cv": 0.25,
+                "total_fee": 123.45,
+                "cost_bps": 9.87,
+                "impact_cost_ratio": 0.21,
                 "source_fetch_progress_path": "artifacts/spiral-s3a/20260213/fetch_progress.json",
                 "source_fetch_start_date": "20260210",
                 "source_fetch_end_date": "20260213",
@@ -69,7 +75,14 @@ def test_backtest_results_persist_upgrades_legacy_schema(tmp_path) -> None:
     assert "quality_status" in columns
     assert "go_nogo" in columns
     assert "contract_version" in columns
+    assert "max_drawdown_days" in columns
+    assert "daily_return_mean" in columns
+    assert "turnover_cv" in columns
+    assert "total_fee" in columns
+    assert "cost_bps" in columns
+    assert "impact_cost_ratio" in columns
     assert row is not None
     assert row[0] == "WARN"
     assert row[1] == "GO"
     assert row[2] == "nc-v1"
+

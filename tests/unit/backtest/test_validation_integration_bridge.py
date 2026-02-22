@@ -12,6 +12,7 @@ from src.data.fetcher import TuShareFetcher
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
+from tests.unit.trade_day_guard import assert_all_valid_trade_days, latest_open_trade_days
 
 
 def _build_config(tmp_path: Path) -> Config:
@@ -27,6 +28,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 def _prepare_inputs_without_bridge(config: Config, trade_dates: list[str]) -> None:
     assert trade_dates
+    assert_all_valid_trade_days(trade_dates, context="s3_bridge_inputs")
     run_fetch_batch(
         start_date=trade_dates[0],
         end_date=trade_dates[-1],
@@ -70,7 +72,7 @@ def _prepare_inputs_without_bridge(config: Config, trade_dates: list[str]) -> No
 
 def test_backtest_blocks_when_validation_bridge_is_missing(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_dates = ["20260218", "20260219"]
+    trade_dates = latest_open_trade_days(2)
     _prepare_inputs_without_bridge(config, trade_dates)
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path)) as connection:

@@ -5,12 +5,13 @@ from pathlib import Path
 import duckdb
 
 from src.trading.pipeline import run_paper_trade
+from tests.unit.trade_day_guard import latest_open_trade_days
 from tests.unit.trading.support import build_config, prepare_s4_inputs
 
 
 def test_order_pipeline_generates_trade_records(tmp_path: Path) -> None:
     config = build_config(tmp_path, ".env.s4.order")
-    trade_date = prepare_s4_inputs(config, ["20260218", "20260219"])
+    trade_date = prepare_s4_inputs(config, latest_open_trade_days(2))
 
     result = run_paper_trade(
         trade_date=trade_date,

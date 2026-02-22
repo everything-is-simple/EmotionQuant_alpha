@@ -1024,6 +1024,9 @@ def _run_backtest(ctx: PipelineContext, args: argparse.Namespace) -> int:
         "consumption_path": str(result.consumption_path),
         "error_manifest_path": str(result.error_manifest_path),
     }
+    performance_metrics_report_path = getattr(result, "performance_metrics_report_path", None)
+    if performance_metrics_report_path is not None:
+        payload["performance_metrics_report_path"] = str(performance_metrics_report_path)
     if result.s3r_patch_note_path is not None:
         payload["s3r_patch_note_path"] = str(result.s3r_patch_note_path)
     if result.s3r_delta_report_path is not None:

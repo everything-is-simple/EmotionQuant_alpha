@@ -1,7 +1,7 @@
-# S3a 执行卡（v0.3）
+# S3a 执行卡（v0.4）
 
 **状态**: Completed（2026-02-21 复核通过）  
-**更新时间**: 2026-02-21  
+**更新时间**: 2026-02-22  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3a（ENH-10 数据采集增强）
 
@@ -44,10 +44,11 @@ pytest tests/unit/data/test_fetch_retry_contract.py -q
 
 ## 4. artifact
 
+- `artifacts/spiral-s3a/_state/fetch_progress.json`（最新续传游标）
 - `artifacts/spiral-s3a/{trade_date}/fetch_progress.json`
 - `artifacts/spiral-s3a/{trade_date}/throughput_benchmark.md`
 - `artifacts/spiral-s3a/{trade_date}/fetch_retry_report.md`
-- `artifacts/spiral-s3a/{trade_date}/quality_gate_report.md`
+- 说明：`quality_gate_report.md` 属于 S2b/S2r/S3e/Integration 质量门产物，不属于 S3a 采集增强圈产物。
 
 ---
 

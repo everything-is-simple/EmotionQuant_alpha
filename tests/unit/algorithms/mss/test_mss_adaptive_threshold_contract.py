@@ -81,7 +81,7 @@ def test_mss_threshold_mode_contract_supports_fixed_and_adaptive() -> None:
 
 def test_s3d_mss_writes_threshold_snapshot_and_regression_artifacts(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     run_l1_collection(
         trade_date=trade_date,
         source="tushare",
@@ -111,3 +111,4 @@ def test_s3d_mss_writes_threshold_snapshot_and_regression_artifacts(tmp_path: Pa
     assert payload["trade_date"] == trade_date
     assert payload["threshold_mode"] == "adaptive"
     assert {"t30", "t45", "t60", "t75"} <= set(payload["thresholds"].keys())
+

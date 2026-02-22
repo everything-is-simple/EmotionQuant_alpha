@@ -67,6 +67,20 @@ def test_simulated_client_covers_s0b_required_apis() -> None:
     assert len(stock_basic_rows) > 0
 
 
+def test_simulated_trade_cal_marks_lunar_new_year_closure_days_as_closed() -> None:
+    fetcher = TuShareFetcher(client=SimulatedTuShareClient(), max_retries=1)
+    rows = fetcher.fetch_with_retry(
+        "trade_cal",
+        {"start_date": "20260212", "end_date": "20260219"},
+    )
+
+    status_by_date = {str(item["trade_date"]): int(item["is_open"]) for item in rows}
+    assert status_by_date["20260212"] == 1
+    assert status_by_date["20260213"] == 1
+    assert status_by_date["20260218"] == 0
+    assert status_by_date["20260219"] == 0
+
+
 def test_fetcher_uses_real_tushare_client_when_token_exists(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -25,7 +25,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 def test_validation_weight_report_supports_dual_window_mode(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     run_l1_collection(
         trade_date=trade_date,
         source="tushare",
@@ -55,3 +55,4 @@ def test_validation_weight_report_supports_dual_window_mode(tmp_path: Path) -> N
     assert result.wfa_mode == "dual-window"
     window_groups = set(result.weight_report_frame["window_group"].astype(str).tolist())
     assert {"short_window", "long_window"} <= window_groups
+

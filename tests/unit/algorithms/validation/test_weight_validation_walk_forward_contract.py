@@ -46,7 +46,7 @@ def _prepare_inputs(config: Config, trade_date: str) -> tuple[int, int]:
 
 def test_validation_weight_walk_forward_contract(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     irs_count, pas_count = _prepare_inputs(config, trade_date)
 
     result = run_validation_gate(
@@ -100,3 +100,4 @@ def test_validation_weight_walk_forward_contract(tmp_path: Path) -> None:
     assert float(plan_row[1]) > 0.0
     assert float(plan_row[2]) > 0.0
     assert float(plan_row[3]) > 0.0
+

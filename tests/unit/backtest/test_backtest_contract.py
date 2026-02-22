@@ -12,6 +12,7 @@ from src.data.fetcher import TuShareFetcher
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
+from tests.unit.trade_day_guard import assert_all_valid_trade_days, latest_open_trade_days
 
 
 def _build_config(tmp_path: Path) -> Config:
@@ -27,6 +28,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 def _prepare_s3_inputs(config: Config, trade_dates: list[str]) -> None:
     assert trade_dates
+    assert_all_valid_trade_days(trade_dates, context="s3_backtest_inputs")
     run_fetch_batch(
         start_date=trade_dates[0],
         end_date=trade_dates[-1],
@@ -70,7 +72,7 @@ def _prepare_s3_inputs(config: Config, trade_dates: list[str]) -> None:
 
 def test_backtest_consumes_s3a_artifacts_and_generates_outputs(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_dates = ["20260218", "20260219"]
+    trade_dates = latest_open_trade_days(2)
     _prepare_s3_inputs(config, trade_dates)
 
     result = run_backtest(
@@ -88,6 +90,7 @@ def test_backtest_consumes_s3a_artifacts_and_generates_outputs(tmp_path: Path) -
     assert result.backtest_results_path.exists()
     assert result.backtest_trade_records_path.exists()
     assert result.ab_metric_summary_path.exists()
+    assert result.performance_metrics_report_path.exists()
     assert result.gate_report_path.exists()
     assert result.consumption_path.exists()
 
@@ -97,11 +100,17 @@ def test_backtest_consumes_s3a_artifacts_and_generates_outputs(tmp_path: Path) -
     if result.total_trades == 0:
         gate_text = result.gate_report_path.read_text(encoding="utf-8")
         assert "no_long_entry_signal_in_window" in gate_text
+    performance_text = result.performance_metrics_report_path.read_text(encoding="utf-8")
+    assert "Return Distribution" in performance_text
+    assert "Turnover Stability" in performance_text
+    assert "Cost & Slippage" in performance_text
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     with duckdb.connect(str(db_path), read_only=True) as connection:
         result_row = connection.execute(
-            "SELECT quality_status, go_nogo, consumed_signal_rows, total_trades "
+            "SELECT quality_status, go_nogo, consumed_signal_rows, total_trades, "
+            "max_drawdown_days, daily_return_mean, turnover_cv, "
+            "total_fee, cost_bps, impact_cost_ratio "
             "FROM backtest_results WHERE backtest_id=? LIMIT 1",
             [result.backtest_id],
         ).fetchone()
@@ -115,13 +124,19 @@ def test_backtest_consumes_s3a_artifacts_and_generates_outputs(tmp_path: Path) -
     assert result_row[1] == "GO"
     assert int(result_row[2]) > 0
     assert int(result_row[3]) >= 0
+    assert int(result_row[4]) >= 0
+    assert isinstance(float(result_row[5]), float)
+    assert float(result_row[6]) >= 0.0
+    assert float(result_row[7]) >= 0.0
+    assert float(result_row[8]) >= 0.0
+    assert 0.0 <= float(result_row[9]) <= 1.0
     assert trade_count is not None
     assert int(trade_count[0]) >= 0
 
 
 def test_backtest_no_long_entry_signal_window_is_warn_not_fail(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_dates = ["20260218", "20260219"]
+    trade_dates = latest_open_trade_days(2)
     _prepare_s3_inputs(config, trade_dates)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"

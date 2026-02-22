@@ -50,7 +50,7 @@ def _prepare_s2b_inputs(config: Config, trade_date: str) -> None:
 
 def test_s2b_generates_integrated_recommendation_with_execution_fields(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2b_inputs(config, trade_date)
 
     result = run_recommendation(
@@ -93,7 +93,7 @@ def test_s2b_generates_integrated_recommendation_with_execution_fields(tmp_path:
 
 def test_s2b_supports_bottom_up_mode(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2b_inputs(config, trade_date)
 
     result = run_recommendation(
@@ -119,7 +119,7 @@ def test_s2b_supports_bottom_up_mode(tmp_path: Path) -> None:
 
 def test_s2b_enforces_daily_and_industry_recommendation_caps(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2b_inputs(config, trade_date)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -157,7 +157,7 @@ def test_s2b_enforces_daily_and_industry_recommendation_caps(tmp_path: Path) -> 
 
 def test_s2b_repairs_legacy_position_size_integer_schema(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     _prepare_s2b_inputs(config, trade_date)
 
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
@@ -198,3 +198,4 @@ def test_s2b_repairs_legacy_position_size_integer_schema(tmp_path: Path) -> None
     assert str(column_type[0]).upper() in {"DOUBLE", "FLOAT", "REAL"}
     assert decimals is not None
     assert int(decimals[0]) > 0
+

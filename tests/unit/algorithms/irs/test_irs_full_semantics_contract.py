@@ -24,7 +24,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 def test_irs_full_semantics_outputs_contract_fields_and_artifact(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
 
     run_l1_collection(
         trade_date=trade_date,
@@ -76,3 +76,4 @@ def test_irs_full_semantics_outputs_contract_fields_and_artifact(tmp_path: Path)
             [trade_date],
         ).fetchone()[0]
     assert int(factor_count) > 0
+

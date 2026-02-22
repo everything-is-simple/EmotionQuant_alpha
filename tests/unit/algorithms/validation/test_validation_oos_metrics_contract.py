@@ -26,7 +26,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 def test_validation_oos_report_and_manifest_contract(tmp_path: Path) -> None:
     config = _build_config(tmp_path)
-    trade_date = "20260218"
+    trade_date = "20260212"
     run_l1_collection(
         trade_date=trade_date,
         source="tushare",
@@ -63,3 +63,4 @@ def test_validation_oos_report_and_manifest_contract(tmp_path: Path) -> None:
     manifest = json.loads(result.run_manifest_sample_path.read_text(encoding="utf-8"))
     assert manifest["threshold_mode"] == "regime"
     assert manifest["wfa_mode"] == "dual-window"
+

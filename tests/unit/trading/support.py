@@ -10,6 +10,7 @@ from src.data.fetcher import TuShareFetcher
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
+from tests.unit.trade_day_guard import assert_all_valid_trade_days
 
 
 def build_config(tmp_path: Path, env_name: str) -> Config:
@@ -27,6 +28,9 @@ def prepare_s4_inputs(
     config: Config, trade_dates: list[str], trade_date_for_s4: str | None = None
 ) -> str:
     assert len(trade_dates) >= 2
+    assert_all_valid_trade_days(trade_dates, context="s4_inputs")
+    if trade_date_for_s4 is not None:
+        assert_all_valid_trade_days([trade_date_for_s4], context="s4_trade_date")
     run_fetch_batch(
         start_date=trade_dates[0],
         end_date=trade_dates[-1],
