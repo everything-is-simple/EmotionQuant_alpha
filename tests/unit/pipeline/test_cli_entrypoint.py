@@ -1317,3 +1317,53 @@ def test_main_trade_runs_paper_mode(
     assert payload["go_nogo"] == "GO"
     assert payload["filled_orders"] > 0
 
+
+def test_main_stress_command_wires_to_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s4b.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_stress(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s4b" / "20260213"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        return SimpleNamespace(
+            trade_date="20260213",
+            scenario="limit_down_chain",
+            repair="",
+            artifacts_dir=artifacts_dir,
+            extreme_defense_report_path=artifacts_dir / "extreme_defense_report.md",
+            deleveraging_policy_snapshot_path=artifacts_dir / "deleveraging_policy_snapshot.json",
+            stress_trade_replay_path=artifacts_dir / "stress_trade_replay.csv",
+            consumption_path=artifacts_dir / "consumption.md",
+            gate_report_path=artifacts_dir / "gate_report.md",
+            error_manifest_path=artifacts_dir / "error_manifest.json",
+            gate_status="WARN",
+            go_nogo="GO",
+            target_deleveraging_ratio=0.4,
+            executed_deleveraging_ratio=0.2,
+            has_error=False,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_stress", _fake_run_stress)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "stress",
+            "--scenario",
+            "limit_down_chain",
+            "--date",
+            "20260213",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s4b_stress"
+    assert payload["scenario"] == "limit_down_chain"
+    assert payload["go_nogo"] == "GO"
+

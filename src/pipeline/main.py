@@ -27,6 +27,7 @@ from src.data.fetch_batch_pipeline import (
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.pipeline.recommend import run_recommendation
+from src.stress.pipeline import run_stress
 from src.trading.pipeline import run_paper_trade
 
 # DESIGN_TRACE:
@@ -242,6 +243,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Trading mode. Current supported: paper.",
     )
     trade_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    stress_parser = subparsers.add_parser("stress", help="Run S4b extreme defense stress pipeline.")
+    stress_parser.add_argument(
+        "--scenario",
+        required=True,
+        choices=("limit_down_chain", "liquidity_dryup", "all"),
+        help="Stress scenario for defense replay.",
+    )
+    stress_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    stress_parser.add_argument(
+        "--repair",
+        choices=("s4br",),
+        default=None,
+        help="Run S4br repair workflow for stress mode.",
+    )
     analysis_parser = subparsers.add_parser("analysis", help="Run S3b analysis pipeline.")
     analysis_parser.add_argument("--start", help="Start trade date in YYYYMMDD.")
     analysis_parser.add_argument("--end", help="End trade date in YYYYMMDD.")
@@ -1078,6 +1093,44 @@ def _run_trade(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_error else 0
 
 
+def _run_stress(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    try:
+        result = run_stress(
+            trade_date=args.date,
+            scenario=args.scenario,
+            repair=str(args.repair or ""),
+            config=ctx.config,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    event_name = "s4br_stress" if str(args.repair or "") == "s4br" else "s4b_stress"
+    print(
+        json.dumps(
+            {
+                "event": event_name,
+                "trade_date": result.trade_date,
+                "scenario": result.scenario,
+                "repair": result.repair,
+                "gate_status": result.gate_status,
+                "go_nogo": result.go_nogo,
+                "target_deleveraging_ratio": result.target_deleveraging_ratio,
+                "executed_deleveraging_ratio": result.executed_deleveraging_ratio,
+                "artifacts_dir": str(result.artifacts_dir),
+                "extreme_defense_report_path": str(result.extreme_defense_report_path),
+                "deleveraging_policy_snapshot_path": str(result.deleveraging_policy_snapshot_path),
+                "stress_trade_replay_path": str(result.stress_trade_replay_path),
+                "consumption_path": str(result.consumption_path),
+                "gate_report_path": str(result.gate_report_path),
+                "error_manifest_path": str(result.error_manifest_path),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 1 if result.has_error else 0
+
+
 def _run_analysis(ctx: PipelineContext, args: argparse.Namespace) -> int:
     try:
         result = run_analysis(
@@ -1227,6 +1280,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_backtest(ctx, args)
     if command == "trade":
         return _run_trade(ctx, args)
+    if command == "stress":
+        return _run_stress(ctx, args)
     if command == "analysis":
         return _run_analysis(ctx, args)
     if command == "validation":

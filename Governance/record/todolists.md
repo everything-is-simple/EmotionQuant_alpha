@@ -25,7 +25,7 @@
    - `S3` 的硬阻塞是 `fetch_progress_range_not_cover_backtest_window`（`S3a` 消费契约），不是 `S3b` 算法本身。
    - `backtest/analysis` 并发会触发 DuckDB 文件锁；同一库写入必须串行执行。
    - 以上两项已完成修复/固化：全窗口 `fetch-batch(20260102~20260213)` 可复跑通过，`S3` 与 `S3b` 均恢复 `GO`。
-4. `S4B` 之后（`S4BR/S4R/S5/S5R/S6/S6R/S7A/S7AR`）暂无实质实现入口与测试覆盖。
+4. `S4b` 已完成首轮可执行落地（`eq stress` 入口 + 三类契约测试）；`S4BR/S4R/S5/S5R/S6/S6R/S7A/S7AR` 仍暂无实质实现与覆盖。
 
 ---
 
@@ -126,7 +126,7 @@
 3. `S3c`：已完成跨窗口稳定性复核并收口。
 4. `S3d`：已完成跨窗口证据并收口；后续仅在 return series 定义变化时重开。
 5. `S3e`：已完成生产校准窗口证据并收口。
-6. `S4b`：以上三圈收口后再进入防御参数校准。
+6. `S4b`：已进入并完成首轮最小闭环，下一步转入跨窗口实跑证据收口与参数校准。
 7. `S3r`：仅条件触发（S3 FAIL 时插入，不单独抢占主线）。
 8. `S4BR -> S4R -> S5 -> S5R -> S6 -> S6R -> S7A -> S7AR`：按主路线继续。
 
@@ -153,6 +153,9 @@
 - [x] TDL-S3-017：完成 S3 跨窗口（W1~W4）run/test/artifact/review/sync 收口，并更新 `spiral-s3/requirements`、`spiral-s3/review`、`spiral-s3/final` 为 completed 口径。
 - [x] TDL-S3-018：完成 S3d 跨窗口（adaptive + future_returns probe）复核收口，并更新 `spiral-s3d/requirements`、`spiral-s3d/review`、`spiral-s3d/final` 为 completed。
 - [x] TDL-S3-019：完成 S3e 跨窗口（20260210/11/12/13）Validation 生产口径复核收口，并更新 `spiral-s3e/requirements`、`spiral-s3e/review`、`spiral-s3e/final` 为 completed。
+- [x] TDL-S4B-001：新增 `eq stress` CLI 子命令与 `src/stress/pipeline.py`，支持 `limit_down_chain/liquidity_dryup/all` 与 `--repair s4br`，并生成执行卡要求产物（`extreme_defense_report/deleveraging_policy_snapshot/stress_trade_replay/consumption/gate_report`）。
+- [x] TDL-S4B-002：新增 S4b 三条交易层契约测试（`test_stress_limit_down_chain`、`test_stress_liquidity_dryup`、`test_deleveraging_policy_contract`）与 1 条 CLI 接线测试（`test_main_stress_command_wires_to_pipeline`）。
+- [ ] TDL-S4B-003：执行 S4b 跨窗口实跑（建议 `20260210/11/12/13`）并固化汇总证据到 `artifacts/spiral-s4b/{trade_date}/cross_window/*`，再进入 `Governance/specs/spiral-s4b` 收口。
 
 ---
 
@@ -178,3 +181,4 @@
 - 2026-02-22：完成 `TDL-S3-017`。已基于 `W1~W4` 快照固化 S3 跨窗口汇总：`artifacts/spiral-s3/20260213/s3_cross_window_summary.{json,md}`（`all_windows_go=true`），并同步 `Governance/specs/spiral-s3/requirements.md`、`Governance/specs/spiral-s3/review.md`、`Governance/specs/spiral-s3/final.md` 为 completed 口径（含 `fetch_progress` 本地覆盖兜底语义）。
 - 2026-02-22：完成 `TDL-S3-018`。已串行完成 S3d 跨窗口复核：adaptive 日期窗 `20260210/11/12/13` 全部 `gate_result=PASS`；future_returns probe 窗口 `20260119-20260213`、`20260126-20260213`、`20260203-20260213`、`20260206-20260213` 均成功落盘并可解释（结论分布：2x positive / 1x negative warn / 1x flat warn）。边界 `20260210-20260213` 的 `P1/future_returns_series_missing` 已固化为短窗样本不足证据。已落盘：`artifacts/spiral-s3d/20260213/s3d_cross_window_summary.{json,md}` 与 `artifacts/spiral-s3d/20260213/cross_window/*`；并同步 `Governance/specs/spiral-s3d/requirements.md`、`Governance/specs/spiral-s3d/review.md`、`Governance/specs/spiral-s3d/final.md` 为 completed。
 - 2026-02-22：完成 `TDL-S3-019`。已串行复跑四个交易日（`20260210/20260211/20260212/20260213`）`eq validation --trade-date {trade_date} --threshold-mode regime --wfa dual-window --export-run-manifest`，四窗均 `status=ok`、`final_gate=WARN`、`go_nogo=GO`、`selected_weight_plan=vp_balanced_v1`。已固化总览与快照证据：`artifacts/spiral-s3e/20260213/s3e_cross_window_summary.{json,md}` 与 `artifacts/spiral-s3e/20260213/cross_window/*`；并同步 `Governance/specs/spiral-s3e/requirements.md`、`Governance/specs/spiral-s3e/review.md`、`Governance/specs/spiral-s3e/final.md` 为 completed。
+- 2026-02-22：完成 `TDL-S4B-001` + `TDL-S4B-002`。已新增 `src/stress/pipeline.py` 与 `eq stress` CLI 路由（`limit_down_chain/liquidity_dryup/all` + `--repair s4br`），落地执行卡要求的 5 类产物，并补齐 3 条 S4b 契约测试 + 1 条 CLI 接线测试。验证结果：`pytest -q tests/unit/trading tests/unit/pipeline/test_cli_entrypoint.py::test_main_stress_command_wires_to_pipeline` => `10 passed`。
