@@ -1,8 +1,8 @@
 # S3 Review（6A A4/A5）
 
 **Spiral**: S3  
-**状态**: in_progress  
-**复盘日期**: 2026-02-17（进行中）
+**状态**: completed  
+**复盘日期**: 2026-02-22
 
 ## 1. A3 交付结果
 
@@ -19,10 +19,16 @@
 
 ## 2. A4 验证记录
 
-### run
+### run（跨窗口）
 
 - 通过:
-  - `eq backtest --engine qlib --start 20260218 --end 20260220`
+  - `eq backtest --engine qlib --start 20260102 --end 20260213`
+  - `eq backtest --engine qlib --start 20260119 --end 20260213`
+  - `eq backtest --engine qlib --start 20260210 --end 20260213`
+  - `eq backtest --engine qlib --start 20260212 --end 20260213`
+- 结论:
+  - 四窗均 `quality_status=WARN`、`go_nogo=GO`、`bridge_check_status=PASS`
+  - `fetch_progress` 缩窗场景在本地 L1 覆盖下已降级 WARN，不再误阻断
 
 ### test
 
@@ -41,19 +47,22 @@
   - `artifacts/spiral-s3/{trade_date}/backtest_results.parquet`
   - `artifacts/spiral-s3/{trade_date}/backtest_trade_records.parquet`
   - `artifacts/spiral-s3/{trade_date}/ab_metric_summary.md`
+  - `artifacts/spiral-s3/{trade_date}/performance_metrics_report.md`
   - `artifacts/spiral-s3/{trade_date}/consumption.md`
   - `artifacts/spiral-s3/{trade_date}/gate_report.md`
+  - `artifacts/spiral-s3/20260213/s3_cross_window_summary.json`
+  - `artifacts/spiral-s3/20260213/s3_cross_window_summary.md`
 
 ## 4. 偏差与风险
 
-1. 多交易日回放与 T+1/涨跌停板块化阈值（10%/20%/5%）已落地，更细撮合规则仍待补齐。
-2. 更完整绩效指标与交易成本/滑点建模仍待补齐。
+1. 无 `P0` 残留阻断；当前主要风险为短窗口无交易样本时只输出 `WARN`，该语义已被契约测试锁定。
+2. DuckDB 文件锁对并行命令敏感，实际执行需保持串行（已固化为执行约束）。
 
 ## 5. 消费记录
 
 - 上游消费: S3 消费 S3a 采集进度产物（`fetch_progress`）。
 - 下游消费: S4 将消费 S3 回测结果与参数结论。
-- 当前结论: 消费链路已打通，满足“先消费再推进”约束。
+- 当前结论: 消费链路已打通且通过跨窗口复核，满足 S3 收口条件。
 
 ## 6. 跨文档联动
 

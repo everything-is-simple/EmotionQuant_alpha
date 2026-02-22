@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-22  
-**当前版本**: v4.41（TDL-S3-012/013/014：S3 消费契约修复 + S3a 抓取窗口语义修复 + 本地覆盖兜底）  
+**当前版本**: v4.44（TDL-S3-018：S3d 跨窗口收口完成）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：S3b 已确认 20/20 覆盖并清零残留失败日，当前聚焦窗口级归因稳定性收口**
+**S3e 执行中，S3/S3b/S3c/S3d 与 S4/S3ar 已收口完成：当前聚焦 S3e 窗口证据闭环**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -19,6 +19,63 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-018：S3d 跨窗口收口）
+
+1. adaptive 阈值跨窗口复核：
+   - `eq mss --date 20260210/20260211/20260212/20260213 --threshold-mode adaptive` 全部通过（`gate_result=PASS`）。
+2. future_returns probe 跨窗口复核：
+   - 成功窗口：`20260119-20260213`、`20260126-20260213`、`20260203-20260213`、`20260206-20260213`。
+   - 结论分布：`PASS_POSITIVE_SPREAD x2`、`WARN_NEGATIVE_SPREAD x1`、`WARN_FLAT_SPREAD x1`。
+   - 边界窗口：`20260210-20260213`（`P1/future_returns_series_missing`，样本不足，不作为主结论窗口）。
+3. 证据固化：
+   - `artifacts/spiral-s3d/20260213/s3d_cross_window_summary.json`
+   - `artifacts/spiral-s3d/20260213/s3d_cross_window_summary.md`
+   - `artifacts/spiral-s3d/20260213/cross_window/*`
+4. 文档收口：
+   - `Governance/specs/spiral-s3d/requirements.md` -> `completed`
+   - `Governance/specs/spiral-s3d/review.md` -> `completed`
+   - `Governance/specs/spiral-s3d/final.md` -> `completed`
+5. 目标测试：
+   - `pytest tests/unit/algorithms/mss/test_mss_adaptive_threshold_contract.py tests/unit/algorithms/mss/test_mss_probe_return_series_contract.py tests/unit/pipeline/test_cli_entrypoint.py::test_main_mss_supports_s3d_threshold_mode tests/unit/pipeline/test_cli_entrypoint.py::test_main_mss_probe_supports_future_returns_source -q` -> `5 passed`
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-017：S3 跨窗口收口）
+
+1. 跨窗口汇总固化（复用 W1~W4）：
+   - `artifacts/spiral-s3/20260213/s3_cross_window_summary.json`
+   - `artifacts/spiral-s3/20260213/s3_cross_window_summary.md`
+   - 结论：`all_windows_go=true`，桥接检查均为 `PASS`。
+2. 语义口径更新：
+   - `S3a fetch_progress` 覆盖不足时，若本地 `raw_trade_cal + raw_daily` 已覆盖窗口，S3 消费降级为 `WARN`，不再误判 `P0`。
+3. 文档收口：
+   - `Governance/specs/spiral-s3/requirements.md` -> `completed`
+   - `Governance/specs/spiral-s3/review.md` -> `completed`
+   - `Governance/specs/spiral-s3/final.md` -> `completed`
+
+---
+
+## 本次同步（2026-02-22，TDL-S3-016：S3c 跨窗口 SW31 复核收口）
+
+1. 跨窗口实跑（串行）：
+   - `eq run --date {trade_date} --to-l2 --strict-sw31`，窗口：`20260210/20260211/20260212/20260213`。
+   - `eq irs --date {trade_date} --require-sw31`，同窗口。
+2. 跨窗口结论：
+   - 四窗均满足 `industry_snapshot_count=31`。
+   - 四窗均满足 `irs_industry_count=31`、`gate_status=PASS`、`go_nogo=GO`。
+   - 汇总结论：`all_sw31_coverage_pass=true`。
+3. 证据固化：
+   - `artifacts/spiral-s3c/20260213/s3c_cross_window_sw31_summary.json`
+   - `artifacts/spiral-s3c/20260213/s3c_cross_window_sw31_summary.md`
+   - `artifacts/spiral-s3c/20260213/cross_window/*`
+4. 文档收口：
+   - `Governance/specs/spiral-s3c/final.md` -> `completed`
+   - `Governance/specs/spiral-s3c/review.md` -> `completed`
+5. 目标测试：
+   - `pytest tests/unit/data/test_industry_snapshot_sw31_contract.py tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py tests/unit/pipeline/test_cli_entrypoint.py::test_main_irs_command_wires_to_pipeline -q` -> `4 passed`
 
 ---
 

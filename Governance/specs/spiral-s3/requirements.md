@@ -1,8 +1,8 @@
 # S3 Requirements（6A A1/A2）
 
 **Spiral**: S3  
-**状态**: in_progress  
-**最后更新**: 2026-02-17
+**状态**: completed  
+**最后更新**: 2026-02-22
 
 ## 1. A1 Align
 
@@ -40,7 +40,7 @@
     - `risk_reward_ratio >= 1.0`
     - 桥接链路：`weight_plan_id -> validation_weight_plan.plan_id`
 - 失败策略:
-  - S3a 未完成或覆盖窗口不足：`P0` 阻断
+  - S3a 未完成或覆盖窗口不足：默认 `P0` 阻断；若本地 `raw_trade_cal + raw_daily` 已覆盖窗口则降级 `WARN`（`fetch_progress_*_but_local_l1_covered`）
   - 质量门为 `FAIL`：`P0` 阻断
   - 桥接链路缺失/基线权重：`P0` 阻断
 
@@ -53,6 +53,8 @@
   - `python -m pytest tests/unit/backtest/test_validation_integration_bridge.py -q`
   - `python -m pytest tests/unit/backtest/test_backtest_reproducibility.py -q`
   - `python -m pytest tests/unit/backtest/test_backtest_t1_limit_rules.py -q`
+  - `python -m pytest tests/unit/backtest/test_backtest_board_limit_thresholds.py -q`
+  - `python -m pytest tests/unit/backtest/test_backtest_cost_model_contract.py -q`
   - `python -m pytest tests/unit/pipeline/test_cli_entrypoint.py::test_main_backtest_runs_with_s3a_consumption -q`
   - `python -m scripts.quality.local_quality_check --contracts --governance`
 - artifact:

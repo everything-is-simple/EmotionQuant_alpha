@@ -46,7 +46,7 @@
 
 ## 3.1 S3
 
-- 卡状态：`Active`（未完成）
+- 卡状态：`Completed`（2026-02-22，cross-window 收口）
 - 代码/测试证据：
   - 回测主链存在且可执行：`src/backtest/pipeline.py`
   - 关键测试存在：`tests/unit/backtest/*`
@@ -55,7 +55,7 @@
   - [x] 处理 `total_trades > 0` 断言与“无交易窗口 WARN/GO”语义冲突（`TDL-S3-001` 已完成）
   - [x] 补齐“更细撮合规则”收口项（`TDL-S3-009` 已完成）
   - [x] 补齐“更完整绩效指标 + 成本/滑点模型”收口项（`TDL-S3-010` + `TDL-S3-011` 已完成）
-  - [ ] `S3 final` 从 `in_progress/PARTIAL_PASS` 进入可收口状态
+  - [x] `S3 final` 从 `in_progress/PARTIAL_PASS` 进入 `completed`（跨窗口汇总已固化）
 
 ## 3.2 S3a
 
@@ -87,18 +87,18 @@
 
 ## 3.5 S3c
 
-- 卡状态：`Active`
+- 卡状态：`Completed`（2026-02-22，跨窗口复核收口）
 - 代码/测试证据：`--strict-sw31` + `irs --require-sw31` 与测试已落地
 - 未完成项：
-  - [ ] 从“单窗口通过（20260219）”升级到“跨窗口稳定性复核并收口”
-  - [ ] 与 S3b 节奏对齐后将 `spiral-s3c/final.md` 从 `in_progress` 推进
+  - [x] 从“单窗口通过（20260219）”升级到“跨窗口稳定性复核并收口”
+  - [x] 与 S3b 节奏对齐后将 `spiral-s3c/final.md` 从 `in_progress` 推进
 
 ## 3.6 S3d
 
-- 卡状态：`Active`
+- 卡状态：`Completed`（2026-02-22，跨窗口复核收口）
 - 代码/测试证据：CLI 参数、adaptive、future_returns probe 合同测试已存在
 - 未完成项：
-  - [ ] 窗口级 run/test/artifact/review/sync 五件套收口（当前仅“CLI阻断解除”）
+  - [x] 窗口级 run/test/artifact/review/sync 五件套收口（跨窗口总览与快照证据已固化）
   - [x] `future_returns` 实跑证据已补齐并固化：`artifacts/spiral-s3d/20260119_20260213/mss_probe_return_series_report.md`
 
 ## 3.7 S3e
@@ -121,11 +121,11 @@
 
 ## 4. 下一步执行顺序（与现有路线图不冲突）
 
-1. `S3`：推进 `final/review` 收口，固化 canary 窗口 `20260102~20260213` 的 run/test/artifact 证据。
+1. `S3`：已完成 `final/review` 收口；后续仅在交易执行语义变更时重开修复子圈。
 2. `S3b`：已完成跨窗口归因稳定性复核与收口，后续仅在新增 live filled 样本时按同框架重跑复核。
-3. `S3c`：完成跨窗口稳定性复核并收口。
-4. `S3d`：补齐 probe 真实收益窗口证据并收口。
-5. `S3e`：补齐生产校准窗口证据并收口。
+3. `S3c`：已完成跨窗口稳定性复核并收口。
+4. `S3d`：已完成跨窗口证据并收口；后续仅在 return series 定义变化时重开。
+5. `S3e`：补齐生产校准窗口证据并收口（当前主线下一项）。
 6. `S4b`：以上三圈收口后再进入防御参数校准。
 7. `S3r`：仅条件触发（S3 FAIL 时插入，不单独抢占主线）。
 8. `S4BR -> S4R -> S5 -> S5R -> S6 -> S6R -> S7A -> S7AR`：按主路线继续。
@@ -149,6 +149,9 @@
 - [x] TDL-S3-013：修复 `fetch-batch` 窗口交易日历加载语义（按窗口一次性读取 `trade_cal`，只跑开市日；真实链路强制串行写库），并将 CLI 默认 `batch-size` 调整为 `30`。
 - [x] TDL-S3-014：修复 `fetch_progress` 缩窗导致的 S3 误阻断（当本地 L1 已覆盖窗口时，`fetch_progress` 未覆盖降级为 WARN，不再 P0 阻断）。
 - [x] TDL-S3-015：完成 S3b 跨窗口（W1~W4）三分解稳定性复核与收口，固化窗口级快照证据并更新 `spiral-s3b/final` 为 `completed`。
+- [x] TDL-S3-016：完成 S3c 跨窗口（20260210/11/12/13）SW31 语义与 IRS 覆盖稳定性复核，并更新 `spiral-s3c/final`、`spiral-s3c/review` 为 `completed`。
+- [x] TDL-S3-017：完成 S3 跨窗口（W1~W4）run/test/artifact/review/sync 收口，并更新 `spiral-s3/requirements`、`spiral-s3/review`、`spiral-s3/final` 为 completed 口径。
+- [x] TDL-S3-018：完成 S3d 跨窗口（adaptive + future_returns probe）复核收口，并更新 `spiral-s3d/requirements`、`spiral-s3d/review`、`spiral-s3d/final` 为 completed。
 
 ---
 
@@ -170,3 +173,6 @@
 - 2026-02-22：完成 `TDL-S3-013`。`src/data/fetch_batch_pipeline.py` 改为窗口级一次性读取 `trade_cal` 并仅执行开市日采集，真实链路写库固定 `workers=1`；`src/pipeline/main.py` 将 `fetch-batch` 默认 `batch-size` 下调到 `30` 并补 CLI 契约测试。新增实测速率脚本 `scripts/data/benchmark_tushare_l1_channels_window.py`（含中文注释），实测 `20260101~20260213`：`primary` 约 `38~57 calls/min`，`fallback` 约 `197~206 calls/min`。
 - 2026-02-22：完成 `TDL-S3-014`。`src/backtest/pipeline.py` 对 `s3a_consumption` 新增“本地 L1 覆盖兜底”语义：当 `fetch_progress` 状态/窗口不满足，但 `raw_trade_cal + raw_daily` 在目标窗口存在覆盖时，改为 `WARN`（`fetch_progress_*_but_local_l1_covered`）而非 `P0`；新增契约测试 `tests/unit/backtest/test_backtest_contract.py::test_backtest_uses_local_l1_coverage_when_fetch_progress_range_is_narrow`。验证：`pytest -q` 全量 `174 passed`。
 - 2026-02-22：完成 `TDL-S3-015`。已串行复跑四个窗口（`W1:20260102-20260213`、`W2:20260119-20260213`、`W3:20260210-20260213`、`W4:20260212-20260213`）的 `backtest + analysis(AB+deviation+attribution)`，四窗均 `GO`；结论分布稳定：`A_not_dominant=4`、`dominant_component=none=4`。已固化总览与快照证据：`artifacts/spiral-s3b/20260213/s3b_cross_window_stability_summary.{json,md}`、`artifacts/spiral-s3b/20260213/cross_window/*`，并将 `Governance/specs/spiral-s3b/final.md` 更新为 `completed`。
+- 2026-02-22：完成 `TDL-S3-016`。已串行复跑四个交易日（`20260210/20260211/20260212/20260213`）的 `run --to-l2 --strict-sw31 + irs --require-sw31`，四窗均满足 `industry_snapshot_count=31`、`irs_industry_count=31`、`gate_status=PASS`、`go_nogo=GO`。证据已固化：`artifacts/spiral-s3c/20260213/s3c_cross_window_sw31_summary.{json,md}` 与 `artifacts/spiral-s3c/20260213/cross_window/*`；`Governance/specs/spiral-s3c/final.md`、`Governance/specs/spiral-s3c/review.md` 已更新为 `completed`。
+- 2026-02-22：完成 `TDL-S3-017`。已基于 `W1~W4` 快照固化 S3 跨窗口汇总：`artifacts/spiral-s3/20260213/s3_cross_window_summary.{json,md}`（`all_windows_go=true`），并同步 `Governance/specs/spiral-s3/requirements.md`、`Governance/specs/spiral-s3/review.md`、`Governance/specs/spiral-s3/final.md` 为 completed 口径（含 `fetch_progress` 本地覆盖兜底语义）。
+- 2026-02-22：完成 `TDL-S3-018`。已串行完成 S3d 跨窗口复核：adaptive 日期窗 `20260210/11/12/13` 全部 `gate_result=PASS`；future_returns probe 窗口 `20260119-20260213`、`20260126-20260213`、`20260203-20260213`、`20260206-20260213` 均成功落盘并可解释（结论分布：2x positive / 1x negative warn / 1x flat warn）。边界 `20260210-20260213` 的 `P1/future_returns_series_missing` 已固化为短窗样本不足证据。已落盘：`artifacts/spiral-s3d/20260213/s3d_cross_window_summary.{json,md}` 与 `artifacts/spiral-s3d/20260213/cross_window/*`；并同步 `Governance/specs/spiral-s3d/requirements.md`、`Governance/specs/spiral-s3d/review.md`、`Governance/specs/spiral-s3d/final.md` 为 completed。
