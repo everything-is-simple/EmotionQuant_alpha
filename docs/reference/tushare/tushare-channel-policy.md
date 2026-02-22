@@ -1,7 +1,7 @@
 # TuShare 通道策略（主备口径）
 
 **版本**: v1.0.0  
-**最后更新**: 2026-02-19  
+**最后更新**: 2026-02-22  
 **适用范围**: Data Layer L1 八类原始接口采集
 
 ---
@@ -51,6 +51,9 @@ TUSHARE_FALLBACK_RATE_LIMIT_PER_MIN=0
 ## 4. 验证命令
 
 ```powershell
+# 双通道一键可用性验证（推荐，显式读取 .env，避免 shell 未导入环境变量时误判）
+python scripts/data/check_tushare_dual_tokens.py --env-file .env --channels both
+
 # 主通道可用性
 python scripts/data/check_tushare_l1_token.py --token-env TUSHARE_PRIMARY_TOKEN --http-url http://106.54.191.157:5000
 
@@ -63,6 +66,12 @@ python scripts/data/benchmark_tushare_l1_rate.py --token-env TUSHARE_PRIMARY_TOK
 # 吞吐压测（兜底通道）
 python scripts/data/benchmark_tushare_l1_rate.py --token-env TUSHARE_FALLBACK_TOKEN --api daily --calls 500 --workers 50
 ```
+
+补充说明（2026-02-22）：
+
+1. `check_tushare_l1_token.py --token-env ...` 只读取当前进程环境变量，不会主动加载 `.env`。
+2. 如果 shell 会话没有先导入 `.env`，脚本会按既有逻辑回退到 docs token 文件，可能造成“误判 fallback key 不可用”。
+3. 因此主流程统一使用 `check_tushare_dual_tokens.py --env-file .env` 作为双 key 基线校验命令。
 
 ---
 

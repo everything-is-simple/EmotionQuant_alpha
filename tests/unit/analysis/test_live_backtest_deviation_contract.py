@@ -93,3 +93,49 @@ def test_live_backtest_deviation_empty_both_sides_is_warn(tmp_path: Path) -> Non
     manifest = json.loads(result.error_manifest_path.read_text(encoding="utf-8"))
     assert int(manifest["error_count"]) == 0
     assert "deviation_not_applicable_no_filled_trade" in manifest["warnings"]
+
+
+def test_live_backtest_deviation_fallbacks_to_signal_date_when_trade_date_is_empty(
+    tmp_path: Path,
+) -> None:
+    config = build_analysis_config(tmp_path, ".env.s3b.deviation.signal-fallback")
+    trade_date = latest_open_trade_days(1)[0]
+    seed_deviation_tables(config, trade_date)
+    with duckdb.connect(str(database_path(config))) as connection:
+        connection.execute(
+            "UPDATE backtest_trade_records SET trade_date = '20991231' WHERE signal_date = ?",
+            [trade_date],
+        )
+
+    result = run_analysis(
+        config=config,
+        trade_date=trade_date,
+        deviation_mode="live-backtest",
+    )
+    assert result.has_error is False
+    assert result.quality_status in {"PASS", "WARN"}
+    assert result.go_nogo == "GO"
+    manifest = json.loads(result.error_manifest_path.read_text(encoding="utf-8"))
+    assert int(manifest["error_count"]) == 0
+    assert "deviation_backtest_trade_date_empty_fallback_signal_date" in manifest["warnings"]
+
+
+def test_live_backtest_deviation_backtest_side_empty_is_warn_not_fail(tmp_path: Path) -> None:
+    config = build_analysis_config(tmp_path, ".env.s3b.deviation.partial")
+    trade_date = latest_open_trade_days(1)[0]
+    seed_deviation_tables(config, trade_date)
+    with duckdb.connect(str(database_path(config))) as connection:
+        connection.execute("DELETE FROM backtest_trade_records WHERE trade_date = ?", [trade_date])
+
+    result = run_analysis(
+        config=config,
+        trade_date=trade_date,
+        deviation_mode="live-backtest",
+    )
+    assert result.has_error is False
+    assert result.quality_status == "WARN"
+    assert result.go_nogo == "GO"
+    manifest = json.loads(result.error_manifest_path.read_text(encoding="utf-8"))
+    assert int(manifest["error_count"]) == 0
+    assert "backtest_trade_records_empty_for_trade_date" in manifest["warnings"]
+    assert "deviation_based_on_partial_samples" in manifest["warnings"]

@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
 **最后更新**: 2026-02-22  
-**当前版本**: v4.45（TDL-S3-019：S3e 跨窗口收口完成）  
+**当前版本**: v4.47（TDL-S4B-004：S3b 偏差单侧样本 WARN 语义修复）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3/S3b/S3c/S3d/S3e 与 S4/S3ar 已收口完成：当前聚焦 S4b 参数校准闭环**
+**S3/S3b/S3c/S3d/S3e 与 S4/S3ar/S4b 已收口完成：当前聚焦 S5 监控层实装准备**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -19,6 +19,29 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-22，TDL-S4B-003：S4b 跨窗口实跑收口）
+
+1. S4b 跨窗口实跑（隔离数据环境）：
+   - `trade` + `stress(limit_down_chain/liquidity_dryup)` 窗口：`20260210/20260211/20260212/20260213`。
+   - 运行环境固定到 `artifacts/spiral-s4b/20260213/eq_data_tdl_s4b_003_isolated`，规避全局 `DATA_PATH` 污染。
+2. 结果分布：
+   - `all_trade_go=true`、`all_stress_go=true`。
+   - `stress_gate_distribution={'WARN':8}`。
+   - `stress_policy_source_distribution={'live_backtest_deviation':8}`（参数来源可追溯）。
+3. 证据固化：
+   - `artifacts/spiral-s4b/20260213/s4b_cross_window_summary.json`
+   - `artifacts/spiral-s4b/20260213/s4b_cross_window_summary.md`
+   - `artifacts/spiral-s4b/20260213/cross_window/*`
+   - `artifacts/spiral-s4b/20260213/s4b_run_manifest*.json`
+4. 规格收口：
+   - 新增 `Governance/specs/spiral-s4b/requirements.md`
+   - 新增 `Governance/specs/spiral-s4b/review.md`
+   - 新增 `Governance/specs/spiral-s4b/final.md`
+5. 补充修复：
+   - 已完成 `TDL-S4B-004`：`analysis --deviation live-backtest` 单侧样本缺失由 `FAIL` 调整为 `WARN/GO`，四窗 `analysis_status_distribution={'ok':4}`。
 
 ---
 
@@ -527,7 +550,7 @@
 | S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 🔄 进行中 | `20260219` 窗口已通过 SW31/IRS 门禁并补齐 `gate/consumption` 产物，待与 S3b 固定窗口节奏对齐后收口 |
 | S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | 已补齐 `future_returns` probe 实跑证据，待完成剩余窗口五件套收口 |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
-| S4b | 极端防御专项圈 | 📋 未开始 | 依赖 S3e 收口结论输入防御参数 |
+| S4b | 极端防御专项圈 | ✅ 已完成 | 已完成四窗 `trade+stress` 收口并固化 S3b 参数消费证据（`TDL-S4B-004` 已清偿） |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4b 完成 |
 | S6 | 稳定化闭环 | 📋 未开始 | 重跑一致性与债务清偿 |
 | S7a | ENH-11 自动调度闭环 | 📋 未开始 | 依赖 S6 完成 |
@@ -556,6 +579,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-22 | v4.47 | 完成 TDL-S4B-004：`analysis --deviation` 单侧样本缺失从 `FAIL` 调整为 `WARN/GO`，新增回归测试并刷新 S4b 四窗汇总 |
+| 2026-02-22 | v4.46 | 完成 TDL-S4B-003：S4b 四窗 `trade+stress` 实跑收口，新增 `spiral-s4b` 规格三件套并固化跨窗口汇总证据 |
 | 2026-02-22 | v4.39 | 完成 TDL-S3-011：回测落地分层费率与冲击成本模型，新增成本指标落库与成本契约测试，验证全量 `170 passed` |
 | 2026-02-22 | v4.38 | 完成 TDL-S3-010：回测新增收益分布/换手稳定性指标落库与 `performance_metrics_report.md` 产物，兼容 CLI 输出并验证全量 `167 passed` |
 | 2026-02-22 | v4.37 | 完成 TDL-S3-009 第二步：回测新增 `REJECT_LIQUIDITY_DRYUP` 与审计计数，补齐低成交概率独立拒单回归，验证全量 `167 passed` |

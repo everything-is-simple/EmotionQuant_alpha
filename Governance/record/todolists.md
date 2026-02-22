@@ -25,7 +25,7 @@
    - `S3` 的硬阻塞是 `fetch_progress_range_not_cover_backtest_window`（`S3a` 消费契约），不是 `S3b` 算法本身。
    - `backtest/analysis` 并发会触发 DuckDB 文件锁；同一库写入必须串行执行。
    - 以上两项已完成修复/固化：全窗口 `fetch-batch(20260102~20260213)` 可复跑通过，`S3` 与 `S3b` 均恢复 `GO`。
-4. `S4b` 已完成首轮可执行落地（`eq stress` 入口 + 三类契约测试）；`S4BR/S4R/S5/S5R/S6/S6R/S7A/S7AR` 仍暂无实质实现与覆盖。
+4. `S4b` 已完成跨窗口实跑证据（`trade + stress` 四窗）与参数来源消费闭环；`S4BR/S4R/S5/S5R/S6/S6R/S7A/S7AR` 仍暂无实质实现与覆盖。
 
 ---
 
@@ -126,7 +126,7 @@
 3. `S3c`：已完成跨窗口稳定性复核并收口。
 4. `S3d`：已完成跨窗口证据并收口；后续仅在 return series 定义变化时重开。
 5. `S3e`：已完成生产校准窗口证据并收口。
-6. `S4b`：已进入并完成首轮最小闭环，下一步转入跨窗口实跑证据收口与参数校准。
+6. `S4b`：已完成跨窗口实跑证据收口（四窗 `GO`）；下一步转入 `S4BR/S4R` 条件触发验证与 S5 监控层实装。
 7. `S3r`：仅条件触发（S3 FAIL 时插入，不单独抢占主线）。
 8. `S4BR -> S4R -> S5 -> S5R -> S6 -> S6R -> S7A -> S7AR`：按主路线继续。
 
@@ -155,7 +155,9 @@
 - [x] TDL-S3-019：完成 S3e 跨窗口（20260210/11/12/13）Validation 生产口径复核收口，并更新 `spiral-s3e/requirements`、`spiral-s3e/review`、`spiral-s3e/final` 为 completed。
 - [x] TDL-S4B-001：新增 `eq stress` CLI 子命令与 `src/stress/pipeline.py`，支持 `limit_down_chain/liquidity_dryup/all` 与 `--repair s4br`，并生成执行卡要求产物（`extreme_defense_report/deleveraging_policy_snapshot/stress_trade_replay/consumption/gate_report`）。
 - [x] TDL-S4B-002：新增 S4b 三条交易层契约测试（`test_stress_limit_down_chain`、`test_stress_liquidity_dryup`、`test_deleveraging_policy_contract`）与 1 条 CLI 接线测试（`test_main_stress_command_wires_to_pipeline`）。
-- [ ] TDL-S4B-003：执行 S4b 跨窗口实跑（建议 `20260210/11/12/13`）并固化汇总证据到 `artifacts/spiral-s4b/{trade_date}/cross_window/*`，再进入 `Governance/specs/spiral-s4b` 收口。
+- [x] TDL-S4B-003：执行 S4b 跨窗口实跑（`20260210/11/12/13`）并固化汇总证据到 `artifacts/spiral-s4b/20260213/cross_window/*`，并补齐 `Governance/specs/spiral-s4b` 收口文档。
+- [x] TDL-S4B-004：清理 `analysis --deviation` 的“单侧样本缺失即 FAIL”语义，改为 `WARN/GO` 非阻断，并补回归测试与四窗复跑验证。
+- [x] TDL-OPS-TUSHARE-001：新增 `scripts/data/check_tushare_dual_tokens.py`（显式读取 `.env`，一次校验 `primary/fallback` 两路 key），并在 `docs/reference/tushare/tushare-channel-policy.md` 固化“`--token-env` 不会主动加载 `.env`”的误判根因与推荐命令。
 
 ---
 
@@ -182,3 +184,6 @@
 - 2026-02-22：完成 `TDL-S3-018`。已串行完成 S3d 跨窗口复核：adaptive 日期窗 `20260210/11/12/13` 全部 `gate_result=PASS`；future_returns probe 窗口 `20260119-20260213`、`20260126-20260213`、`20260203-20260213`、`20260206-20260213` 均成功落盘并可解释（结论分布：2x positive / 1x negative warn / 1x flat warn）。边界 `20260210-20260213` 的 `P1/future_returns_series_missing` 已固化为短窗样本不足证据。已落盘：`artifacts/spiral-s3d/20260213/s3d_cross_window_summary.{json,md}` 与 `artifacts/spiral-s3d/20260213/cross_window/*`；并同步 `Governance/specs/spiral-s3d/requirements.md`、`Governance/specs/spiral-s3d/review.md`、`Governance/specs/spiral-s3d/final.md` 为 completed。
 - 2026-02-22：完成 `TDL-S3-019`。已串行复跑四个交易日（`20260210/20260211/20260212/20260213`）`eq validation --trade-date {trade_date} --threshold-mode regime --wfa dual-window --export-run-manifest`，四窗均 `status=ok`、`final_gate=WARN`、`go_nogo=GO`、`selected_weight_plan=vp_balanced_v1`。已固化总览与快照证据：`artifacts/spiral-s3e/20260213/s3e_cross_window_summary.{json,md}` 与 `artifacts/spiral-s3e/20260213/cross_window/*`；并同步 `Governance/specs/spiral-s3e/requirements.md`、`Governance/specs/spiral-s3e/review.md`、`Governance/specs/spiral-s3e/final.md` 为 completed。
 - 2026-02-22：完成 `TDL-S4B-001` + `TDL-S4B-002`。已新增 `src/stress/pipeline.py` 与 `eq stress` CLI 路由（`limit_down_chain/liquidity_dryup/all` + `--repair s4br`），落地执行卡要求的 5 类产物，并补齐 3 条 S4b 契约测试 + 1 条 CLI 接线测试。验证结果：`pytest -q tests/unit/trading tests/unit/pipeline/test_cli_entrypoint.py::test_main_stress_command_wires_to_pipeline` => `10 passed`。
+- 2026-02-22：完成 `TDL-S4B-003`。已在隔离数据环境（`artifacts/spiral-s4b/20260213/eq_data_tdl_s4b_003_isolated`）串行复跑四窗 `trade + stress`，并固化总览证据：`artifacts/spiral-s4b/20260213/s4b_cross_window_summary.{json,md}` 与 `artifacts/spiral-s4b/20260213/cross_window/*`。结论：`all_trade_go=true`、`all_stress_go=true`、`stress_gate_distribution={'WARN':8}`，且 `stress_policy_source_distribution={'live_backtest_deviation':8}`（参数来源已可追溯到 S3b 偏差表）。
+- 2026-02-22：完成 `TDL-S4B-004`。`src/analysis/pipeline.py` 已将 `live-backtest deviation` 的单侧样本缺失从 `P1 error` 调整为 `warning`（`WARN/GO`），并新增回归测试 `tests/unit/analysis/test_live_backtest_deviation_contract.py::test_live_backtest_deviation_backtest_side_empty_is_warn_not_fail`。四窗复跑后 `analysis_status_distribution={'ok':4}`、`analysis_quality_distribution={'WARN':4}`，S4b 汇总证据已刷新。
+- 2026-02-22：完成 `TDL-OPS-TUSHARE-001`。新增双通道 key 基线脚本 `scripts/data/check_tushare_dual_tokens.py`，固定命令：`python scripts/data/check_tushare_dual_tokens.py --env-file .env --channels both`。并在 `docs/reference/tushare/tushare-channel-policy.md` 明确：`check_tushare_l1_token.py --token-env ...` 不会自动加载 `.env`，若 shell 未导入环境变量会回退 docs token 文件，从而造成兜底 key 误判。

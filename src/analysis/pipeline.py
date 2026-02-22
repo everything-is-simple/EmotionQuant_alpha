@@ -370,14 +370,30 @@ def run_analysis(
                         "ORDER BY bt.stock_code",
                         [trade_date],
                     ).df()
+                    if bt_frame.empty and _table_has_column(
+                        connection, "backtest_trade_records", "signal_date"
+                    ):
+                        bt_frame = connection.execute(
+                            "SELECT bt.stock_code, bt.filled_price, bt.amount, bt.final_score, ir.entry "
+                            "FROM backtest_trade_records bt "
+                            "LEFT JOIN integrated_recommendation ir "
+                            "ON bt.signal_date = ir.trade_date AND bt.stock_code = ir.stock_code "
+                            "WHERE bt.signal_date = ? AND bt.status = 'filled' AND bt.direction = 'buy' "
+                            "ORDER BY bt.stock_code",
+                            [trade_date],
+                        ).df()
+                        if not bt_frame.empty:
+                            warnings.append(
+                                "deviation_backtest_trade_date_empty_fallback_signal_date"
+                            )
 
                     if live_frame.empty and bt_frame.empty:
                         warnings.append("deviation_not_applicable_no_filled_trade")
                     else:
                         if live_frame.empty:
-                            add_error("P1", "deviation", "live_trade_records_empty_for_trade_date")
+                            warnings.append("live_trade_records_empty_for_trade_date")
                         if bt_frame.empty:
-                            add_error("P1", "deviation", "backtest_trade_records_empty_for_trade_date")
+                            warnings.append("backtest_trade_records_empty_for_trade_date")
 
                     live_exec = pd.to_numeric(
                         (live_frame["filled_price"] - live_frame["entry"]) / live_frame["entry"],

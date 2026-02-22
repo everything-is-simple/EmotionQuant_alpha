@@ -23,6 +23,11 @@ powershell -ExecutionPolicy Bypass -File scripts/data/start_l1_full_fetch.ps1 -S
 # Check TuShare token for required 8 L1 APIs (primary token by default)
 python scripts/data/check_tushare_l1_token.py
 
+# Check both primary/fallback tokens in one command (loads .env explicitly)
+python scripts/data/check_tushare_dual_tokens.py `
+  --env-file .env `
+  --channels both
+
 # Check with explicit token source file
 python scripts/data/check_tushare_l1_token.py `
   --token-file docs/reference/tushare/tushare-config-5000积分-官方-兜底号.md
