@@ -20,7 +20,13 @@ def _build_config(tmp_path: Path) -> Config:
     return Config.from_env(env_file=str(env_file))
 
 
-def _seed_inputs(config: Config, trade_date: str) -> tuple[int, int]:
+def _seed_inputs(
+    config: Config,
+    trade_date: str,
+    *,
+    mss_score: float = 55.0,
+    pct_chg_std: float = 0.02,
+) -> tuple[int, int]:
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with duckdb.connect(str(db_path)) as connection:
@@ -38,9 +44,9 @@ def _seed_inputs(config: Config, trade_date: str) -> tuple[int, int]:
         connection.execute(
             """
             INSERT INTO mss_panorama (trade_date, mss_score, pct_chg_std, stale_days, created_at)
-            VALUES (?, 55.0, 0.02, 0, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
             """,
-            [trade_date],
+            [trade_date, float(mss_score), float(pct_chg_std)],
         )
 
         connection.execute(
@@ -53,6 +59,8 @@ def _seed_inputs(config: Config, trade_date: str) -> tuple[int, int]:
         )
         for idx in range(40):
             synthetic_date = f"202601{idx + 1:02d}"
+            if synthetic_date == trade_date:
+                continue
             connection.execute(
                 "INSERT INTO raw_daily (trade_date, close) VALUES (?, 10.0)",
                 [synthetic_date],
@@ -144,3 +152,36 @@ def test_neutral_regime_dual_window_softens_factor_fail_to_warn(tmp_path: Path) 
     assert manifest["vote_detail"]["factor_gate_raw"] == "FAIL"
     assert manifest["vote_detail"]["neutral_regime_softening_applied"] is True
 
+
+def test_cold_or_volatile_dual_window_softens_factor_fail_to_warn(tmp_path: Path) -> None:
+    config = _build_config(tmp_path)
+    trade_date = "20260126"
+    irs_count, pas_count = _seed_inputs(
+        config,
+        trade_date,
+        mss_score=40.0,
+        pct_chg_std=0.05,
+    )
+
+    result = run_validation_gate(
+        trade_date=trade_date,
+        config=config,
+        irs_count=irs_count,
+        pas_count=pas_count,
+        mss_exists=True,
+        artifacts_dir=tmp_path / "artifacts" / "spiral-s3e" / trade_date,
+        threshold_mode="regime",
+        wfa_mode="dual-window",
+        export_run_manifest=True,
+    )
+
+    assert result.final_gate == "WARN"
+    frame_row = result.frame.iloc[0]
+    assert str(frame_row["reason"]) == "cold_or_volatile_factor_softened"
+    assert str(frame_row["factor_gate"]) == "WARN"
+    assert float(frame_row["position_cap_ratio"]) == 0.60
+
+    vote_detail = json.loads(str(frame_row["vote_detail"]))
+    assert vote_detail["factor_gate_raw"] == "FAIL"
+    assert vote_detail["cold_or_volatile_softening_applied"] is True
+    assert vote_detail["neutral_regime_softening_applied"] is False

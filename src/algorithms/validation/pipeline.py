@@ -496,7 +496,18 @@ def run_validation_gate(
         and factor_gate == "FAIL"
         and not issues
     )
-    decision_factor_gate = "WARN" if neutral_regime_softening_applied else factor_gate
+    cold_or_volatile_softening_applied = bool(
+        resolved_threshold_mode == "regime"
+        and resolved_wfa_mode == "dual-window"
+        and regime == "cold_or_volatile"
+        and factor_gate == "FAIL"
+        and not issues
+    )
+    decision_factor_gate = (
+        "WARN"
+        if (neutral_regime_softening_applied or cold_or_volatile_softening_applied)
+        else factor_gate
+    )
 
     rr_effective = pd.to_numeric(
         pas_frame.get("effective_risk_reward_ratio", pd.Series(dtype=float)),
@@ -684,6 +695,13 @@ def run_validation_gate(
         position_cap_ratio = 0.80
         reason = "neutral_regime_factor_softened"
         validation_prescription = "monitor_factor_metrics_and_continue_with_caution"
+    elif cold_or_volatile_softening_applied:
+        final_gate = "WARN"
+        failure_class = ""
+        fallback_plan = "baseline"
+        position_cap_ratio = 0.60
+        reason = "cold_or_volatile_factor_softened"
+        validation_prescription = "reduce_position_cap_and_monitor_factor_metrics"
     elif stale_days > effective_config.stale_days_threshold:
         final_gate = "WARN"
         failure_class = "data_stale"
@@ -737,6 +755,7 @@ def run_validation_gate(
                         "weight_gate": weight_gate,
                         "regime": regime,
                         "neutral_regime_softening_applied": neutral_regime_softening_applied,
+                        "cold_or_volatile_softening_applied": cold_or_volatile_softening_applied,
                     },
                     ensure_ascii=False,
                 ),
@@ -788,6 +807,7 @@ def run_validation_gate(
             "weight_gate": weight_gate,
             "reason": reason,
             "neutral_regime_softening_applied": neutral_regime_softening_applied,
+            "cold_or_volatile_softening_applied": cold_or_volatile_softening_applied,
         },
         "contract_version": SUPPORTED_CONTRACT_VERSION,
         "created_at": created_at,
