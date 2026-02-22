@@ -235,6 +235,41 @@ def test_main_irs_command_wires_to_pipeline(
     assert payload["status"] == "ok"
 
 
+def test_main_pas_command_wires_to_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s2b.pas.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_pas_daily(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s2c" / "20260213"
+        return SimpleNamespace(
+            trade_date="20260213",
+            count=123,
+            factor_intermediate_sample_path=artifacts_dir / "pas_factor_intermediate_sample.parquet",
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_pas_daily", _fake_run_pas_daily)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "pas",
+            "--date",
+            "20260213",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s2b_pas"
+    assert payload["pas_stock_count"] == 123
+    assert payload["status"] == "ok"
+
+
 def test_main_mss_runs_after_l1_and_l2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     data_root = tmp_path / "eq_data"
     env_file = tmp_path / ".env.s1a.cli"
@@ -709,6 +744,76 @@ def test_main_recommend_runs_s2b_integrated_mode(
     payload_bu = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert payload_bu["event"] == "s2b_recommend"
     assert payload_bu["integration_mode"] == "bottom_up"
+
+
+def test_main_recommend_forwards_validation_mode_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s2b.validation.flags.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    def _fake_run_recommendation(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s2c" / "20260213"
+        return SimpleNamespace(
+            trade_date="20260213",
+            mode="integrated",
+            integration_mode="dual_verify",
+            evidence_lane="release",
+            artifacts_dir=artifacts_dir,
+            irs_count=31,
+            pas_count=5474,
+            validation_count=1,
+            final_gate="WARN",
+            integrated_count=10,
+            quality_gate_status="WARN",
+            go_nogo="GO",
+            has_error=False,
+            error_manifest_path=artifacts_dir / "error_manifest_sample.json",
+            irs_sample_path=artifacts_dir / "irs_industry_daily_sample.parquet",
+            pas_sample_path=artifacts_dir / "stock_pas_daily_sample.parquet",
+            validation_sample_path=artifacts_dir / "validation_gate_decision_sample.parquet",
+            integrated_sample_path=artifacts_dir / "integrated_recommendation_sample.parquet",
+            quality_gate_report_path=artifacts_dir / "quality_gate_report.md",
+            go_nogo_decision_path=artifacts_dir / "s2_go_nogo_decision.md",
+            s2r_patch_note_path=None,
+            s2r_delta_report_path=None,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_recommendation", _fake_run_recommendation)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "recommend",
+            "--date",
+            "20260213",
+            "--mode",
+            "integrated",
+            "--with-validation",
+            "--with-validation-bridge",
+            "--integration-mode",
+            "dual_verify",
+            "--evidence-lane",
+            "release",
+            "--validation-threshold-mode",
+            "regime",
+            "--validation-wfa",
+            "dual-window",
+            "--validation-export-run-manifest",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s2b_recommend"
+    assert captured["validation_threshold_mode"] == "regime"
+    assert captured["validation_wfa_mode"] == "dual-window"
+    assert captured["validation_export_run_manifest"] is True
 
 
 def test_main_recommend_runs_s2r_repair_mode(

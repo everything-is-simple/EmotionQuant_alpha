@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-21  
-**版本**: v2.27  
+**最后更新**: 2026-02-22  
+**版本**: v2.28  
 **范围**: S0-S6
 
 ---
@@ -115,6 +115,9 @@
 | A-TEST-049 | S3 回测无可开仓窗口合同测试 | `tests/unit/backtest/test_backtest_contract.py::test_backtest_no_long_entry_signal_window_is_warn_not_fail` | A | 固化固定窗口 `total_trades=0` 时的 WARN/GO 契约 |
 | A-TEST-050 | S3b 空样本 N/A 语义测试 | `tests/unit/analysis/test_live_backtest_deviation_contract.py::test_live_backtest_deviation_empty_both_sides_is_warn` + `tests/unit/analysis/test_attribution_summary_contract.py::test_attribution_summary_no_filled_trade_is_warn` | A | 固化偏差/归因在无成交样本场景的 WARN/GO 契约 |
 | A-TEST-051 | Integration 旧表类型修复回归测试 | `tests/unit/integration/test_integration_contract.py::test_s2b_repairs_legacy_position_size_integer_schema` | A | 固化 `position_size` 旧整型表自动修复并恢复小数仓位能力 |
+| A-QA-052 | S3b 优先级串行重跑器 | `scripts/quality/rerun_s3b_priority.py` | A | 支持按优先级 CSV 串行执行 `run/mss/irs/recommend`，并落盘失败归因与摘要 |
+| A-TEST-053 | S3e neutral soft-gate 契约测试 | `tests/unit/algorithms/validation/test_neutral_regime_soft_gate_contract.py` | A | 固化 `regime + dual-window + neutral` 场景下 `factor_gate_raw=FAIL` 到决策 `WARN` 的审计契约 |
+| A-TEST-054 | CLI `pas` 与 validation 参数透传测试 | `tests/unit/pipeline/test_cli_entrypoint.py::test_main_pas_command_wires_to_pipeline` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_recommend_forwards_validation_mode_flags` + `tests/unit/pipeline/test_recommend_evidence_lane.py::test_integrated_bridge_validation_defaults_to_s3e_modes` | A | 固化 `pas` 子命令与 `recommend` 的 S3e 参数透传/默认值契约 |
 
 ---
 
@@ -135,6 +138,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-22 | v2.28 | 新增 S3b 优先级串行重跑器（A-QA-052）与 S3e 软门/CLI 透传测试资产（A-TEST-053~054） |
 | 2026-02-21 | v2.27 | 新增 S3/S3b 固定窗口解锁资产（A-CODE-046、A-CODE-047）与 Integration 旧表类型修复资产（A-CODE-048），并补齐对应合同测试（A-TEST-049~051） |
 | 2026-02-21 | v2.26 | 新增 S3c CLI 产物契约资产（A-CODE-043、A-TEST-045）与 L2 初始化受控回退资产（A-CODE-044） |
 | 2026-02-21 | v2.25 | 新增 S3/S4 历史 schema 兼容资产（A-CODE-039、A-TEST-040）与 Validation decay 单调口径资产（A-CODE-041、A-TEST-042） |

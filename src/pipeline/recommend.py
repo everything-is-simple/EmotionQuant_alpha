@@ -279,6 +279,9 @@ def _run_s2a(
     config: Config,
     s2c_artifacts_dir: Path | None = None,
     evidence_lane: str = "release",
+    validation_threshold_mode: str = "fixed",
+    validation_wfa_mode: str = "single-window",
+    validation_export_run_manifest: bool = False,
 ) -> RecommendRunResult:
     if not with_validation:
         raise ValueError("S2a requires --with-validation")
@@ -331,6 +334,9 @@ def _run_s2a(
             pas_count=pas_count,
             mss_exists=mss_exists,
             artifacts_dir=s2c_artifacts_dir,
+            threshold_mode=validation_threshold_mode,
+            wfa_mode=validation_wfa_mode,
+            export_run_manifest=validation_export_run_manifest,
         )
         validation_count = validation_result.count
         final_gate = validation_result.final_gate
@@ -416,6 +422,9 @@ def _run_s2b(
     config: Config,
     evidence_lane: str,
     integration_mode: str,
+    validation_threshold_mode: str = "",
+    validation_wfa_mode: str = "",
+    validation_export_run_manifest: bool = False,
 ) -> RecommendRunResult:
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     artifacts_dir = (
@@ -454,6 +463,19 @@ def _run_s2b(
     try:
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         if with_validation:
+            resolved_threshold_mode = (
+                str(validation_threshold_mode).strip().lower()
+                if str(validation_threshold_mode).strip()
+                else ("regime" if with_validation_bridge else "fixed")
+            )
+            resolved_wfa_mode = (
+                str(validation_wfa_mode).strip().lower()
+                if str(validation_wfa_mode).strip()
+                else ("dual-window" if with_validation_bridge else "single-window")
+            )
+            resolved_export_run_manifest = bool(validation_export_run_manifest) or bool(
+                with_validation_bridge
+            )
             # S2b 默认消费 S2a 结果；若显式开启，则先重算 S2a 上游输入。
             upstream = _run_s2a(
                 trade_date=trade_date,
@@ -461,6 +483,9 @@ def _run_s2b(
                 config=config,
                 s2c_artifacts_dir=artifacts_dir if with_validation_bridge else None,
                 evidence_lane=evidence_lane,
+                validation_threshold_mode=resolved_threshold_mode,
+                validation_wfa_mode=resolved_wfa_mode,
+                validation_export_run_manifest=resolved_export_run_manifest,
             )
             irs_count = upstream.irs_count
             pas_count = upstream.pas_count
@@ -599,6 +624,9 @@ def _run_s2r(
     with_validation_bridge: bool,
     config: Config,
     integration_mode: str,
+    validation_threshold_mode: str = "",
+    validation_wfa_mode: str = "",
+    validation_export_run_manifest: bool = False,
 ) -> RecommendRunResult:
     s2b_result = _run_s2b(
         trade_date=trade_date,
@@ -607,6 +635,9 @@ def _run_s2r(
         config=config,
         evidence_lane="release",
         integration_mode=integration_mode,
+        validation_threshold_mode=validation_threshold_mode,
+        validation_wfa_mode=validation_wfa_mode,
+        validation_export_run_manifest=validation_export_run_manifest,
     )
 
     s2r_artifacts_dir = Path("artifacts") / "spiral-s2r" / trade_date
@@ -690,6 +721,9 @@ def run_recommendation(
     repair: str = "",
     integration_mode: str = "top_down",
     evidence_lane: str = "release",
+    validation_threshold_mode: str = "",
+    validation_wfa_mode: str = "",
+    validation_export_run_manifest: bool = False,
     config: Config,
 ) -> RecommendRunResult:
     if evidence_lane not in {"release", "debug"}:
@@ -706,6 +740,11 @@ def run_recommendation(
             with_validation=with_validation,
             config=config,
             evidence_lane=evidence_lane,
+            validation_threshold_mode=(
+                str(validation_threshold_mode).strip().lower() or "fixed"
+            ),
+            validation_wfa_mode=(str(validation_wfa_mode).strip().lower() or "single-window"),
+            validation_export_run_manifest=bool(validation_export_run_manifest),
         )
     if mode == "integrated":
         if repair_mode == "s2r":
@@ -715,6 +754,9 @@ def run_recommendation(
                 with_validation_bridge=with_validation_bridge,
                 config=config,
                 integration_mode=integration_mode,
+                validation_threshold_mode=validation_threshold_mode,
+                validation_wfa_mode=validation_wfa_mode,
+                validation_export_run_manifest=validation_export_run_manifest,
             )
         return _run_s2b(
             trade_date=trade_date,
@@ -723,5 +765,8 @@ def run_recommendation(
             evidence_lane=evidence_lane,
             config=config,
             integration_mode=integration_mode,
+            validation_threshold_mode=validation_threshold_mode,
+            validation_wfa_mode=validation_wfa_mode,
+            validation_export_run_manifest=validation_export_run_manifest,
         )
     raise ValueError(f"unsupported mode for current stage: {mode}")

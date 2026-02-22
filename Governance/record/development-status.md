@@ -1,14 +1,14 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-21  
-**当前版本**: v4.28（S3 固定窗口解锁：无可开仓信号改 WARN 语义 + S3b 空样本 N/A）  
+**最后更新**: 2026-02-22  
+**当前版本**: v4.29（S3b Option2 扩窗 20 日完成：Backtest WARN/GO + Analysis PASS/GO）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
 ## 当前阶段
 
-**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：S3b 固定窗口已解锁，当前转入扩窗补样并并行推进 S3c/S3d/S3e 窗口收口**
+**S3/S3b/S3c/S3d/S3e 执行中，S4 与 S3ar 已收口完成：S3b 已完成 20 日扩窗证据，当前聚焦清零剩余 2 个 S3e 因子门失败日**
 
 - S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
 - S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
@@ -19,6 +19,24 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-22，S3b Option2 扩窗 20 日）
+
+1. 按 `Option2` 完成缺失链路补齐：
+   - 对缺失日串行执行 `run --to-l2 --strict-sw31 -> mss -> irs --require-sw31 -> pas`，补齐 15 天。
+   - 产物：`artifacts/spiral-s3b/20260213/option2_refill_20d_results.json`（15/15 成功）。
+2. 完成 20 日信号补齐与残留识别：
+   - 通过 `recommend --mode integrated --with-validation-bridge` 快速补齐后，剩余失败日收敛为 2 天（`20260126`、`20260202`，`factor_validation_fail`）。
+   - 产物：`artifacts/spiral-s3b/20260213/option2_signal_fill_20d_results.json`。
+3. 完成 20 日回测与分析收口证据：
+   - `eq backtest --engine local_vectorized --start 20260119 --end 20260213` => `quality_status=WARN`, `go_nogo=GO`, `total_trades=36`, `consumed_signal_rows=288`。
+   - `eq analysis --start 20260119 --end 20260213 --ab-benchmark` => `quality_status=PASS`, `go_nogo=GO`，结论 `A_not_dominant`。
+4. 固化本轮汇总：
+   - `artifacts/spiral-s3b/20260213/option2_closure_summary.json`。
+5. 回归验证：
+   - `pytest` 定向回归通过（4 passed）：S3e 软门契约、CLI `pas` 路由、validation 参数透传、S3e 默认模式透传。
 
 ---
 
@@ -244,7 +262,7 @@
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
 | S3r | 回测修复子圈（条件触发） | 📋 未开始 | 修复命令已落地（`backtest --repair s3r`），待 FAIL 场景触发 |
-| S3b | 收益归因验证专项圈 | 🔄 进行中 | 固定窗口已从阻断转为 WARN/GO，当前进入扩窗补样与收益来源稳定性复核 |
+| S3b | 收益归因验证专项圈 | 🔄 进行中 | 已完成 20 日扩窗证据（backtest WARN/GO + analysis PASS/GO），剩余 2 个 factor_validation_fail 日期待 S3e 清零 |
 | S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 🔄 进行中 | `20260219` 窗口已通过 SW31/IRS 门禁并补齐 `gate/consumption` 产物，待与 S3b 固定窗口节奏对齐后收口 |
 | S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
@@ -257,7 +275,7 @@
 
 ## 下一步（S3b/S3c -> S3d/S3e）
 
-1. 在 `S3b` 执行扩窗补样（提高有效成交样本），复核 `signal/execution/cost` 三分解稳定性。
+1. 在 `S3e` 优先清零剩余两天 `factor_validation_fail`（`20260126`、`20260202`），再回到 `S3b` 复跑 20 日闭环确认 `20/20` 覆盖。
 2. 固化固定窗口 N/A 警告口径到 `spiral-s3b/review/final`（避免再次误判为阻断）。
 3. 基于 `20260219` 已有 S3c 证据，补跑固定窗口并完成 `spiral-s3c final` 收口。
 4. 在 S3c 语义校准收口后，对 S3d/S3e 执行窗口级实证并固化 `review/final`。
@@ -278,6 +296,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-22 | v4.29 | 完成 S3b Option2 扩窗 20 日：补齐 15 天链路、回测 `WARN/GO`（36 trades）、分析 `PASS/GO`（A_not_dominant），并定位残留 2 天 `factor_validation_fail` 进入 S3e 清零 |
 | 2026-02-21 | v4.28 | S3 固定窗口解锁：回测“无可开仓信号”改 WARN 语义；S3b 在双侧无成交样本场景输出 N/A 警告（WARN/GO）；补齐 integration 旧表数值列类型修复 |
 | 2026-02-21 | v4.27 | S3c 启动：`20260219` 窗口通过 SW31/IRS 门禁；补齐 `s3c_irs` 的 `gate_report/consumption` 契约；`run --to-l2` 初始化异常改为受控回退 |
 | 2026-02-21 | v4.26 | S3/S3e 核心阻断修复：回测/交易历史 schema 兼容落地；Validation `decay_5d` 口径改为单调正向并补测试；S3b 固定窗口仍因无成交记录阻断 |

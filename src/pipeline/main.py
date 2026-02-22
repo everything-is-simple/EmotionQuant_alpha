@@ -15,6 +15,7 @@ from src import __version__
 from src.algorithms.irs.pipeline import run_irs_daily
 from src.algorithms.mss.pipeline import run_mss_scoring
 from src.algorithms.mss.probe import run_mss_probe
+from src.algorithms.pas.pipeline import run_pas_daily
 from src.algorithms.validation.pipeline import run_validation_gate
 from src.config.config import Config
 from src.data.fetch_batch_pipeline import (
@@ -134,6 +135,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable SW31 full coverage gate (S3c strict mode).",
     )
+    pas_parser = subparsers.add_parser("pas", help="Run PAS scoring for a trade date.")
+    pas_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
     probe_parser = subparsers.add_parser("mss-probe", help="Run MSS-only probe on date range.")
     probe_parser.add_argument("--start", required=True, help="Start trade date in YYYYMMDD.")
     probe_parser.add_argument("--end", required=True, help="End trade date in YYYYMMDD.")
@@ -177,6 +180,23 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("s2r",),
         default=None,
         help="Run S2r repair workflow for integrated mode.",
+    )
+    recommend_parser.add_argument(
+        "--validation-threshold-mode",
+        choices=("fixed", "regime"),
+        default=None,
+        help="Validation threshold mode when --with-validation is enabled.",
+    )
+    recommend_parser.add_argument(
+        "--validation-wfa",
+        choices=("single-window", "dual-window"),
+        default=None,
+        help="Validation WFA mode when --with-validation is enabled.",
+    )
+    recommend_parser.add_argument(
+        "--validation-export-run-manifest",
+        action="store_true",
+        help="Export validation run manifest when --with-validation is enabled.",
     )
     fetch_batch_parser = subparsers.add_parser(
         "fetch-batch",
@@ -682,6 +702,44 @@ def _run_irs(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_pas(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    print(
+        json.dumps(
+            {
+                "event": "pas_start",
+                "command": ctx.command,
+                "trade_date": args.date,
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    try:
+        result = run_pas_daily(
+            trade_date=args.date,
+            config=ctx.config,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+
+    status = "ok" if int(result.count) > 0 else "failed"
+    print(
+        json.dumps(
+            {
+                "event": "s2b_pas",
+                "trade_date": args.date,
+                "pas_stock_count": int(result.count),
+                "factor_intermediate_sample_path": str(result.factor_intermediate_sample_path),
+                "status": status,
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
+    return 0 if status == "ok" else 1
+
+
 def _run_mss_probe(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return_series_source = str(args.return_series_source or "temperature_delta").strip().lower()
     artifacts_dir = None
@@ -749,6 +807,9 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
                 "with_validation_bridge": bool(args.with_validation_bridge),
                 "evidence_lane": args.evidence_lane,
                 "repair": str(args.repair or ""),
+                "validation_threshold_mode": str(args.validation_threshold_mode or ""),
+                "validation_wfa_mode": str(args.validation_wfa or ""),
+                "validation_export_run_manifest": bool(args.validation_export_run_manifest),
             },
             ensure_ascii=True,
             sort_keys=True,
@@ -763,6 +824,9 @@ def _run_recommend(ctx: PipelineContext, args: argparse.Namespace) -> int:
             repair=str(args.repair or ""),
             integration_mode=str(args.integration_mode or "top_down"),
             evidence_lane=args.evidence_lane,
+            validation_threshold_mode=str(args.validation_threshold_mode or ""),
+            validation_wfa_mode=str(args.validation_wfa or ""),
+            validation_export_run_manifest=bool(args.validation_export_run_manifest),
             config=ctx.config,
         )
     except ValueError as exc:
@@ -1144,6 +1208,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_mss(ctx, args)
     if command == "irs":
         return _run_irs(ctx, args)
+    if command == "pas":
+        return _run_pas(ctx, args)
     if command == "mss-probe":
         return _run_mss_probe(ctx, args)
     if command == "recommend":

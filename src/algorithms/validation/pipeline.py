@@ -489,6 +489,14 @@ def run_validation_gate(
 
     factor_report_frame = pd.DataFrame.from_records(factor_rows)
     factor_gate = _aggregate_gate(factor_report_frame["gate"].tolist()) if not factor_report_frame.empty else "FAIL"
+    neutral_regime_softening_applied = bool(
+        resolved_threshold_mode == "regime"
+        and resolved_wfa_mode == "dual-window"
+        and regime == "neutral"
+        and factor_gate == "FAIL"
+        and not issues
+    )
+    decision_factor_gate = "WARN" if neutral_regime_softening_applied else factor_gate
 
     rr_effective = pd.to_numeric(
         pas_frame.get("effective_risk_reward_ratio", pd.Series(dtype=float)),
@@ -653,7 +661,7 @@ def run_validation_gate(
         reason = "core_inputs_missing"
         validation_prescription = "rebuild_l2_and_rerun_mss_irs_pas"
         selected_weight_plan = ""
-    elif factor_gate == "FAIL":
+    elif decision_factor_gate == "FAIL":
         final_gate = "FAIL"
         failure_class = "factor_failure"
         fallback_plan = "baseline"
@@ -669,13 +677,20 @@ def run_validation_gate(
         reason = "weight_validation_fail"
         validation_prescription = "fallback_baseline_and_retrain_weight_candidates"
         selected_weight_plan = ""
+    elif neutral_regime_softening_applied:
+        final_gate = "WARN"
+        failure_class = ""
+        fallback_plan = "baseline"
+        position_cap_ratio = 0.80
+        reason = "neutral_regime_factor_softened"
+        validation_prescription = "monitor_factor_metrics_and_continue_with_caution"
     elif stale_days > effective_config.stale_days_threshold:
         final_gate = "WARN"
         failure_class = "data_stale"
         fallback_plan = "last_valid"
         position_cap_ratio = 0.60
         reason = "stale_days_exceed_threshold"
-    elif factor_gate == "WARN" or weight_gate == "WARN":
+    elif decision_factor_gate == "WARN" or weight_gate == "WARN":
         final_gate = "WARN"
         failure_class = ""
         fallback_plan = "baseline"
@@ -700,7 +715,7 @@ def run_validation_gate(
             {
                 "trade_date": trade_date,
                 "final_gate": final_gate,
-                "factor_gate": factor_gate,
+                "factor_gate": decision_factor_gate,
                 "weight_gate": weight_gate,
                 "selected_weight_plan": selected_weight_plan,
                 "issues": ";".join(issues),
@@ -717,9 +732,11 @@ def run_validation_gate(
                 "validation_prescription": validation_prescription,
                 "vote_detail": json.dumps(
                     {
-                        "factor_gate": factor_gate,
+                        "factor_gate": decision_factor_gate,
+                        "factor_gate_raw": factor_gate,
                         "weight_gate": weight_gate,
                         "regime": regime,
+                        "neutral_regime_softening_applied": neutral_regime_softening_applied,
                     },
                     ensure_ascii=False,
                 ),
@@ -766,9 +783,11 @@ def run_validation_gate(
             "stale_days": int(stale_days),
         },
         "vote_detail": {
-            "factor_gate": factor_gate,
+            "factor_gate": decision_factor_gate,
+            "factor_gate_raw": factor_gate,
             "weight_gate": weight_gate,
             "reason": reason,
+            "neutral_regime_softening_applied": neutral_regime_softening_applied,
         },
         "contract_version": SUPPORTED_CONTRACT_VERSION,
         "created_at": created_at,
@@ -850,7 +869,7 @@ def run_validation_gate(
         f"- threshold_mode: {resolved_threshold_mode}",
         f"- wfa_mode: {resolved_wfa_mode}",
         f"- final_gate: {final_gate}",
-        f"- factor_gate: {factor_gate}",
+        f"- factor_gate: {decision_factor_gate}",
         f"- weight_gate: {weight_gate}",
         f"- selected_weight_plan: {selected_weight_plan or 'none'}",
         f"- tradability_pass_ratio: {tradability_pass_ratio}",
