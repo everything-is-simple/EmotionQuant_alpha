@@ -1,192 +1,141 @@
-# Plan A 增强方案：现有路线最大化增强
+# Plan A 路线修订（Reborn 增强版）
 
 **创建时间**: 2026-02-23  
-**目标**: 在不破坏现有路线基础上，进行最大增强使其能够实战  
-**状态**: 增强建议  
+**更新时间**: 2026-02-23  
+**目标**: 不推倒现有 Plan A，在原路线内恢复“真螺旋闭环”  
+**状态**: Active（执行合同）
 
 ---
 
-## 核心问题诊断
+## 1. 修订原则（吸收危机报告 + Plan B）
 
-当前Plan A的关键问题：
-1. **数据断层**：TuShare数据未落实到本地数据库
-2. **模块孤立**：各模块独立运行，缺乏端到端验证
-3. **成果不可见**：无法产生可演示的业务价值
-4. **回测缺失**：核心算法无法完成完整回测
+本修订直接吸收 `.reports/crisis-diagnosis-20260223.md` 与 `Governance/SpiralRoadmap/planB/` 的方法，但不切换主线。
+
+1. 不再用“任务完成”代替“闭环完成”。
+2. 每个螺旋必须端到端：`本地数据 -> 算法集成 -> 回测 -> 归因 -> 可见成果`。
+3. 每个螺旋都必须回答三句话：
+   - 这圈做成了什么？
+   - 效果如何？
+   - 下一圈凭什么能进？
+4. 继续复用现有 S0-S7 执行卡，不做重构式推翻。
+5. 上位 SoT 仍是 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`。
 
 ---
 
-## 立即行动项（P0优先级）
+## 2. Plan A 三大螺旋（Reborn 口径）
 
-### 1. 数据基础设施强化
+### 螺旋 1：Canary 闭环（2-3 个月）
+
+- 对应圈位：`S0a -> S0b -> S0c -> S1a -> S1b -> S2a -> S2b -> S2c -> S3(min) -> S3b(min)`
+- 主目标：先证明“情绪主线策略可运行、可回测、可解释”。
+- 入口硬条件：
+  - 本地 DuckDB 可读写，`Config.from_env()` 注入有效。
+  - 交易日历可用，A 股规则字段可追溯。
+- 圈内必须交付：
+  - canary 数据落地（建议先 `2022-01-01` 到 `2024-12-31`）。
+  - MSS/IRS/PAS/Validation/Integration 主链可运行。
+  - 简单回测（本地引擎）可复现。
+  - 最小归因（`signal/execution/cost` 三分解）可导出。
+- 出口硬门禁（全部满足才可进入螺旋 2）：
+  - `data_coverage >= 99%`（目标窗口内）。
+  - `eq run` 与 `eq backtest` 在同一窗口可重复运行。
+  - 至少 1 份 canary 收益曲线 + 1 份归因报告。
+  - `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 完成一轮更新。
+
+### 螺旋 2：Full 闭环（3-4 个月）
+
+- 对应圈位：`S3a -> S3ar -> S3 -> S4 -> S3b -> S3c -> S3d -> S3e -> S4b`
+- 主目标：在 16 年历史数据上完成完整算法验证与归因闭环。
+- 入口硬条件：
+  - 螺旋 1 门禁全部通过。
+  - `validation_weight_plan` 桥接链路稳定可审计。
+- 圈内必须交付：
+  - 16 年历史数据落地（目标：`2008-01-01` 至 `2024-12-31`）。
+  - 多窗口完整回测（至少 1y/3y/5y + 典型牛熊段）。
+  - A/B/C 对照 + 实盘-回测偏差归因完整化。
+  - SW31 全行业语义校准、MSS adaptive、Validation 生产校准闭环。
+- 出口硬门禁（全部满足才可进入螺旋 3）：
+  - 全市场历史数据落库完成并通过质量检查。
+  - 回测报告覆盖多窗口且可复现。
+  - 归因报告可回答“收益主要来自哪里”。
+  - 极端防御参数来源可追溯到 `S3b + S3e` 联合证据。
+
+### 螺旋 3：Production 闭环（2-3 个月）
+
+- 对应圈位：`S5 -> S6 -> S7a`（必要时 `S5r/S6r/S7ar`）
+- 主目标：把可验证策略升级为可运行系统（纸上交易/运营口径）。
+- 入口硬条件：
+  - 螺旋 2 门禁全部通过。
+  - 关键风险项无 P0 未闭环阻断。
+- 圈内必须交付：
+  - GUI/日报消费 L3 真实产物，不允许手工覆盖。
+  - 全链路重跑一致性报告。
+  - 自动调度、运行历史、失败重试可审计。
+- 出口硬门禁：
+  - 7x24 运维口径可监控。
+  - 关键流程可回放、可追责、可恢复。
+  - 生产就绪评估报告明确 `GO/NO_GO`。
+
+---
+
+## 3. Plan A P0 增强（立即执行，不破坏主线）
+
+### P0-1 本地数据止血
+
 ```bash
-# 立即执行：建立本地数据库完整链路
-eq fetch-batch --start 20220101 --end 20241231 --force-local-db
+eq fetch-batch --start 20220101 --end 20241231 --batch-size 365 --workers 3
+eq fetch-retry
 eq data-quality-check --comprehensive
-eq backfill-missing --auto-retry
 ```
 
-**目标**：
-- 3年完整历史数据入库
-- 每日自动增量更新
-- 数据质量>99%
+目标：先让 canary-3y 数据可用，再持续扩窗至 16 年。
 
-### 2. 端到端验证链路
+### P0-2 端到端可运行证据
+
 ```bash
-# 每日必须能跑通的完整链路
 eq run --date 20241220 --full-pipeline --validate-each-step
 eq backtest --start 20240101 --end 20241220 --engine local
-eq analysis --attribution --risk-decomposition
+eq analysis --start 20240101 --end 20241220 --ab-benchmark
 ```
 
-**目标**：
-- 数据→算法→回测→分析全链路打通
-- 每个环节都有业务价值输出
-- 端到端执行时间<2小时
+目标：至少产出一组“数据->算法->回测->归因”完整证据包。
 
-### 3. 业务价值可视化
-```python
-# 立即开发：每日业务价值报告
-class BusinessValueReporter:
-    def generate_daily_value_report(self):
-        return {
-            'signals_generated': len(self.get_today_signals()),
-            'backtest_performance': self.get_latest_backtest_metrics(),
-            'data_coverage': self.get_data_quality_metrics(),
-            'system_health': self.get_system_status()
-        }
-```
+### P0-3 成果可见化
+
+每圈必须同步业务看板：`Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`
+
+最低字段：
+
+- 数据覆盖率、缺失率、最近交易日一致性
+- 回测窗口、收益/回撤/夏普
+- 归因结论（signal/execution/cost）
+- 当前 `GO/NO_GO`
 
 ---
 
-## 中期增强项（P1优先级）
+## 4. 禁止事项（防“做完但没做成”）
 
-### 1. 螺旋化改造现有路线
-将当前S0-S7的线性流程改造为3个大螺旋：
+以下任一出现，禁止标记“螺旋完成”：
 
-#### 螺旋A：数据+基础算法闭环（S0-S2）
-- **入口**：原始数据获取
-- **算法**：MSS+IRS+PAS基础版
-- **验证**：简单回测+基础分析
-- **输出**：每日5-10个信号，基础绩效报告
-
-#### 螺旋B：完整算法+严格验证（S3-S5）
-- **入口**：螺旋A的输出
-- **算法**：完整版算法+动态权重
-- **验证**：多周期回测+归因分析
-- **输出**：每日20-50个信号，专业分析报告
-
-#### 螺旋C：生产化+运维（S6-S7）
-- **入口**：螺旋B的输出
-- **算法**：生产级优化+风险管理
-- **验证**：实时监控+合规检查
-- **输出**：实盘就绪系统
-
-### 2. 强制业务价值门禁
-每个螺旋必须通过业务价值验证：
-```python
-class BusinessValueGate:
-    def validate_spiral_completion(self, spiral_id):
-        gates = {
-            'spiral_a': {
-                'daily_signals': lambda: len(get_signals()) >= 5,
-                'backtest_return': lambda: get_backtest_return() > 0.1,
-                'data_quality': lambda: get_data_quality() > 0.99
-            },
-            'spiral_b': {
-                'signal_quality': lambda: get_signal_sharpe() > 1.0,
-                'attribution_complete': lambda: has_attribution_analysis(),
-                'multi_period_stable': lambda: all_periods_profitable()
-            },
-            'spiral_c': {
-                'production_ready': lambda: system_uptime() > 0.999,
-                'compliance_pass': lambda: regulatory_check_pass(),
-                'real_trading_ready': lambda: broker_integration_test()
-            }
-        }
-        return all(gate() for gate in gates[spiral_id].values())
-```
+1. 未落库本地数据，只跑模拟或临时数据。
+2. 只有单元测试通过，没有可复现回测产物。
+3. 有回测结果但无归因结论。
+4. 有技术报告但无法回答“本圈业务价值是什么”。
+5. `--contracts --governance` 未通过仍推进下一圈。
 
 ---
 
-## 技术债务清偿计划
+## 5. 与 Plan B 的关系
 
-### 立即清偿（本周内）
-1. **TuShare→本地数据库**：完整实现数据落地
-2. **回测引擎修复**：确保能基于本地数据完成回测
-3. **端到端测试**：建立每日全链路验证
-
-### 短期清偿（本月内）
-1. **算法集成优化**：确保MSS+IRS+PAS能产生有效信号
-2. **绩效分析完善**：实现基础的归因分析
-3. **GUI基础功能**：能展示信号和绩效
-
-### 中期清偿（3个月内）
-1. **多周期验证**：不同市场环境下的稳定性验证
-2. **风险管理增强**：完整的风险控制体系
-3. **生产化准备**：监控、告警、运维体系
+1. Plan A 仍是执行主线；Plan B 是方法来源与备选。
+2. 本次修订已把 Plan B 的三螺旋思想吸收进 Plan A。
+3. 若螺旋 1 连续两个评审周期无法通过出口门禁，再触发是否切换 Plan B 的治理评审。
 
 ---
 
-## 执行策略
+## 6. 变更记录
 
-### 双轨并行
-1. **主轨**：继续当前S5-S7路线，但强化业务价值验证
-2. **辅轨**：并行建设数据基础设施和端到端验证
-
-### 每周里程碑
-- **Week 1**：数据基础设施+端到端链路
-- **Week 2**：业务价值可视化+基础回测
-- **Week 3**：算法集成优化+绩效分析
-- **Week 4**：GUI增强+系统稳定性
-
-### 风险控制
-- 每周必须有可演示的业务价值
-- 任何模块完成后立即进行端到端测试
-- 发现问题立即修复，不允许技术债务累积
-
----
-
-## 成功指标
-
-### 短期指标（1个月）
-- [ ] 本地数据库包含3年完整数据
-- [ ] 每日能产生5-10个交易信号
-- [ ] 基础回测年化收益>8%
-- [ ] GUI能展示当日信号和历史绩效
-
-### 中期指标（3个月）
-- [ ] 多周期回测稳定盈利
-- [ ] 完整的归因分析报告
-- [ ] 系统7×24小时稳定运行
-- [ ] 具备实盘交易基础能力
-
-### 长期指标（6个月）
-- [ ] 通过模拟盘验证
-- [ ] 满足监管合规要求
-- [ ] 具备客户服务能力
-- [ ] 实盘交易就绪
-
----
-
-## 与Plan B的对比
-
-| 维度 | Plan A增强 | Plan B重建 |
-|------|------------|------------|
-| 实施风险 | 低（基于现有代码） | 高（重新开始） |
-| 时间成本 | 中（3-6个月） | 高（8-12个月） |
-| 技术债务 | 中（逐步清偿） | 低（全新设计） |
-| 业务连续性 | 高（不中断开发） | 低（需要重启） |
-| 最终质量 | 中高 | 高 |
-
----
-
-## 建议
-
-基于当前情况，建议：
-
-1. **优先Plan A增强**：风险更低，能更快看到成果
-2. **保留Plan B作为备选**：如果增强效果不佳，可切换到Plan B
-3. **设置评估节点**：1个月后评估增强效果，决定是否继续或切换
-
-关键是立即行动，不能再让系统处于"看起来在开发但没有业务价值"的状态。
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v2.0 | 2026-02-23 | 重写为 Reborn 增强版：三大螺旋闭环、P0 止血动作、成果可见看板与禁止事项落地 |
+| v1.0 | 2026-02-23 | 初版增强建议 |

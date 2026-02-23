@@ -1,13 +1,14 @@
 # S3ar 执行卡（v0.3）
 
-**状态**: Completed（2026-02-21 复核通过）  
+**状态**: Implemented（工程完成，业务待重验）  
+**重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3ar（采集稳定性修复圈：双 TuShare 主备 + DuckDB 锁恢复）
 
 ---
 
-## 完成态复核（2026-02-21）
+## 工程实现复核（2026-02-21）
 
 - 复核结论：S3ar 已完成并收口，主备通道与锁恢复语义已落地。
 - 证据锚点：`Governance/specs/spiral-s3ar/final.md`、`Governance/specs/spiral-s3ar/review.md`。
@@ -101,3 +102,5 @@ pytest tests/unit/config/test_config_defaults.py -q
 
 - 已完成口径修订：S3ar 当前聚焦“双 TuShare 主备 + 锁恢复”，AKShare/BaoStock 转为路线图预留。
 - 本卡作为 S3ar 收口合同，后续实现需严格按本卡 run/test/artifact/review/sync 执行。
+
+

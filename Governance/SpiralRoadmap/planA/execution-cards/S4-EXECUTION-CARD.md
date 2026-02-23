@@ -1,6 +1,7 @@
 # S4 执行卡（v0.2）
 
-**状态**: Completed  
+**状态**: Implemented（工程完成，业务待重验）  
+**重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-18  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S4（纸上交易闭环）
@@ -84,3 +85,5 @@ pytest tests/unit/trading/test_risk_guard_contract.py -q
 - 已完成 S4 收口：`artifacts/spiral-s4/20260222/` 形成完整 run/test/artifact 证据链，`quality_status=WARN`、`go_nogo=GO`。
 - 已验证跨日持仓关键边界：跌停不可卖阻断与次日重试卖出可回放。
 - 下一步：进入 S3b（收益归因验证闭环）。
+
+

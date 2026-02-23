@@ -1,6 +1,7 @@
 # S3 执行卡（v0.3）
 
-**状态**: Completed  
+**状态**: Implemented（工程完成，业务待重验）  
+**重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3（回测闭环）
@@ -94,3 +95,5 @@ pytest tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py -q
 - 已进入 `in_progress`，并完成多交易日回放与板块化涨跌停阈值（10%/20%/5%）落地。
 - 已补齐“完整核心算法+本地库”回测门禁：S3 对 `mss_score/irs_score/pas_score` 三因子完整性与 `mss_panorama/irs_industry_daily/stock_pas_daily` 窗口覆盖进行硬校验，并在 `consumption.md`/`gate_report.md` 输出 DuckDB 覆盖证据。
 - 下一步：继续补齐更细撮合规则与可回放证据，推进 S3 收口。
+
+

@@ -1,13 +1,14 @@
 # S1b 执行卡（v0.3）
 
-**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
+**状态**: Implemented（工程完成，业务待重验）  
+**重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
 **微圈**: S1b（MSS 消费验证）
 
 ---
 
-## 完成态复核（2026-02-21）
+## 工程实现复核（2026-02-21）
 
 - 复核结论：本卡任务已完成，MSS 输出消费验证闭环满足实战要求。
 - 证据锚点：`src/algorithms/mss/probe.py`、`src/integration/mss_consumer.py`、`tests/unit/algorithms/mss/test_mss_probe_contract.py`、`tests/unit/integration/test_mss_integration_contract.py`。
@@ -111,5 +112,7 @@ pytest tests/unit/integration/test_mss_integration_contract.py -q
 - 微圈合同：`Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 核心设计：`docs/design/core-algorithms/mss/mss-algorithm.md`
+
+
 
 

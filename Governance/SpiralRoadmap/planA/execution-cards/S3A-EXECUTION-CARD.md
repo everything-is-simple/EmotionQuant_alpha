@@ -1,13 +1,14 @@
 # S3a 执行卡（v0.4）
 
-**状态**: Completed（2026-02-21 复核通过）  
+**状态**: Implemented（工程完成，业务待重验）  
+**重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-22  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3a（ENH-10 数据采集增强）
 
 ---
 
-## 完成态复核（2026-02-21）
+## 工程实现复核（2026-02-21）
 
 - 复核结论：S3a 已完成并可用于实战链路输入准备。
 - 证据锚点：`Governance/specs/spiral-s3a/final.md`、`Governance/specs/spiral-s3a/review.md`。
@@ -93,3 +94,5 @@ pytest tests/unit/data/test_fetch_retry_contract.py -q
 - S3a 已收口完成：真实 TuShare 适配、实测吞吐报告、失败批次真实重跑证据齐备。
 - contracts/governance 门禁与全量测试均已通过，已完成向 S3 的消费衔接。
 - 当前圈位已推进到 S3/S4 执行中。
+
+

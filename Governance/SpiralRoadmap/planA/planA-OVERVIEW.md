@@ -1,49 +1,59 @@
-# Plan A 路线增强总览（集中入口）
+# Plan A 路线总览（Reborn 增强版入口）
 
 **创建时间**: 2026-02-23  
+**更新时间**: 2026-02-23  
 **状态**: Active  
-**定位**: Plan A 关联文件集中入口（不替代上位 SoT）
+**定位**: Plan A 集中入口（不替代上位 SoT）
 
 ---
 
-## 1. Plan A 主文件
+## 1. 先看什么（强制顺序）
 
-- `Governance/SpiralRoadmap/planA/planA-ENHANCEMENT.md`
-  - Plan A 增强方案正文（目标、问题、增强动作、评估指标）
+1. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`  
+   - 唯一能力状态 SoT（是否可推进，以此为准）
+2. `Governance/SpiralRoadmap/planA/planA-ENHANCEMENT.md`  
+   - Reborn 增强合同（三大螺旋、硬门禁、禁止事项）
+3. `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`  
+   - 业务价值可见看板（回答“做成了吗”）
+4. `Governance/SpiralRoadmap/planA/PLAN-A-REVALIDATION-CHECKLIST.md`  
+   - 重验执行清单（回答“下一步怎么重验”）
 
-## 2. Plan A 执行路线图（关联文件）
+---
+
+## 2. 执行路线文件（按螺旋映射）
+
+### 螺旋1（Canary）
 
 - `Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
-  - 阶段A（S0-S2）可执行路线合同
+
+### 螺旋2（Full）
+
 - `Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
-  - 阶段B（S3a-S4b）可执行路线合同
+
+### 螺旋3（Production）
+
 - `Governance/SpiralRoadmap/planA/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`
-  - 阶段C（S5-S7a）可执行路线合同
-- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-  - 全局进度与圈序约束总览
+
+### 横向支撑
+
 - `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
-  - 跨圈依赖、阻断条件与恢复顺序
 - `Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
-  - 推荐/稳健/激进三路线实战执行路径
 - `Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md`
-  - Plan A 全执行卡索引（阶段A/B/C）
 
-## 3. Plan A 与 Plan B 关系
+---
 
-- Plan A：当前执行主线（持续增强，不破坏既有路径）
-- Plan B：重构备选线（`Governance/SpiralRoadmap/planB/`）
-- 对齐原则：
-  - Plan A 主路线与执行卡均已集中迁移至 `planA/`
-  - Plan B 独立演进，不直接覆盖 Plan A SoT
-  - 通过本文件做双计划导航，避免文档分散
+## 3. Plan A 与 Plan B 的关系
 
-## 4. 使用顺序（推荐）
+1. Plan A 仍是执行主线。
+2. Plan B 是方法参考与兜底预案（`Governance/SpiralRoadmap/planB/`）。
+3. 本轮修订已把 Plan B 的“三螺旋闭环”方法吸收到 Plan A，不做推倒重来。
 
-1. 先读 `Governance/SpiralRoadmap/planA/planA-ENHANCEMENT.md`  
-2. 再按三阶段路线图推进（S0-S2 → S3a-S4b → S5-S7a）  
-3. 用 `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` 校验是否存在阻断  
-4. 若触发“重构切换条件”，再评估 `Governance/SpiralRoadmap/planB/`
+---
 
-## 5. 上位 SoT 提醒
+## 4. 文档判定规则
 
-能力状态口径以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 为准。
+1. 任何文件与 `VORTEX-EVOLUTION-ROADMAP.md` 冲突时，以 VORTEX 为准。
+2. 任何“完成”声明必须同时满足：
+   - 对应执行路线门禁通过
+   - 业务看板有可见成果
+   - `GO/NO_GO` 结论明确

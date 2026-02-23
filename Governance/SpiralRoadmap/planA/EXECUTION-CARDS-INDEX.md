@@ -41,3 +41,18 @@
 - `Governance/SpiralRoadmap/planA/execution-cards/S6R-EXECUTION-CARD.md`
 - `Governance/SpiralRoadmap/planA/execution-cards/S7A-EXECUTION-CARD.md`
 - `Governance/SpiralRoadmap/planA/execution-cards/S7AR-EXECUTION-CARD.md`
+
+---
+
+## 状态口径（2026-02-23）
+
+1. `Implemented（工程完成，业务待重验）`：代码与测试已落地，但尚未完成螺旋业务闭环判定。
+2. `Active/Planned`：按执行卡原定义推进。
+3. 螺旋闭环完成判定以：
+   - `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+   - `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`
+   为准。
+
+## Revalidation 清单
+
+- `Governance/SpiralRoadmap/planA/PLAN-A-REVALIDATION-CHECKLIST.md`

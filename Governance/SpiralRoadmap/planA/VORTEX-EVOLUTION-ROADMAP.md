@@ -1,97 +1,95 @@
-# EmotionQuant VORTEX 演进路线图（执行主视图）
+# EmotionQuant VORTEX 演进路线图（Plan A SoT）
 
-**状态**: Active  
-**更新时间**: 2026-02-20  
-**定位**: SpiralRoadmap 总览入口（实战执行版）。
+**状态**: Active（Rebaseline）  
+**更新时间**: 2026-02-23  
+**定位**: Plan A 唯一能力状态 SoT（业务与工程双视图）
 
 ---
 
 ## 1. 口径说明
 
-1. 该文档给出 Spiral 进度看板与顺序约束。
-2. 详细执行合同请看：
-   - `Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
-   - `Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
+1. 本文是 Plan A 的唯一状态源；其余路线文档均为执行细化。
+2. 本次修订将路线从“线性任务视角”切换为“双视图”：
+   - 业务价值视图：三大螺旋是否闭环。
+   - 工程实现视图：S0-S7 圈位实现进度。
+3. 若业务视图与工程视图冲突，以业务视图门禁优先。
+4. 相关文件：
+   - `Governance/SpiralRoadmap/planA/planA-ENHANCEMENT.md`
+   - `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`
    - `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
-3. 上位 SoT 仍为：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`。
 
 ---
 
-## 2. 前置里程碑（已完成）
+## 2. 业务价值视图（三大螺旋）
 
-| 里程碑 | 说明 | 完成时间 | 状态 |
+| 螺旋 | 目标 | 对应圈位 | 当前状态 | 进入下一螺旋硬条件 |
+|---|---|---|---|---|
+| 螺旋1 Canary | 本地数据+核心算法+简回测+最小归因闭环 | S0a-S2c + S3(min) + S3b(min) | in_progress | canary 数据覆盖、端到端可复现、归因可解释、看板 GO |
+| 螺旋2 Full | 16年数据+完整回测+完整归因+校准闭环 | S3a-S4b | planned | 全历史落库、多窗口回测、A/B/C+偏差归因、参数来源可追溯 |
+| 螺旋3 Production | 展示稳定化+调度运维+生产就绪评审 | S5-S7a | planned | S6 稳定基线、S7a 可观测可恢复、生产评审 GO |
+
+说明：任何螺旋未通过出口门禁，不得宣称“可实战”。
+
+---
+
+## 3. 工程实现视图（S 圈位）
+
+| 圈位 | 名称 | 实现状态 | 业务验证状态 | 下一动作 |
+|---|---|---|---|---|
+| S0a-S0c | 入口/L1/L2 | implemented | revalidate_required | 对齐 canary-3y 数据窗口并重验 |
+| S1a-S1b | MSS 评分/消费 | implemented | revalidate_required | 与真实本地数据重跑 probe |
+| S2a-S2c | 多算法/集成/桥接 | implemented | revalidate_required | 在 canary 数据窗口完成端到端联调 |
+| S3a/S3ar | 采集增强/稳定性 | implemented | partial | 先满足螺旋1数据门禁，再扩至16年 |
+| S3 | 回测闭环 | in_progress | partial | 固化简回测 + 多窗口计划 |
+| S4 | 纸上交易 | implemented | partial | 衔接 S3 回测参数并重放验证 |
+| S3b | 收益归因 | in_progress | partial | 先完成最小归因，再扩完整归因 |
+| S3c/S3d/S3e | 行业/自适应/生产校准 | planned | pending | 依赖 S3b 归因窗口 |
+| S4b | 极端防御 | planned | pending | 依赖 S3e 校准证据 |
+| S5/S6/S7a | 展示/稳定化/调度 | planned | pending | 仅在螺旋2出口后推进 |
+
+---
+
+## 4. P0 阻断矩阵（必须先清）
+
+| 阻断项 | 级别 | 当前判定 | 清除条件 |
 |---|---|---|---|
-| R0 设计闭环 | `.reports/design-review-sandbox` 12 份评审与修订完成；命名契约 Schema/术语/模板落地 | 2026-02-14 | completed |
-| R0 质量门禁 | 本地 `--contracts --governance` 与 CI `quality-gates` 门禁落地 | 2026-02-14 | completed |
+| 本地历史数据未形成可用窗口 | P0 | open | canary-3y 覆盖>=99%，并有质量报告 |
+| 端到端回测证据不足 | P0 | open | 同窗 run/backtest/analysis 全链路成功并留档 |
+| 归因无法回答收益来源 | P0 | open | 至少完成 signal/execution/cost 三分解 |
+| 业务成果不可见 | P0 | open | `PLANA-BUSINESS-SCOREBOARD.md` 每圈更新并给 GO/NO_GO |
 
 ---
 
-## 3. Spiral 进度看板（默认路线 A）
+## 5. 关键推进约束
 
-| Spiral | 名称 | 目标 | 预算 | 状态 |
-|---|---|---|---:|---|
-| S0a | 入口与配置 | 统一入口、配置注入 | 2d | completed |
-| S0b | L1 入库 | 原始采集与入库 | 3d | completed |
-| S0c | L2 快照 | 快照与失败链路 | 3d | completed |
-| S1a | MSS 评分 | 温度/周期可复现 | 3d | completed |
-| S1b | MSS 消费 | 探针消费与结论 | 2d | completed |
-| S2a | IRS+PAS+Validation | 多算法与门禁闭环 | 4d | completed |
-| S2b | 集成推荐 | TopN 推荐可追溯 | 3d | completed |
-| S2c | 算法深化 | 权重桥接 + 核心语义收口 | 3-4d | completed |
-| S2r | 修复子圈 | FAIL 修复重验 | 1-2d | conditional |
-| S3a | 数据采集增强 | ENH-10 分批+断点续传+多线程 | 2.5d | completed |
-| S3 | 回测闭环 | Qlib + 本地口径对照 | 4d | in_progress |
-| S4 | 纸上交易 | 订单/持仓/风控可重放 | 4d | completed |
-| S3ar | 采集稳定性修复 | 双 TuShare 主备 + DuckDB 锁恢复门禁 | 1-2d | completed |
-| S3b | 收益归因验证 | A/B/C 对照 + 实盘-回测偏差归因 | 2d | in_progress |
-| S3c | 行业语义校准 | SW31 行业映射 + IRS 全行业覆盖门禁 | 2d | planned |
-| S3d | MSS 自适应校准 | adaptive 阈值 + 趋势抗抖 + probe 真实收益口径 | 2d | planned |
-| S3e | Validation 生产校准 | future_returns 对齐 + 双窗口 WFA + OOS 成本/可成交性门禁 | 2d | planned |
-| S4b | 极端防御专项 | 连续跌停/流动性枯竭应急降杠杆 | 2d | planned |
-| S5 | 展示闭环 | GUI + 日报导出 | 3d | planned |
-| S6 | 稳定化 | 全链路重跑一致 | 3d | planned |
-| S7a | 自动调度 | ENH-11 日更与开机自启 | 1.5d | planned |
+1. S2b/S2c FAIL 只能进入 S2r，禁止跳过。
+2. S2c -> S3 必须通过：
+   - `python -m scripts.quality.local_quality_check --contracts --governance`
+   - `selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 桥接硬门禁。
+3. S3b 必须消费 S3+S4 真实执行结果，不允许只用回测推断。
+4. S3c -> S3d -> S3e -> S4b 按顺序推进，不允许并跳。
+5. S5/S6/S7a 在螺旋2出口前不得宣称阶段完成。
+6. 每圈收口前必须通过防跑偏门禁：
+   - `python -m scripts.quality.local_quality_check --contracts --governance`
+   - `tests/unit/scripts/test_contract_behavior_regression.py`
 
 ---
 
-## 4. 关键顺序约束
+## 6. 最小证据清单（每圈）
 
-1. S2b/S2c FAIL 时只能进入 S2r，禁止跳过。
-2. S3a 必须在 S2c 后、S3 前执行（默认路线），否则阶段A算法收口与数据准备效率均不可控。
-3. S7a 必须在 S6 后执行，避免运维能力先于稳定化落地。
-4. S2c->S3 迁移前必须通过 `python -m scripts.quality.local_quality_check --contracts --governance` 与 `validation_weight_plan` 桥接硬门禁。
-5. S3b 依赖 S4 与 S3ar：必须在纸上交易闭环与采集稳定性修复圈收口后执行，避免“仅回测口径归因”与“数据窗口不稳定”。
-6. S3c 依赖 S3b：行业语义校准必须复用 S3b 归因窗口并通过 SW31 覆盖门禁。
-7. S3d 依赖 S3c：MSS 自适应校准必须基于 SW31 收口后的数据口径。
-8. S3e 依赖 S3d：Validation 生产校准必须消费 MSS adaptive 与真实收益口径。
-9. S4b 依赖 S3e：极端防御参数必须基于 `S3b 归因 + S3e 生产校准` 联合结果，不允许凭直觉硬编码。
-10. S5 依赖 S4b：展示闭环前必须完成极端防御专项收口，确保展示口径消费的不是未校准参数。
-11. 每圈收口前必须通过防跑偏门禁：`python -m scripts.quality.local_quality_check --contracts --governance` + `tests/unit/scripts/test_contract_behavior_regression.py`。
+1. `run.log`
+2. `test.log`
+3. `gate_report.md`
+4. `consumption.md`
+5. `review.md`
+6. `sync_checklist.md`
+7. `PLANA-BUSINESS-SCOREBOARD.md` 对应指标更新
 
 ---
 
-## 5. 风险矩阵（核心）
-
-| 风险 | 级别 | 触发条件 | 应对 |
-|---|---|---|---|
-| 推荐链路缺 A 股规则门禁 | P0 | T+1/涨跌停/交易时段字段缺失 | 阻断收口，进入修复圈 |
-| `validation_weight_plan` 桥接断裂 | P0 | `selected_weight_plan -> plan_id -> weight_plan_id` 任一节点缺失/不一致 | 阻断 S2c->S3 推进，回退 S2c/S2r 修复 |
-| 核心算法“最小闭环冒充 full 实现” | P0 | S3c/S3d/S3e 未完成即宣布核心设计完成 | 阻断阶段宣告；按 `S3b->S3c->S3d->S3e->S4b` 顺序补齐 |
-| 数据拉取耗时过长 | P1 | 历史数据下载持续失败或过慢 | 启动 S3a，启用 ENH-10 |
-| 自动调度误触发重复下载 | P1 | 非交易日或重复任务未去重 | 启用交易日判断+幂等校验 |
-| 文档与执行漂移 | P1 | 路线文档与实际圈序不一致 | 强制同步 5 文件并记录 debt；执行 `--contracts --governance` 一致性检查 |
-| 实现改写核心语义 | P0 | 代码行为与 `docs/design/**` 契约冲突 | 阻断合并；进入修复子圈；补齐契约回归测试 |
-
----
-
-## 6. 变更记录
+## 7. 变更记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v1.6 | 2026-02-20 | 进度看板新增 `S3c/S3d/S3e`，关键顺序约束升级为 `S3b->S3c->S3d->S3e->S4b`，并新增“最小闭环冒充 full 实现”P0 风险 |
-| v1.5 | 2026-02-20 | 同步真实执行快照：进度看板从全 `planned` 修订为与主控一致（S0a-S2c/S3a/S4/S3ar completed；S3/S3b in_progress）；补充 S3ar 行并明确 `S5 依赖 S4b` 顺序约束 |
-| v1.4 | 2026-02-16 | 进度看板新增 S2c；关键顺序约束升级为 S2c->S3 桥接硬门禁；风险矩阵新增 `validation_weight_plan` 桥接断裂 P0 风险 |
-| v1.3 | 2026-02-15 | 口径说明新增阶段模板入口（`SPIRAL-STAGE-TEMPLATES.md`），用于阶段A/B/C统一门禁与产物规范 |
-| v1.2 | 2026-02-15 | 纳入两类高优先专项圈位：S3b（A/B/C + 实盘-回测偏差归因）与 S4b（极端行情防御）；新增防跑偏硬门禁与“实现改写核心语义”P0 风险 |
-| v1.1 | 2026-02-14 | 新增 R0 前置里程碑（设计闭环+质量门禁）；关键顺序约束补充 S2->S3 契约门禁；风险矩阵补充一致性检查措施 |
-| v1.0 | 2026-02-13 | 重建执行主视图；纳入 S3a/ENH-10 与 S7a/ENH-11 |
+| v2.0 | 2026-02-23 | 按 Reborn 方法重写 SoT：新增业务/工程双视图、P0 阻断矩阵、成果可见强制看板与阶段推进硬约束 |
+| v1.6 | 2026-02-20 | 进度看板新增 `S3c/S3d/S3e`，关键顺序约束升级为 `S3b->S3c->S3d->S3e->S4b` |

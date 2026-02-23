@@ -1,15 +1,33 @@
-# EmotionQuant S0-S2r 真螺旋执行路线图（执行版 v1.3）
+# EmotionQuant S0-S2r 真螺旋执行路线图（执行版 v1.4）
 
-**状态**: Completed（2026-02-21 复核通过，完整版可实战）  
-**更新时间**: 2026-02-21  
+**状态**: Active（工程实现已落地，业务闭环重验中）  
+**更新时间**: 2026-02-23  
 **适用范围**: S0-S2r（数据层到核心算法深化与修复闭环）  
 **文档角色**: S0-S2r 执行合同（不是上位 SoT 替代）
 
 ---
 
-## 完成态复核（2026-02-21）
+## Reborn 对齐（2026-02-23 新增）
 
-- 复核结论：`S0-S2r` 路线图覆盖项已完成设计到代码的完整转化，满足“完整版、可实战”口径。
+本阶段归属于 Plan A 螺旋1（Canary 闭环），出口门禁必须从“工程完成”升级为“业务闭环完成”。
+
+### 螺旋1出口必须补齐
+
+1. 本地 canary 数据窗口（建议 `2022-01-01` 到 `2024-12-31`）覆盖率 >=99%。
+2. `S0-S2` 输出必须被 `S3(min)` 回测实际消费，禁止停留在算法自测。
+3. 至少形成一份最小归因（`signal/execution/cost` 三分解）并写入业务看板。
+4. `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的螺旋1项必须更新为可审计状态。
+
+### 推进限制
+
+1. 若上述任一项未满足，`S0-S2` 仅可视为 `implemented`，不得宣称“螺旋1完成”。
+2. 螺旋1未通过前，不得把 `S5-S7a` 作为主推进目标。
+
+---
+
+## 工程实现完成态复核（2026-02-21）
+
+- 复核结论：`S0-S2r` 路线图覆盖项已完成设计到代码的完整转化，满足“工程实现完成”口径。
 - 核心算法与关键语义已落地：
   - Integration 四模式：`top_down/bottom_up/dual_verify/complementary`（`src/integration/pipeline.py`、`src/pipeline/main.py`）
   - 推荐硬约束：每日最多 `20`、单行业最多 `5`（`src/integration/pipeline.py`）
@@ -399,6 +417,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.4 | 2026-02-23 | 新增 Reborn 对齐章节：S0-S2r 映射螺旋1（Canary），补充业务出口门禁与推进限制，状态从 Completed 调整为 Active（业务重验） |
 | v1.3 | 2026-02-21 | 升级“完全版”口径：新增 S2 设计语义硬门禁（Integration 四模式、推荐数量硬约束、MSS rank/percentile 落库）；同步 S1a/S2b/S2c 合同条款与命令矩阵 |
 | v1.2 | 2026-02-21 | 修复 S1 对齐：明确 S1 阶段边界（S1a+S1b）；更新 As-Is 快照为当前实现状态；S1b 产物目录统一为 `{start}_{end}` |
 | v1.1 | 2026-02-21 | S0 执行合同升级为实战口径：S0b/S0c 增补 `system_config/data_quality_report/data_readiness_gate` 持久化门禁；S0c 默认命令切为 `--strict-sw31` 并新增 `flat_threshold` 契约测试 |

@@ -1,6 +1,7 @@
 # S4b 执行卡（v0.1）
 
-**状态**: Completed  
+**状态**: Implemented（工程完成，业务待重验）  
+**重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-18  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S4b（极端防御专项闭环）
@@ -82,3 +83,5 @@ pytest tests/unit/trading/test_deleveraging_policy_contract.py -q
 ## 9. 本轮进度（2026-02-18）
 
 - 计划中，前置依赖为 S3b `PASS/WARN`。
+
+
