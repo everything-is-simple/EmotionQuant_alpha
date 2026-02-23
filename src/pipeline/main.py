@@ -26,6 +26,7 @@ from src.data.fetch_batch_pipeline import (
 )
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
+from src.gui.app import run_gui
 from src.pipeline.recommend import run_recommendation
 from src.stress.pipeline import run_stress
 from src.trading.pipeline import run_paper_trade
@@ -304,6 +305,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--export-run-manifest",
         action="store_true",
         help="Export validation_run_manifest sample artifact.",
+    )
+    gui_parser = subparsers.add_parser("gui", help="Run S5 GUI launch/export pipeline.")
+    gui_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    gui_parser.add_argument(
+        "--export",
+        choices=("daily-report",),
+        default=None,
+        help="Export S5 artifact package. Current supported: daily-report.",
     )
     subparsers.add_parser("fetch-status", help="Show latest S3a fetch status.")
     subparsers.add_parser("fetch-retry", help="Retry failed S3a fetch batches.")
@@ -1257,6 +1266,37 @@ def _run_validation(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_fail else 0
 
 
+def _run_gui(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    try:
+        result = run_gui(
+            config=ctx.config,
+            trade_date=str(args.date).strip(),
+            export_mode=str(args.export or "").strip(),
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    payload = {
+        "event": "s5_gui",
+        "trade_date": result.trade_date,
+        "export_mode": result.export_mode,
+        "quality_status": result.quality_status,
+        "go_nogo": result.go_nogo,
+        "artifacts_dir": str(result.artifacts_dir),
+        "status": "failed" if result.has_error else "ok",
+    }
+    if result.daily_report_path is not None:
+        payload["daily_report_path"] = str(result.daily_report_path)
+    if result.gui_export_manifest_path is not None:
+        payload["gui_export_manifest_path"] = str(result.gui_export_manifest_path)
+    if result.gate_report_path is not None:
+        payload["gate_report_path"] = str(result.gate_report_path)
+    if result.consumption_path is not None:
+        payload["consumption_path"] = str(result.consumption_path)
+    print(json.dumps(payload, ensure_ascii=True, sort_keys=True))
+    return 1 if result.has_error else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -1305,6 +1345,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_analysis(ctx, args)
     if command == "validation":
         return _run_validation(ctx, args)
+    if command == "gui":
+        return _run_gui(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2

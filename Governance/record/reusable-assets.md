@@ -120,6 +120,8 @@
 | A-TEST-054 | CLI `pas` 与 validation 参数透传测试 | `tests/unit/pipeline/test_cli_entrypoint.py::test_main_pas_command_wires_to_pipeline` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_recommend_forwards_validation_mode_flags` + `tests/unit/pipeline/test_recommend_evidence_lane.py::test_integrated_bridge_validation_defaults_to_s3e_modes` | A | 固化 `pas` 子命令与 `recommend` 的 S3e 参数透传/默认值契约 |
 | A-CODE-055 | S4r/S4br 修复子圈执行资产 | `src/trading/pipeline.py` + `src/stress/pipeline.py` + `src/pipeline/main.py` | A | 落地 `trade --repair s4r` 与 `stress --repair s4br`，统一输出 patch/delta 审计产物并透传 CLI 事件 |
 | A-TEST-056 | S4r/S4br 修复子圈合同测试资产 | `tests/unit/trading/test_order_pipeline_contract.py` + `tests/unit/trading/test_deleveraging_policy_contract.py` + `tests/unit/trading/test_backtest_status_schema_compat_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py` | A | 固化修复子圈 patch/delta 产物契约与 legacy `trade_records` 自动补列写入兼容契约 |
+| A-CODE-057 | S5 GUI 最小闭环代码资产 | `src/gui/app.py` + `src/pipeline/main.py` | A | 落地 `eq gui` 子命令与 `--export daily-report` 导出链路，输出 manifest/gate/consumption 审计产物 |
+| A-TEST-058 | S5 GUI 最小闭环测试资产 | `tests/unit/gui/test_gui_launch_contract.py` + `tests/unit/gui/test_gui_readonly_contract.py` + `tests/unit/analysis/test_daily_report_export_contract.py` | A | 固化 GUI 启动契约、DuckDB 只读访问契约与 daily-report 导出契约 |
 
 ---
 
@@ -140,6 +142,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-23 | v2.31 | 新增 S5 GUI 最小闭环代码/测试资产（A-CODE-057、A-TEST-058） |
 | 2026-02-23 | v2.30 | S3b 收口一致性同步：本次仅执行 `review/final` 与看板口径对齐，无新增可复用代码/测试资产 |
 | 2026-02-23 | v2.29 | 新增 S4r/S4br 修复子圈代码与测试资产（A-CODE-055、A-TEST-056） |
 | 2026-02-22 | v2.28 | 新增 S3b 优先级串行重跑器（A-QA-052）与 S3e 软门/CLI 透传测试资产（A-TEST-053~054） |

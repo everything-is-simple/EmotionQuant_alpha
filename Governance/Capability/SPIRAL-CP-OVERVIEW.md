@@ -1,6 +1,6 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.4.10  
+**版本**: v7.4.11  
 **最后更新**: 2026-02-23  
 **适用对象**: 个人开发、个人使用
 
@@ -93,7 +93,7 @@
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | ✅ completed | `Governance/specs/spiral-s3e/final.md` |
 | S4b | 极端防御专项圈 | ✅ completed | `Governance/specs/spiral-s4b/final.md` |
 | S4br | 极端防御修复子圈（条件触发） | ✅ completed | `Governance/specs/spiral-s4br/final.md` |
-| S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
+| S5 | 展示闭环 | 🔄 in_progress | `Governance/specs/spiral-s5/final.md` |
 | S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
 | S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
 
@@ -224,6 +224,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.4.11 | 2026-02-23 | S5 启动同步：`eq gui` 与 `daily-report` 最小导出链路落地，新增 `spiral-s5` specs 三件套并将 S5 状态切换为 `in_progress` |
 | v7.4.10 | 2026-02-23 | 状态对齐同步：将 `S3/S3c/S3d/S3e` 从 `in_progress` 统一切换为 `completed`，并更新“下一圈状态”到阶段 C（S5） |
 | v7.4.9 | 2026-02-23 | S3b 收口口径同步：将 S3b 状态由 `in_progress` 切换为 `completed`，并统一“下一圈状态”描述到跨窗口结论（`A_not_dominant` + `dominant_component=none`） |
 | v7.4.8 | 2026-02-23 | 完成 S4r/S4br 收口同步：新增修复子圈状态行并指向 `spiral-s4r/s4br` 规格目录；S4b 状态修订为 `completed` |
