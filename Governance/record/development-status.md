@@ -564,6 +564,32 @@
 
 ---
 
+## 本次同步（2026-02-23，P0 状态对齐修订）
+
+1. 执行卡状态对齐：
+   - 已将 `S3/S3B/S3C/S3D/S3E/S4/S4B/S4R/S4BR` 执行卡从 `Active` 统一切换为 `Completed`。
+2. 路线图状态对齐：
+   - `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 中 `S3/S3c/S3d/S3e` 由 `in_progress` 切换为 `completed`。
+3. 本文件看板状态对齐：
+   - `S3/S3c/S3d/S3e` 从“🔄 进行中”统一切换为“✅ 已完成”。
+
+---
+
+## 本次同步（2026-02-23，S3A-S4B 路线图收口与 WARN 准入预算）
+
+1. 路线图状态更新：
+   - `Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 已从 `Active` 切换为 `Completed`（工程收口完成，健康基线含 WARN）。
+   - “完成态复核”改为 2026-02-23 口径：`S3a/S3ar/S3/S3b/S3c/S3d/S3e/S4/S4b` 已完成，`S4r/S4br` 条件修复子圈已完成。
+2. WARN 准入预算（阶段 C）：
+   - 允许进入 S5：结构性/样本不足类 WARN（空信号窗、样本不足导致的 N/A）。
+   - 禁止生产宣称：`factor_gate_raw=FAIL` 软化依赖、负 spread 持续、`dominant_component` 长期 `none`。
+3. S5 并行补强（不阻塞 GUI 开发，阻塞生产宣称）：
+   - `S3e`：降低 `factor_gate_raw=FAIL` 比例。
+   - `S3b`：提升可比成交样本，消除长期 `dominant_component=none`。
+   - `S3d`：消除负 spread 窗口（至少达到“无负窗”）。
+
+---
+
 ## Spiral 进度看板
 
 | Spiral | 目标 | 状态 | 备注 |
@@ -578,15 +604,15 @@
 | S2c | 核心算法深化闭环（权重桥接 + 语义收口） | ✅ 已完成 | release 证据统一、closeout 文档补齐、A6 同步完成 |
 | S2r | 质量门失败修复子圈 | ✅ 已完成 | specs 档案与执行卡对齐，`--repair s2r` 可直接触发 |
 | S3a | ENH-10 数据采集增强闭环 | ✅ 已完成 | 已接入真实 TuShare 客户端，实测吞吐与失败恢复证据齐备 |
-| S3 | 回测闭环 | 🔄 进行中 | 已扩展多交易日回放并落地板块化涨跌停阈值 |
+| S3 | 回测闭环 | ✅ 已完成 | 已完成跨窗口 run/test/artifact/review/sync 收口 |
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
 | S4r | 纸上交易修复子圈（条件触发） | ✅ 已完成 | `trade --repair s4r` 与 patch/delta 证据已收口，legacy trade_records 写入兼容已修复 |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
 | S3r | 回测修复子圈（条件触发） | 📋 未开始 | 修复命令已落地（`backtest --repair s3r`），待 FAIL 场景触发 |
 | S3b | 收益归因验证专项圈 | ✅ 已完成 | 已完成跨窗口稳定性收口并统一口径：`A_not_dominant` + `dominant_component=none` |
-| S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 🔄 进行中 | `20260219` 窗口已通过 SW31/IRS 门禁并补齐 `gate/consumption` 产物，待与 S3b 固定窗口节奏对齐后收口 |
-| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | 已补齐 `future_returns` probe 实跑证据，待完成剩余窗口五件套收口 |
-| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
+| S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | ✅ 已完成 | 已完成跨窗口 SW31/IRS 门禁复核与证据闭环 |
+| S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | ✅ 已完成 | 已完成跨窗口 adaptive/probe 复核与边界样本固化 |
+| S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | ✅ 已完成 | 已完成跨窗口 Validation 生产口径复核并稳定 `go_nogo=GO` |
 | S4b | 极端防御专项圈 | ✅ 已完成 | 已完成四窗 `trade+stress` 收口并固化 S3b 参数消费证据（`TDL-S4B-004` 已清偿） |
 | S4br | 极端防御修复子圈（条件触发） | ✅ 已完成 | `stress --repair s4br` 与 patch/delta 证据已收口 |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4b 完成 |
@@ -608,7 +634,7 @@
 1. S0c 已升级为 SW31 严格门禁口径；后续风险转移为 S3c 的 IRS 全覆盖门禁与窗口回跑一致性。
 2. 真实采集链路已接入，仍需持续观测长窗口吞吐与限频稳定性。
 3. 若 `validation_weight_plan` 桥接链路缺失或不可审计，必须阻断 S2c->S3a/S3/S4 迁移。
-4. 在 S3c/S3d/S3e 完成前，不得以“阶段B已推进”替代“核心算法 full 实现完成”结论。
+4. 阶段B虽已收口，但当前基线含多项 WARN；在 `factor_gate_raw=FAIL` 软化依赖、负 spread 持续、`dominant_component=none` 未消解前，不得对外声明“生产健康完成”。
 
 ---
 
@@ -616,6 +642,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-23 | v4.51 | 同步 S3A-S4B 路线图收口：更新路线图状态与 2026-02-23 完成态复核；新增 WARN 准入预算与 S5 并行补强三项（S3e/S3b/S3d） |
+| 2026-02-23 | v4.50 | 完成 P0 状态对齐：执行卡 `S3/S3B/S3C/S3D/S3E/S4/S4B/S4R/S4BR` 统一切换 `Completed`；同步 `SPIRAL-CP-OVERVIEW` 与进度看板中 `S3/S3c/S3d/S3e` 为已完成 |
 | 2026-02-23 | v4.49 | 完成 S3b 收口一致性修订：`spiral-s3b review/final` 口径统一并将 S3b 状态切换为 `completed`；同步路线看板后切换下一焦点至 S5 |
 | 2026-02-23 | v4.48 | 完成 S4r/S4br 修复子圈收口：落地 `trade --repair s4r` 与 `stress --repair s4br` patch/delta 证据链；修复 legacy `trade_records` 旧 schema 写入阻断并补齐回归测试 |
 | 2026-02-22 | v4.47 | 完成 TDL-S4B-004：`analysis --deviation` 单侧样本缺失从 `FAIL` 调整为 `WARN/GO`，新增回归测试并刷新 S4b 四窗汇总 |

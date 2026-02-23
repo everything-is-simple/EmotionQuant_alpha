@@ -1,25 +1,30 @@
-# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.5）
+# EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.6）
 
-**状态**: Active  
-**更新时间**: 2026-02-21  
+**状态**: Completed（工程收口完成，健康基线含 WARN）  
+**更新时间**: 2026-02-23  
 **适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、行业语义校准、MSS 自适应校准、Validation 生产校准、极端防御）  
 **文档角色**: S3a-S4b 执行合同（不是上位 SoT 替代）
 
 ---
 
-## 完成态复核（S3 审计，2026-02-21）
+## 完成态复核（阶段B收口，2026-02-23）
 
-- 复核结论（按“完全版/可实战”口径）：
-  - 已完成：`S3a`、`S3ar`
-  - 执行中：`S3`、`S3b`、`S3c`、`S3d`、`S3e`
-- 代码-文档对齐修正：
-  - `S3c` 命令口径修正为 `eq run --date {trade_date} --to-l2 --strict-sw31`（移除无效 `--stage l2`）。
-  - `S3c` 产物契约补齐：`eq irs --require-sw31` 已输出 `gate_report/consumption`。
-  - `S3r` 修复命令已落地：`eq backtest --repair s3r` 可执行并产出 `s3r_patch_note/s3r_delta_report`。
-  - `S3d/S3e` 命令阻断已解除：`eq mss --threshold-mode`、`eq mss-probe --return-series-source`、`eq validation --threshold-mode/--wfa/--export-run-manifest` 已落地。
-- 仍需补齐后方可声明“核心设计 full 实现完成”：
-  - `S3c`：在 S3b 扩窗补样后完成跨窗口稳定性复核并收口。
-  - `S3d/S3e`：窗口级实证证据收口（非 CLI 契约层）。
+- 复核结论（按“代码完整 + 退出门禁”口径）：
+  - 已完成：`S3a`、`S3ar`、`S3`、`S3b`、`S3c`、`S3d`、`S3e`、`S4`、`S4b`。
+  - 条件修复子圈：`S4r`、`S4br` 已完成并可复跑。
+  - 退出判定：跨窗口结果满足 `status in {PASS, WARN}` 且 `go_nogo=GO`，无 `FAIL/NO_GO` 阻断。
+- WARN 基线复核（20260213 汇总）：
+  - `S3`：`quality_status=WARN`（含 `no_long_entry_signal_in_window`）。
+  - `S3b`：`no_trade_window_count=2`，`dominant_component_distribution={'none': 4}`。
+  - `S3d`：`probe_conclusion_distribution={'PASS_POSITIVE_SPREAD': 2, 'WARN_NEGATIVE_SPREAD': 1, 'WARN_FLAT_SPREAD': 1}`。
+  - `S3e`：`final_gate_distribution={'WARN': 4}` 且 `factor_gate_raw=FAIL` 依赖 `neutral_regime` 软化。
+- 阶段C准入预算（S5 开发允许、生产宣称阻断）：
+  - 允许进入 S5：结构性/样本不足类 WARN（如空信号窗、样本不足导致的 N/A）。
+  - 禁止进入生产：`factor_gate_raw=FAIL` 软化依赖、负 spread 持续、`dominant_component` 长期 `none`。
+- S5 并行补强（不阻塞 GUI 开发，阻塞生产宣称）：
+  - `S3e`：将 `factor_gate_raw=FAIL` 比例从 `4/4` 降至可控区间。
+  - `S3b`：提升可比成交样本，使 `dominant_component` 不再长期 `none`。
+  - `S3d`：消除负 spread 窗口，至少达到“无负窗”。
 
 ## 0. 文档定位（先对齐 SoT）
 
@@ -430,6 +435,7 @@ flowchart LR
 
 | 版本 | 日期 | 变更说明 |
 |---|---|---|
+| v1.6 | 2026-02-23 | 阶段B收口同步：状态切换为 `Completed`，完成态复核更新到 2026-02-23；新增 WARN 准入预算（S5 可进/生产禁入）与 S5 并行补强三项（S3e/S3b/S3d） |
 | v1.5 | 2026-02-21 | S3 固定窗口口径更新：`20260210-20260213` 由阻断改为 WARN/N/A 可审计语义，阶段B下步从“清障”切换为“扩窗补样稳健性复核” |
 | v1.4 | 2026-02-21 | S3c 启动同步：状态切换到执行中；补齐 `s3c_irs` 的 `gate/consumption` 产物契约；将实现深度缺口修订为“窗口收口未完成” |
 | v1.3 | 2026-02-21 | S3d/S3e 阻断修复：落地 `eq validation` 子命令与 MSS `threshold-mode/return-series-source` 契约；补齐 S3d/S3e 合同测试并将圈位状态切换为 Active |
