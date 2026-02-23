@@ -1,7 +1,7 @@
 # Spiral S3b Review
 
 ## 状态
-- in_progress
+- completed
 
 ## 当前进展
 - 已落地 S3b 最小执行入口：`eq analysis`（A/B/C 对照、实盘-回测偏差、归因摘要）。
@@ -9,21 +9,22 @@
   - `pytest tests/unit/analysis/test_ab_benchmark_contract.py -q`
   - `pytest tests/unit/analysis/test_live_backtest_deviation_contract.py -q`
   - `pytest tests/unit/analysis/test_attribution_summary_contract.py -q`
-- 已形成可复核窗口证据（20260218-20260219）：
-  - `artifacts/spiral-s3b/20260219/ab_benchmark_report.md`
-  - `artifacts/spiral-s3b/20260219/live_backtest_deviation_report.md`
-  - `artifacts/spiral-s3b/20260219/attribution_summary.json`
-  - `artifacts/spiral-s3b/20260219/consumption.md`
-  - `artifacts/spiral-s3b/20260219/gate_report.md`
-- 关键结论（20260219）：
-  - `quality_status=WARN`、`go_nogo=GO`
-  - A/B/C 结论为 `A_dominant`
-  - 偏差主导项为 `signal`
+- 已形成跨窗口稳定性证据（W1~W4）：
+  - `artifacts/spiral-s3b/20260213/s3b_cross_window_stability_summary.json`
+  - `artifacts/spiral-s3b/20260213/s3b_cross_window_stability_summary.md`
+  - `artifacts/spiral-s3b/20260213/cross_window/W1_20260102_20260213/*`
+  - `artifacts/spiral-s3b/20260213/cross_window/W2_20260119_20260213/*`
+  - `artifacts/spiral-s3b/20260213/cross_window/W3_20260210_20260213/*`
+  - `artifacts/spiral-s3b/20260213/cross_window/W4_20260212_20260213/*`
+- 关键结论（跨窗口）：
+  - `all_windows_go=true`，四窗均 `backtest=WARN/GO` + `analysis=WARN/GO`
+  - A/B/C 结论稳定为 `A_not_dominant`
+  - 三分解主导项稳定为 `none`
+  - `remaining_failures=0`、`integrated_days=20`
 
 ## 关键风险
 - 固定窗口 `20260210-20260213` 已从阻断改为可审计降级：`S3 backtest` 输出 `no_long_entry_signal_in_window`（WARN/GO），`S3b` 在无成交样本场景输出 N/A 警告（WARN/GO）。
-- 20260219 归因样本量仍偏小（`attribution_small_sample_fallback`），需在下一窗口继续扩样复核。
-- `recommend` 在 bridge 样例侧仍可能出现 `mss_factor_intermediate_source_missing` 误报（不影响 integrated 输出，但会使命令返回 failed）。
+- 当前 `dominant_component=none` 语义稳定，但仍受“可比成交样本不足/无成交样本”边界约束；新增 live filled 样本后需按同一框架复跑复核。
 
 ## 复盘点
 - A/B/C 对照是否齐备且口径一致。

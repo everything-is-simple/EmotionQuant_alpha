@@ -1,7 +1,7 @@
 # EmotionQuant ROADMAP 总览（Spiral 闭环主控）
 
-**版本**: v7.4.7  
-**最后更新**: 2026-02-22  
+**版本**: v7.4.9  
+**最后更新**: 2026-02-23  
 **适用对象**: 个人开发、个人使用
 
 ---
@@ -69,7 +69,7 @@
 
 > 约束：S2c 是 S2->S3 迁移的必选算法收口圈；S3a/S3ar/S7a 不改变 CP 主路线语义，只交付执行层与运维层增强能力；S3b/S3c/S3d/S3e/S4b 为阶段B专项圈，且 S4b 必须在 S3e 后执行，收口后才进入 S5。
 
-### 4.2 当前执行状态快照（2026-02-21）
+### 4.2 当前执行状态快照（2026-02-23）
 
 | 微圈 | 目标 | 状态 | 证据入口 |
 |---|---|---|---|
@@ -84,13 +84,15 @@
 | S3a | ENH-10 数据采集增强闭环 | ✅ completed | `Governance/specs/spiral-s3a/final.md` |
 | S3 | 回测闭环 | 🔄 in_progress | `Governance/specs/spiral-s3/final.md` |
 | S4 | 纸上交易闭环 | ✅ completed | `Governance/specs/spiral-s4/final.md` |
+| S4r | 纸上交易修复子圈（条件触发） | ✅ completed | `Governance/specs/spiral-s4r/final.md` |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ completed | `Governance/specs/spiral-s3ar/final.md` |
 | S3r | 回测修复子圈（条件触发） | 📋 planned | `Governance/specs/spiral-s3r/final.md` |
-| S3b | 收益归因验证专项圈 | 🔄 in_progress | `Governance/specs/spiral-s3b/final.md` |
+| S3b | 收益归因验证专项圈 | ✅ completed | `Governance/specs/spiral-s3b/final.md` |
 | S3c | 行业语义校准专项圈（SW31 行业映射 + IRS 全覆盖门禁） | 🔄 in_progress | `Governance/specs/spiral-s3c/final.md` |
 | S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 in_progress | `Governance/specs/spiral-s3d/final.md` |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 in_progress | `Governance/specs/spiral-s3e/final.md` |
-| S4b | 极端防御专项圈 | 📋 planned | 待创建 `Governance/specs/spiral-s4b/*` |
+| S4b | 极端防御专项圈 | ✅ completed | `Governance/specs/spiral-s4b/final.md` |
+| S4br | 极端防御修复子圈（条件触发） | ✅ completed | `Governance/specs/spiral-s4br/final.md` |
 | S5 | 展示闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s5/*` |
 | S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
 | S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
@@ -102,7 +104,7 @@
 1. 桥接硬门禁与语义回归：已完成（Integration + Validation 合同测试通过）。
 2. 证据冲突清障：已完成（S2c 正式证据统一为 release 车道，PASS/GO 口径一致）。
 3. 收口文档与同步：已完成（`s2c_semantics_traceability_matrix.md`、`s2c_algorithm_closeout.md` 已归档并同步）。
-4. 下一圈状态：S3 持续执行中；S4 与 S3ar 已按 6A 收口完成；S3b 已完成 `20260119-20260213` 的 20 日扩窗证据（`backtest=WARN/GO`, `analysis=PASS/GO`），结论为 `A_not_dominant`，当前聚焦清零 `20260126/20260202` 两个 `factor_validation_fail` 日期。
+4. 下一圈状态：S3 持续执行中；S4、S3ar、S3b 已按 6A 收口完成。S3b 结论按跨窗口稳定性口径收敛为 `A_not_dominant` + `dominant_component=none`（`remaining_failures=0`，`integrated_days=20`）；后续执行焦点切换至 S5（GUI 最小闭环）。
 5. 债务执行编排参考：`docs/design/enhancements/debt-clearance-plan-v1.md`（辅助文档，不替代本主控入口）。
 
 ### 4.4 核心设计 full 完成点（按实现深度口径）
@@ -222,6 +224,8 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v7.4.9 | 2026-02-23 | S3b 收口口径同步：将 S3b 状态由 `in_progress` 切换为 `completed`，并统一“下一圈状态”描述到跨窗口结论（`A_not_dominant` + `dominant_component=none`） |
+| v7.4.8 | 2026-02-23 | 完成 S4r/S4br 收口同步：新增修复子圈状态行并指向 `spiral-s4r/s4br` 规格目录；S4b 状态修订为 `completed` |
 | v7.4.7 | 2026-02-22 | S3b Option2 扩窗 20 日同步：补齐 15 天链路后完成 `backtest WARN/GO` 与 `analysis PASS/GO`，并将残留 2 个 `factor_validation_fail` 日期转入 S3e 清零 |
 | v7.4.6 | 2026-02-21 | S3 固定窗口阻断解锁：回测无可开仓信号改 WARN 语义，S3b 空样本按 N/A 警告处理并保持 GO；状态口径由“固定窗口阻断”更新为“扩窗补样复核” |
 | v7.4.5 | 2026-02-21 | S3c 启动同步：`20260219` 窗口通过 SW31/IRS 门禁，S3c 状态切换为 `in_progress`，并补齐 `gate/consumption` 产物契约 |

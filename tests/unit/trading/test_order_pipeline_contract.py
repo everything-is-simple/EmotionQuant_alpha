@@ -47,3 +47,24 @@ def test_order_pipeline_generates_trade_records(tmp_path: Path) -> None:
     assert str(row[3]) != ""
     assert trade_count is not None
     assert int(trade_count[0]) > 0
+
+
+def test_s4r_repair_generates_patch_and_delta_artifacts(tmp_path: Path) -> None:
+    config = build_config(tmp_path, ".env.s4r.order")
+    trade_date = prepare_s4_inputs(config, latest_open_trade_days(2))
+
+    result = run_paper_trade(
+        trade_date=trade_date,
+        mode="paper",
+        repair="s4r",
+        config=config,
+    )
+    assert result.has_error is False
+    assert result.repair == "s4r"
+    assert "spiral-s4r" in str(result.artifacts_dir)
+    assert result.s4r_patch_note_path is not None
+    assert result.s4r_delta_report_path is not None
+    assert result.s4r_patch_note_path.exists()
+    assert result.s4r_delta_report_path.exists()
+    assert result.gate_report_path.exists()
+    assert result.consumption_path.exists()

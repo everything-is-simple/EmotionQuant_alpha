@@ -1318,6 +1318,68 @@ def test_main_trade_runs_paper_mode(
     assert payload["filled_orders"] > 0
 
 
+def test_main_trade_runs_s4r_repair_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s4r.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_trade(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s4r" / "20260213"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        patch_note = artifacts_dir / "s4r_patch_note.md"
+        delta_report = artifacts_dir / "s4r_delta_report.md"
+        patch_note.write_text("# patch\n", encoding="utf-8")
+        delta_report.write_text("# delta\n", encoding="utf-8")
+        return SimpleNamespace(
+            trade_date="20260213",
+            mode="paper",
+            repair="s4r",
+            artifacts_dir=artifacts_dir,
+            trade_records_path=artifacts_dir / "trade_records_sample.parquet",
+            positions_path=artifacts_dir / "positions_sample.parquet",
+            risk_events_path=artifacts_dir / "risk_events_sample.parquet",
+            paper_trade_replay_path=artifacts_dir / "paper_trade_replay.md",
+            consumption_path=artifacts_dir / "consumption.md",
+            gate_report_path=artifacts_dir / "gate_report.md",
+            error_manifest_path=artifacts_dir / "error_manifest.json",
+            total_orders=10,
+            filled_orders=6,
+            risk_event_count=2,
+            quality_status="WARN",
+            go_nogo="GO",
+            has_error=False,
+            s4r_patch_note_path=patch_note,
+            s4r_delta_report_path=delta_report,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_paper_trade", _fake_run_trade)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "trade",
+            "--mode",
+            "paper",
+            "--date",
+            "20260213",
+            "--repair",
+            "s4r",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s4r_trade"
+    assert payload["repair"] == "s4r"
+    assert "spiral-s4r" in payload["artifacts_dir"]
+    assert Path(payload["s4r_patch_note_path"]).exists()
+    assert Path(payload["s4r_delta_report_path"]).exists()
+
+
 def test_main_stress_command_wires_to_pipeline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1347,6 +1409,8 @@ def test_main_stress_command_wires_to_pipeline(
             target_deleveraging_ratio=0.4,
             executed_deleveraging_ratio=0.2,
             has_error=False,
+            s4br_patch_note_path=None,
+            s4br_delta_report_path=None,
         )
 
     monkeypatch.setattr(cli_main_module, "run_stress", _fake_run_stress)
@@ -1366,4 +1430,64 @@ def test_main_stress_command_wires_to_pipeline(
     assert payload["event"] == "s4b_stress"
     assert payload["scenario"] == "limit_down_chain"
     assert payload["go_nogo"] == "GO"
+
+
+def test_main_stress_runs_s4br_repair_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_file = tmp_path / ".env.s4br.cli"
+    env_file.write_text(
+        f"DATA_PATH={tmp_path / 'eq_data'}\n"
+        "ENVIRONMENT=test\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_stress(**_: object) -> SimpleNamespace:
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s4br" / "20260213"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        patch_note = artifacts_dir / "s4br_patch_note.md"
+        delta_report = artifacts_dir / "s4br_delta_report.md"
+        patch_note.write_text("# patch\n", encoding="utf-8")
+        delta_report.write_text("# delta\n", encoding="utf-8")
+        return SimpleNamespace(
+            trade_date="20260213",
+            scenario="limit_down_chain",
+            repair="s4br",
+            artifacts_dir=artifacts_dir,
+            extreme_defense_report_path=artifacts_dir / "extreme_defense_report.md",
+            deleveraging_policy_snapshot_path=artifacts_dir / "deleveraging_policy_snapshot.json",
+            stress_trade_replay_path=artifacts_dir / "stress_trade_replay.csv",
+            consumption_path=artifacts_dir / "consumption.md",
+            gate_report_path=artifacts_dir / "gate_report.md",
+            error_manifest_path=artifacts_dir / "error_manifest.json",
+            gate_status="WARN",
+            go_nogo="GO",
+            target_deleveraging_ratio=0.5,
+            executed_deleveraging_ratio=0.1,
+            has_error=False,
+            s4br_patch_note_path=patch_note,
+            s4br_delta_report_path=delta_report,
+        )
+
+    monkeypatch.setattr(cli_main_module, "run_stress", _fake_run_stress)
+    exit_code = main(
+        [
+            "--env-file",
+            str(env_file),
+            "stress",
+            "--scenario",
+            "limit_down_chain",
+            "--date",
+            "20260213",
+            "--repair",
+            "s4br",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["event"] == "s4br_stress"
+    assert payload["repair"] == "s4br"
+    assert "spiral-s4br" in payload["artifacts_dir"]
+    assert Path(payload["s4br_patch_note_path"]).exists()
+    assert Path(payload["s4br_delta_report_path"]).exists()
 

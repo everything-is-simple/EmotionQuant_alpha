@@ -1,7 +1,7 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-22  
-**版本**: v2.28  
+**最后更新**: 2026-02-23  
+**版本**: v2.29  
 **范围**: S0-S6
 
 ---
@@ -118,6 +118,8 @@
 | A-QA-052 | S3b 优先级串行重跑器 | `scripts/quality/rerun_s3b_priority.py` | A | 支持按优先级 CSV 串行执行 `run/mss/irs/recommend`，并落盘失败归因与摘要 |
 | A-TEST-053 | S3e neutral soft-gate 契约测试 | `tests/unit/algorithms/validation/test_neutral_regime_soft_gate_contract.py` | A | 固化 `regime + dual-window + neutral` 场景下 `factor_gate_raw=FAIL` 到决策 `WARN` 的审计契约 |
 | A-TEST-054 | CLI `pas` 与 validation 参数透传测试 | `tests/unit/pipeline/test_cli_entrypoint.py::test_main_pas_command_wires_to_pipeline` + `tests/unit/pipeline/test_cli_entrypoint.py::test_main_recommend_forwards_validation_mode_flags` + `tests/unit/pipeline/test_recommend_evidence_lane.py::test_integrated_bridge_validation_defaults_to_s3e_modes` | A | 固化 `pas` 子命令与 `recommend` 的 S3e 参数透传/默认值契约 |
+| A-CODE-055 | S4r/S4br 修复子圈执行资产 | `src/trading/pipeline.py` + `src/stress/pipeline.py` + `src/pipeline/main.py` | A | 落地 `trade --repair s4r` 与 `stress --repair s4br`，统一输出 patch/delta 审计产物并透传 CLI 事件 |
+| A-TEST-056 | S4r/S4br 修复子圈合同测试资产 | `tests/unit/trading/test_order_pipeline_contract.py` + `tests/unit/trading/test_deleveraging_policy_contract.py` + `tests/unit/trading/test_backtest_status_schema_compat_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py` | A | 固化修复子圈 patch/delta 产物契约与 legacy `trade_records` 自动补列写入兼容契约 |
 
 ---
 
@@ -138,6 +140,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-23 | v2.30 | S3b 收口一致性同步：本次仅执行 `review/final` 与看板口径对齐，无新增可复用代码/测试资产 |
+| 2026-02-23 | v2.29 | 新增 S4r/S4br 修复子圈代码与测试资产（A-CODE-055、A-TEST-056） |
 | 2026-02-22 | v2.28 | 新增 S3b 优先级串行重跑器（A-QA-052）与 S3e 软门/CLI 透传测试资产（A-TEST-053~054） |
 | 2026-02-21 | v2.27 | 新增 S3/S3b 固定窗口解锁资产（A-CODE-046、A-CODE-047）与 Integration 旧表类型修复资产（A-CODE-048），并补齐对应合同测试（A-TEST-049~051） |
 | 2026-02-21 | v2.26 | 新增 S3c CLI 产物契约资产（A-CODE-043、A-TEST-045）与 L2 初始化受控回退资产（A-CODE-044） |

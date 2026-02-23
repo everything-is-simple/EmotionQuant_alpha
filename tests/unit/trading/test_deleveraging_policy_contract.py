@@ -60,3 +60,7 @@ def test_deleveraging_policy_uses_s3b_deviation_as_traceable_source(tmp_path: Pa
     )
     assert repair_payload["repair"] == "s4br"
     assert float(repair_payload["target_deleveraging_ratio"]) == 0.7
+    assert repair_result.s4br_patch_note_path is not None
+    assert repair_result.s4br_delta_report_path is not None
+    assert repair_result.s4br_patch_note_path.exists()
+    assert repair_result.s4br_delta_report_path.exists()

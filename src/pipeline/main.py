@@ -243,6 +243,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Trading mode. Current supported: paper.",
     )
     trade_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    trade_parser.add_argument(
+        "--repair",
+        choices=("s4r",),
+        default=None,
+        help="Run S4r repair workflow for trade mode.",
+    )
     stress_parser = subparsers.add_parser("stress", help="Run S4b extreme defense stress pipeline.")
     stress_parser.add_argument(
         "--scenario",
@@ -1061,31 +1067,39 @@ def _run_trade(ctx: PipelineContext, args: argparse.Namespace) -> int:
         result = run_paper_trade(
             trade_date=args.date,
             mode=args.mode,
+            repair=str(args.repair or ""),
             config=ctx.config,
         )
     except ValueError as exc:
         print(str(exc))
         return 2
+    event_name = "s4r_trade" if str(args.repair or "") == "s4r" else "s4_trade"
+    payload = {
+        "event": event_name,
+        "trade_date": result.trade_date,
+        "mode": result.mode,
+        "repair": result.repair,
+        "total_orders": result.total_orders,
+        "filled_orders": result.filled_orders,
+        "risk_event_count": result.risk_event_count,
+        "quality_status": result.quality_status,
+        "go_nogo": result.go_nogo,
+        "artifacts_dir": str(result.artifacts_dir),
+        "trade_records_path": str(result.trade_records_path),
+        "positions_path": str(result.positions_path),
+        "risk_events_path": str(result.risk_events_path),
+        "paper_trade_replay_path": str(result.paper_trade_replay_path),
+        "consumption_path": str(result.consumption_path),
+        "gate_report_path": str(result.gate_report_path),
+        "error_manifest_path": str(result.error_manifest_path),
+    }
+    if result.s4r_patch_note_path is not None:
+        payload["s4r_patch_note_path"] = str(result.s4r_patch_note_path)
+    if result.s4r_delta_report_path is not None:
+        payload["s4r_delta_report_path"] = str(result.s4r_delta_report_path)
     print(
         json.dumps(
-            {
-                "event": "s4_trade",
-                "trade_date": result.trade_date,
-                "mode": result.mode,
-                "total_orders": result.total_orders,
-                "filled_orders": result.filled_orders,
-                "risk_event_count": result.risk_event_count,
-                "quality_status": result.quality_status,
-                "go_nogo": result.go_nogo,
-                "artifacts_dir": str(result.artifacts_dir),
-                "trade_records_path": str(result.trade_records_path),
-                "positions_path": str(result.positions_path),
-                "risk_events_path": str(result.risk_events_path),
-                "paper_trade_replay_path": str(result.paper_trade_replay_path),
-                "consumption_path": str(result.consumption_path),
-                "gate_report_path": str(result.gate_report_path),
-                "error_manifest_path": str(result.error_manifest_path),
-            },
+            payload,
             ensure_ascii=True,
             sort_keys=True,
         )
@@ -1105,25 +1119,30 @@ def _run_stress(ctx: PipelineContext, args: argparse.Namespace) -> int:
         print(str(exc))
         return 2
     event_name = "s4br_stress" if str(args.repair or "") == "s4br" else "s4b_stress"
+    payload = {
+        "event": event_name,
+        "trade_date": result.trade_date,
+        "scenario": result.scenario,
+        "repair": result.repair,
+        "gate_status": result.gate_status,
+        "go_nogo": result.go_nogo,
+        "target_deleveraging_ratio": result.target_deleveraging_ratio,
+        "executed_deleveraging_ratio": result.executed_deleveraging_ratio,
+        "artifacts_dir": str(result.artifacts_dir),
+        "extreme_defense_report_path": str(result.extreme_defense_report_path),
+        "deleveraging_policy_snapshot_path": str(result.deleveraging_policy_snapshot_path),
+        "stress_trade_replay_path": str(result.stress_trade_replay_path),
+        "consumption_path": str(result.consumption_path),
+        "gate_report_path": str(result.gate_report_path),
+        "error_manifest_path": str(result.error_manifest_path),
+    }
+    if result.s4br_patch_note_path is not None:
+        payload["s4br_patch_note_path"] = str(result.s4br_patch_note_path)
+    if result.s4br_delta_report_path is not None:
+        payload["s4br_delta_report_path"] = str(result.s4br_delta_report_path)
     print(
         json.dumps(
-            {
-                "event": event_name,
-                "trade_date": result.trade_date,
-                "scenario": result.scenario,
-                "repair": result.repair,
-                "gate_status": result.gate_status,
-                "go_nogo": result.go_nogo,
-                "target_deleveraging_ratio": result.target_deleveraging_ratio,
-                "executed_deleveraging_ratio": result.executed_deleveraging_ratio,
-                "artifacts_dir": str(result.artifacts_dir),
-                "extreme_defense_report_path": str(result.extreme_defense_report_path),
-                "deleveraging_policy_snapshot_path": str(result.deleveraging_policy_snapshot_path),
-                "stress_trade_replay_path": str(result.stress_trade_replay_path),
-                "consumption_path": str(result.consumption_path),
-                "gate_report_path": str(result.gate_report_path),
-                "error_manifest_path": str(result.error_manifest_path),
-            },
+            payload,
             ensure_ascii=True,
             sort_keys=True,
         )

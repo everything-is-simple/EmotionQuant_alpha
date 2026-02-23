@@ -50,6 +50,8 @@ class StressRunResult:
     target_deleveraging_ratio: float
     executed_deleveraging_ratio: float
     has_error: bool
+    s4br_patch_note_path: Path | None
+    s4br_delta_report_path: Path | None
 
 
 def _validate_trade_date(value: str) -> str:
@@ -264,6 +266,8 @@ def run_stress(
     consumption_path = artifacts_dir / "consumption.md"
     gate_report_path = artifacts_dir / "gate_report.md"
     error_manifest_path = artifacts_dir / "error_manifest.json"
+    s4br_patch_note_path = artifacts_dir / "s4br_patch_note.md" if normalized_repair == "s4br" else None
+    s4br_delta_report_path = artifacts_dir / "s4br_delta_report.md" if normalized_repair == "s4br" else None
 
     errors: list[dict[str, str]] = []
     warnings: list[str] = []
@@ -441,6 +445,41 @@ def run_stress(
             "warnings": warnings,
         },
     )
+    if normalized_repair == "s4br" and s4br_patch_note_path is not None and s4br_delta_report_path is not None:
+        baseline_target_ratio = _resolve_target_ratio(policy_source=policy_source, repair="")
+        ratio_delta = round(target_ratio - baseline_target_ratio, 6)
+        _write_markdown(
+            s4br_patch_note_path,
+            [
+                "# S4br Patch Note",
+                "",
+                f"- trade_date: {normalized_trade_date}",
+                f"- scenario: {normalized_scenario}",
+                "- repair_scope: extreme_defense_blockers_only",
+                "- repair_mode: s4br",
+                f"- gate_status: {gate_status}",
+                f"- go_nogo: {go_nogo}",
+                "- return_to_s4b_revalidation: "
+                + ("pass" if go_nogo == "GO" else "blocked"),
+                "",
+            ],
+        )
+        _write_markdown(
+            s4br_delta_report_path,
+            [
+                "# S4br Delta Report",
+                "",
+                f"- trade_date: {normalized_trade_date}",
+                f"- scenario: {normalized_scenario}",
+                f"- baseline_target_deleveraging_ratio: {baseline_target_ratio}",
+                f"- repair_target_deleveraging_ratio: {target_ratio}",
+                f"- ratio_delta: {ratio_delta}",
+                f"- executed_deleveraging_ratio: {executed_ratio}",
+                f"- gate_status: {gate_status}",
+                f"- go_nogo: {go_nogo}",
+                "",
+            ],
+        )
 
     return StressRunResult(
         trade_date=normalized_trade_date,
@@ -458,4 +497,6 @@ def run_stress(
         target_deleveraging_ratio=target_ratio,
         executed_deleveraging_ratio=executed_ratio,
         has_error=bool(errors),
+        s4br_patch_note_path=s4br_patch_note_path,
+        s4br_delta_report_path=s4br_delta_report_path,
     )

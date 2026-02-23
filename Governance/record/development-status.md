@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-22  
-**当前版本**: v4.47（TDL-S4B-004：S3b 偏差单侧样本 WARN 语义修复）  
+**最后更新**: 2026-02-23  
+**当前版本**: v4.48（S4r/S4br 修复子圈收口）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -19,6 +19,30 @@
 - S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
 - S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
 - S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+
+---
+
+## 本次同步（2026-02-23，S4r/S4br 修复子圈收口）
+
+1. S4r 落地并实跑：
+   - 新增 `eq trade --mode paper --date {trade_date} --repair s4r`。
+   - 实跑命令：`eq --env-file artifacts/spiral-s4b/20260213/closeout_env/.env.s4b.cross_window trade --mode paper --date 20260213 --repair s4r`。
+   - 结果：`quality_status=WARN`、`go_nogo=GO`。
+   - 产物：`artifacts/spiral-s4r/20260213/*`（含 `s4r_patch_note.md`、`s4r_delta_report.md`）。
+2. S4br 收口：
+   - `eq stress --scenario all --date {trade_date} --repair s4br` 现已输出 patch/delta 证据。
+   - 实跑命令：`eq --env-file artifacts/spiral-s4b/20260213/closeout_env/.env.s4b.cross_window stress --scenario all --date 20260213 --repair s4br`。
+   - 结果：`gate_status=WARN`、`go_nogo=GO`。
+   - 产物：`artifacts/spiral-s4br/20260213/*`（含 `s4br_patch_note.md`、`s4br_delta_report.md`）。
+3. 兼容性修复：
+   - 修复 legacy `trade_records` 旧 schema 写入阻断（缺列自动补齐）。
+   - 新增回归：`test_persist_auto_adds_missing_columns_for_legacy_trade_records_schema`。
+4. 质量验证：
+   - `pytest -q` => `183 passed`
+   - `python -m scripts.quality.local_quality_check --contracts --governance` => PASS
+5. 规格档案：
+   - 新增 `Governance/specs/spiral-s4r/{requirements,review,final}.md`
+   - 新增 `Governance/specs/spiral-s4br/{requirements,review,final}.md`
 
 ---
 
@@ -528,6 +552,18 @@
 
 ---
 
+## 本次同步（2026-02-23，S3b 收口口径一致性修订）
+
+1. 统一 `spiral-s3b` 口径：
+   - `Governance/specs/spiral-s3b/review.md` 状态从 `in_progress` 调整为 `completed`。
+   - 关键结论统一为跨窗口稳定口径：`A_not_dominant` + `dominant_component=none`。
+2. 同步路线看板：
+   - `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 中 `S3b` 状态切换为 `completed`。
+3. 当前执行焦点：
+   - S3b 阻塞解除后，下一实现主战场切换至 S5（GUI 最小闭环：`eq gui` + 日报导出 + 基础测试）。
+
+---
+
 ## Spiral 进度看板
 
 | Spiral | 目标 | 状态 | 备注 |
@@ -544,25 +580,26 @@
 | S3a | ENH-10 数据采集增强闭环 | ✅ 已完成 | 已接入真实 TuShare 客户端，实测吞吐与失败恢复证据齐备 |
 | S3 | 回测闭环 | 🔄 进行中 | 已扩展多交易日回放并落地板块化涨跌停阈值 |
 | S4 | 纸上交易闭环 | ✅ 已完成 | 完成跨日持仓回放与跌停次日重试证据闭环，`go_nogo=GO` |
+| S4r | 纸上交易修复子圈（条件触发） | ✅ 已完成 | `trade --repair s4r` 与 patch/delta 证据已收口，legacy trade_records 写入兼容已修复 |
 | S3ar | 采集稳定性修复圈（双 TuShare 主备 + 锁恢复，AK/Bao 预留） | ✅ 已完成 | run/test/artifact/review/sync 五件套闭合，允许推进 S3b |
 | S3r | 回测修复子圈（条件触发） | 📋 未开始 | 修复命令已落地（`backtest --repair s3r`），待 FAIL 场景触发 |
-| S3b | 收益归因验证专项圈 | 🔄 进行中 | 已完成 20 日扩窗证据并确认 `20/20` 覆盖（`remaining_failures=0`）；待完成三分解稳定性复核与收口同步 |
+| S3b | 收益归因验证专项圈 | ✅ 已完成 | 已完成跨窗口稳定性收口并统一口径：`A_not_dominant` + `dominant_component=none` |
 | S3c | 行业语义校准专项圈（SW31 映射 + IRS 全覆盖门禁） | 🔄 进行中 | `20260219` 窗口已通过 SW31/IRS 门禁并补齐 `gate/consumption` 产物，待与 S3b 固定窗口节奏对齐后收口 |
 | S3d | MSS 自适应校准专项圈（adaptive 阈值 + probe 真实收益） | 🔄 进行中 | 已补齐 `future_returns` probe 实跑证据，待完成剩余窗口五件套收口 |
 | S3e | Validation 生产校准专项圈（future_returns + 双窗口 WFA） | 🔄 进行中 | CLI 阻断已解除，进入窗口级证据收口 |
 | S4b | 极端防御专项圈 | ✅ 已完成 | 已完成四窗 `trade+stress` 收口并固化 S3b 参数消费证据（`TDL-S4B-004` 已清偿） |
+| S4br | 极端防御修复子圈（条件触发） | ✅ 已完成 | `stress --repair s4br` 与 patch/delta 证据已收口 |
 | S5 | GUI + 分析闭环 | 📋 未开始 | 依赖 S4b 完成 |
 | S6 | 稳定化闭环 | 📋 未开始 | 重跑一致性与债务清偿 |
 | S7a | ENH-11 自动调度闭环 | 📋 未开始 | 依赖 S6 完成 |
 
 ---
 
-## 下一步（S3b/S3c/S3d/S3e）
+## 下一步（S5/S6/S7a）
 
-1. 在 S3b 固化 `20/20` 覆盖与 N/A 警告语义到 `spiral-s3b/review/final`，完成窗口级归因稳定性复核。
-2. 基于 `20260219` 已有 S3c 证据，补跑固定窗口并完成 `spiral-s3c final` 收口。
-3. 对 S3d/S3e 执行窗口级实证并固化 `review/final`。
-4. 仅当 S3d/S3e 完成窗口证据收口后，再进入 S4b（极端防御）。
+1. 启动 S5：补齐 `eq gui` 最小展示闭环与日报导出契约测试。
+2. 启动 S6：补齐 `eq run-all` 一致性重跑链路与差异报告。
+3. 启动 S7a：补齐 `eq scheduler run-once` 自动调度与运行历史审计产物。
 
 ---
 
@@ -579,6 +616,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-23 | v4.49 | 完成 S3b 收口一致性修订：`spiral-s3b review/final` 口径统一并将 S3b 状态切换为 `completed`；同步路线看板后切换下一焦点至 S5 |
+| 2026-02-23 | v4.48 | 完成 S4r/S4br 修复子圈收口：落地 `trade --repair s4r` 与 `stress --repair s4br` patch/delta 证据链；修复 legacy `trade_records` 旧 schema 写入阻断并补齐回归测试 |
 | 2026-02-22 | v4.47 | 完成 TDL-S4B-004：`analysis --deviation` 单侧样本缺失从 `FAIL` 调整为 `WARN/GO`，新增回归测试并刷新 S4b 四窗汇总 |
 | 2026-02-22 | v4.46 | 完成 TDL-S4B-003：S4b 四窗 `trade+stress` 实跑收口，新增 `spiral-s4b` 规格三件套并固化跨窗口汇总证据 |
 | 2026-02-22 | v4.39 | 完成 TDL-S3-011：回测落地分层费率与冲击成本模型，新增成本指标落库与成本契约测试，验证全量 `170 passed` |

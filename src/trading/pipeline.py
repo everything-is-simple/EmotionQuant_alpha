@@ -13,13 +13,16 @@ from src.config.config import Config
 
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S4)
+# - Governance/SpiralRoadmap/S4R-EXECUTION-CARD.md (§2 run, §4 artifact)
 # - docs/design/core-infrastructure/trading/trading-algorithm.md (§2 信号生成, §3 风控, §5 执行)
 DESIGN_TRACE = {
     "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
+    "s4r_execution_card": "Governance/SpiralRoadmap/S4R-EXECUTION-CARD.md",
     "trading_algorithm_design": "docs/design/core-infrastructure/trading/trading-algorithm.md",
 }
 
 SUPPORTED_MODE = {"paper"}
+SUPPORTED_REPAIR = {"", "s4r"}
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 LIMIT_RATIO_MAIN_BOARD = 0.10
 LIMIT_RATIO_GEM_STAR = 0.20
@@ -80,6 +83,7 @@ RISK_EVENT_COLUMNS = [
 class TradeRunResult:
     trade_date: str
     mode: str
+    repair: str
     artifacts_dir: Path
     trade_records_path: Path
     positions_path: Path
@@ -94,13 +98,24 @@ class TradeRunResult:
     quality_status: str
     go_nogo: str
     has_error: bool
+    s4r_patch_note_path: Path | None
+    s4r_delta_report_path: Path | None
 
 
 def _utc_now_text() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def _artifacts_dir(trade_date: str) -> Path:
+def _normalize_repair(repair: str) -> str:
+    normalized = str(repair).strip().lower()
+    if normalized not in SUPPORTED_REPAIR:
+        raise ValueError(f"unsupported trade repair mode: {repair}; supported=['s4r']")
+    return normalized
+
+
+def _artifacts_dir(*, trade_date: str, repair: str) -> Path:
+    if repair == "s4r":
+        return Path("artifacts") / "spiral-s4r" / trade_date
     return Path("artifacts") / "spiral-s4" / trade_date
 
 
@@ -143,10 +158,50 @@ def _persist(
             connection.execute(
                 f"CREATE TABLE IF NOT EXISTS {table_name} AS SELECT * FROM incoming_df WHERE 1=0"
             )
+        else:
+            _ensure_table_columns(connection=connection, table_name=table_name, frame=frame)
         if frame.columns.tolist() and "trade_date" in frame.columns:
             connection.execute(f"DELETE FROM {table_name} WHERE trade_date = ?", [delete_trade_date])
-        connection.execute(f"INSERT INTO {table_name} SELECT * FROM incoming_df")
+        quoted_columns = ", ".join(_quote_identifier(column) for column in frame.columns.tolist())
+        connection.execute(
+            f"INSERT INTO {table_name} ({quoted_columns}) SELECT {quoted_columns} FROM incoming_df"
+        )
         connection.unregister("incoming_df")
+
+
+def _quote_identifier(name: str) -> str:
+    escaped = str(name).replace('"', '""')
+    return f'"{escaped}"'
+
+
+def _dtype_to_duckdb_type(series: pd.Series) -> str:
+    if pd.api.types.is_bool_dtype(series):
+        return "BOOLEAN"
+    if pd.api.types.is_integer_dtype(series):
+        return "BIGINT"
+    if pd.api.types.is_float_dtype(series):
+        return "DOUBLE"
+    return "VARCHAR"
+
+
+def _ensure_table_columns(
+    *,
+    connection: duckdb.DuckDBPyConnection,
+    table_name: str,
+    frame: pd.DataFrame,
+) -> None:
+    rows = connection.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+        [table_name],
+    ).fetchall()
+    existing = {str(row[0]) for row in rows}
+    for column in frame.columns.tolist():
+        if column in existing:
+            continue
+        column_type = _dtype_to_duckdb_type(frame[column])
+        connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {_quote_identifier(column)} {column_type}"
+        )
 
 
 def _read_s3_backtest_status(database_path: Path, trade_date: str) -> tuple[bool, str]:
@@ -462,12 +517,14 @@ def run_paper_trade(
     trade_date: str,
     mode: str,
     config: Config,
+    repair: str = "",
 ) -> TradeRunResult:
     normalized_mode = str(mode).strip().lower()
     if normalized_mode not in SUPPORTED_MODE:
         raise ValueError(f"unsupported trade mode: {mode}; only paper is supported")
+    normalized_repair = _normalize_repair(repair)
 
-    artifacts_dir = _artifacts_dir(trade_date)
+    artifacts_dir = _artifacts_dir(trade_date=trade_date, repair=normalized_repair)
     trade_records_path = artifacts_dir / "trade_records_sample.parquet"
     positions_path = artifacts_dir / "positions_sample.parquet"
     risk_events_path = artifacts_dir / "risk_events_sample.parquet"
@@ -475,6 +532,8 @@ def run_paper_trade(
     consumption_path = artifacts_dir / "consumption.md"
     gate_report_path = artifacts_dir / "gate_report.md"
     error_manifest_path = artifacts_dir / "error_manifest_sample.json"
+    s4r_patch_note_path = artifacts_dir / "s4r_patch_note.md" if normalized_repair == "s4r" else None
+    s4r_delta_report_path = artifacts_dir / "s4r_delta_report.md" if normalized_repair == "s4r" else None
 
     errors: list[dict[str, str]] = []
 
@@ -1028,6 +1087,7 @@ def run_paper_trade(
         "# S4 Paper Trade Replay",
         "",
         f"- trade_date: {trade_date}",
+        f"- repair: {normalized_repair or 'none'}",
         f"- carryover_position_count: {len(previous_positions)}",
         f"- total_orders: {total_orders}",
         f"- filled_orders: {filled_orders}",
@@ -1044,6 +1104,7 @@ def run_paper_trade(
     consumption_lines = [
         "# S4 Consumption Record",
         "",
+        f"- repair: {normalized_repair or 'none'}",
         f"- source_backtest: {backtest_reference}",
         f"- integrated_signal_rows: {len(signal_frame)}",
         f"- carryover_position_count: {len(previous_positions)}",
@@ -1060,6 +1121,7 @@ def run_paper_trade(
         "# S4 Gate Report",
         "",
         f"- trade_date: {trade_date}",
+        f"- repair: {normalized_repair or 'none'}",
         f"- quality_status: {quality_status}",
         f"- go_nogo: {go_nogo}",
         f"- total_orders: {total_orders}",
@@ -1080,6 +1142,38 @@ def run_paper_trade(
     if errors:
         error_manifest_path = artifacts_dir / "error_manifest.json"
         _write_json(error_manifest_path, error_payload)
+    if normalized_repair == "s4r" and s4r_patch_note_path is not None and s4r_delta_report_path is not None:
+        _write_markdown(
+            s4r_patch_note_path,
+            [
+                "# S4r Patch Note",
+                "",
+                f"- trade_date: {trade_date}",
+                "- repair_scope: trading_execution_blockers_only",
+                "- repair_mode: s4r",
+                f"- quality_status: {quality_status}",
+                f"- go_nogo: {go_nogo}",
+                "- return_to_s4_revalidation: "
+                + ("pass" if go_nogo == "GO" else "blocked"),
+                "",
+            ],
+        )
+        _write_markdown(
+            s4r_delta_report_path,
+            [
+                "# S4r Delta Report",
+                "",
+                f"- trade_date: {trade_date}",
+                f"- total_orders: {total_orders}",
+                f"- filled_orders: {filled_orders}",
+                f"- filled_sell_orders: {filled_sell_orders}",
+                f"- rejected_limit_down_count: {rejected_limit_down_count}",
+                f"- risk_event_count: {risk_event_count}",
+                f"- quality_status: {quality_status}",
+                f"- go_nogo: {go_nogo}",
+                "",
+            ],
+        )
 
     if database_path.exists():
         _persist(
@@ -1104,6 +1198,7 @@ def run_paper_trade(
     return TradeRunResult(
         trade_date=trade_date,
         mode=normalized_mode,
+        repair=normalized_repair,
         artifacts_dir=artifacts_dir,
         trade_records_path=trade_records_path,
         positions_path=positions_path,
@@ -1118,4 +1213,6 @@ def run_paper_trade(
         quality_status=quality_status,
         go_nogo=go_nogo,
         has_error=bool(errors),
+        s4r_patch_note_path=s4r_patch_note_path,
+        s4r_delta_report_path=s4r_delta_report_path,
     )
