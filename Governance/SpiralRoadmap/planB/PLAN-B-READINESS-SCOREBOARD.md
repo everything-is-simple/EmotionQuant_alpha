@@ -22,7 +22,7 @@
 
 | 指标 | 目标 | 当前值 | 状态 |
 |---|---|---|---|
-| 数据窗口 | 最低2020-2024（理想2019-2024） | pending | blocked |
+| 数据窗口 | 最低2020-2024（理想2019-01-01~2026-02-13） | pending | blocked |
 | 数据覆盖率 | >=99% | pending | blocked |
 | 端到端同窗 | run+backtest+analysis成功 | pending | blocked |
 | 归因三分解 | signal/execution/cost | pending | blocked |

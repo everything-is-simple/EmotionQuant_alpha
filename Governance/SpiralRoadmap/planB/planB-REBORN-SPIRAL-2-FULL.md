@@ -29,6 +29,21 @@
 
 ---
 
+## S3c/S3d/S3e 双档量化门禁（MVP/FULL）
+
+| 圈位 | MVP（最小可用） | FULL（完整生产口径） |
+|---|---|---|
+| S3c（SW31校准） | `industry_snapshot` 覆盖 31 行业，IRS 依赖字段齐全；允许 `WARN`，但必须有修复计划与时限 | 31 行业覆盖在近3个窗口连续稳定，质量告警清零或仅剩非阻断告警且完成闭环 |
+| S3d（MSS adaptive） | 自适应阈值可运行；样本不足自动回退固定阈值；禁止连续2窗负 spread | 自适应阈值在可用样本窗默认启用；关键窗口负 spread 为0；probe 结果可解释且可复跑 |
+| S3e（Validation校准） | 双窗口 WFA 可运行；`final_gate` 不得 `FAIL`；`factor_gate_raw=FAIL` 仅允许在 `neutral_regime` 软化且必须审计说明 | 双窗口 WFA 稳定通过；`factor_gate_raw` 不得 `FAIL`；`selected_weight_plan` 全链可追溯且 OOS 指标达标 |
+
+补充约束：
+
+1. 任一圈未达到 `MVP`，不得进入 `S4b`。
+2. 任一圈未达到 `FULL`，不得宣称“螺旋2生产就绪”。
+
+---
+
 ## 数据层升级
 
 ### 全市场数据
