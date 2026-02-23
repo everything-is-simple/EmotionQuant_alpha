@@ -43,4 +43,4 @@
 ## 5. 跨文档联动
 
 - 结论: 已完成。  
-  `S2R-EXECUTION-CARD.md` 与 `SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md` 的 S2r 语义已在 specs 层落档。
+  `Governance/SpiralRoadmap/planA/execution-cards/S2R-EXECUTION-CARD.md` 与 `Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md` 的 S2r 语义已在 specs 层落档。

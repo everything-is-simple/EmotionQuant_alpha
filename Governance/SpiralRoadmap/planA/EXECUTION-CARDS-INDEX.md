@@ -1,0 +1,43 @@
+# Plan A 执行卡索引
+
+**状态**: Active  
+**更新时间**: 2026-02-23  
+**定位**: Plan A 执行卡集中入口（run/test/artifact/review/sync）
+
+---
+
+## 阶段A（S0-S2）
+
+- `Governance/SpiralRoadmap/planA/execution-cards/S0A-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S0B-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S0C-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S1A-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S1B-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S2A-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S2B-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S2R-EXECUTION-CARD.md`
+
+## 阶段B（S3-S4b）
+
+- `Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S3-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S3R-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S3AR-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S3B-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S3C-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S3D-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S3E-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S4-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S4R-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S4B-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S4BR-EXECUTION-CARD.md`
+
+## 阶段C（S5-S7a）
+
+- `Governance/SpiralRoadmap/planA/execution-cards/S5-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S5R-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S6-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S6R-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S7A-EXECUTION-CARD.md`
+- `Governance/SpiralRoadmap/planA/execution-cards/S7AR-EXECUTION-CARD.md`

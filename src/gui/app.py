@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,6 +27,7 @@ class GuiRunResult:
     consumption_path: Path | None
     quality_status: str
     go_nogo: str
+    dashboard_url: str | None
     has_error: bool
 
 
@@ -114,11 +118,50 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     )
 
 
+def _streamlit_dashboard_script_path() -> Path:
+    return Path(__file__).with_name("dashboard.py")
+
+
+def _build_streamlit_command(*, trade_date: str, streamlit_port: int) -> list[str]:
+    script_path = _streamlit_dashboard_script_path()
+    return [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(script_path),
+        "--server.port",
+        str(streamlit_port),
+        "--server.headless",
+        "true",
+        "--browser.gatherUsageStats",
+        "false",
+        "--",
+        "--trade-date",
+        trade_date,
+    ]
+
+
+def _launch_streamlit_dashboard(
+    *,
+    trade_date: str,
+    database_path: Path,
+    streamlit_port: int,
+) -> subprocess.CompletedProcess[str]:
+    command = _build_streamlit_command(trade_date=trade_date, streamlit_port=streamlit_port)
+    env = os.environ.copy()
+    env["EQ_GUI_TRADE_DATE"] = trade_date
+    env["EQ_GUI_DUCKDB_PATH"] = str(database_path)
+    return subprocess.run(command, check=False, env=env, text=True)
+
+
 def run_gui(
     *,
     config: Config,
     trade_date: str,
     export_mode: str = "",
+    launch_dashboard: bool = False,
+    streamlit_port: int | None = None,
 ) -> GuiRunResult:
     normalized_date = str(trade_date).strip()
     _validate_trade_date(normalized_date)
@@ -129,7 +172,31 @@ def run_gui(
         )
 
     artifacts_dir = Path("artifacts") / "spiral-s5" / normalized_date
+    database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    effective_streamlit_port = int(streamlit_port or config.streamlit_port or 8501)
     if not normalized_export:
+        if launch_dashboard:
+            completed = _launch_streamlit_dashboard(
+                trade_date=normalized_date,
+                database_path=database_path,
+                streamlit_port=effective_streamlit_port,
+            )
+            has_error = completed.returncode not in {0, 130}
+            quality_status = "FAIL" if has_error else "PASS"
+            go_nogo = "NO_GO" if has_error else "GO"
+            return GuiRunResult(
+                trade_date=normalized_date,
+                export_mode="",
+                artifacts_dir=artifacts_dir,
+                daily_report_path=None,
+                gui_export_manifest_path=None,
+                gate_report_path=None,
+                consumption_path=None,
+                quality_status=quality_status,
+                go_nogo=go_nogo,
+                dashboard_url=f"http://127.0.0.1:{effective_streamlit_port}",
+                has_error=has_error,
+            )
         return GuiRunResult(
             trade_date=normalized_date,
             export_mode="",
@@ -140,10 +207,10 @@ def run_gui(
             consumption_path=None,
             quality_status="PASS",
             go_nogo="GO",
+            dashboard_url=None,
             has_error=False,
         )
 
-    database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     metrics, warnings = _read_daily_metrics(database_path=database_path, trade_date=normalized_date)
     quality_status = "WARN" if warnings else "PASS"
     go_nogo = "GO"
@@ -222,5 +289,6 @@ def run_gui(
         consumption_path=consumption_path,
         quality_status=quality_status,
         go_nogo=go_nogo,
+        dashboard_url=None,
         has_error=False,
     )

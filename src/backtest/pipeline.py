@@ -13,16 +13,16 @@ from src.config.config import Config
 from src.data.fetch_batch_pipeline import read_fetch_status
 
 # DESIGN_TRACE:
-# - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3)
-# - Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md (§1 目标, §4 artifact)
-# - Governance/SpiralRoadmap/S3-EXECUTION-CARD.md (§1 目标, §4 artifact)
-# - Governance/SpiralRoadmap/S3R-EXECUTION-CARD.md (§2 run, §4 artifact)
+# - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3)
+# - Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md (§1 目标, §4 artifact)
+# - Governance/SpiralRoadmap/planA/execution-cards/S3-EXECUTION-CARD.md (§1 目标, §4 artifact)
+# - Governance/SpiralRoadmap/planA/execution-cards/S3R-EXECUTION-CARD.md (§2 run, §4 artifact)
 # - docs/design/core-infrastructure/backtest/backtest-algorithm.md (§3 信号入口, §4 A股约束)
 DESIGN_TRACE = {
-    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
-    "s3a_execution_card": "Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md",
-    "s3_execution_card": "Governance/SpiralRoadmap/S3-EXECUTION-CARD.md",
-    "s3r_execution_card": "Governance/SpiralRoadmap/S3R-EXECUTION-CARD.md",
+    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
+    "s3a_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md",
+    "s3_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3-EXECUTION-CARD.md",
+    "s3r_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3R-EXECUTION-CARD.md",
     "backtest_algorithm_design": "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
 }
 

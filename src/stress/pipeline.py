@@ -13,13 +13,13 @@ import pandas as pd
 from src.config.config import Config
 
 # DESIGN_TRACE:
-# - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S4b)
-# - Governance/SpiralRoadmap/S4B-EXECUTION-CARD.md (§2 run, §4 artifact)
-# - Governance/SpiralRoadmap/S4BR-EXECUTION-CARD.md (§2 run, §4 artifact)
+# - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S4b)
+# - Governance/SpiralRoadmap/planA/execution-cards/S4B-EXECUTION-CARD.md (§2 run, §4 artifact)
+# - Governance/SpiralRoadmap/planA/execution-cards/S4BR-EXECUTION-CARD.md (§2 run, §4 artifact)
 DESIGN_TRACE = {
-    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
-    "s4b_execution_card": "Governance/SpiralRoadmap/S4B-EXECUTION-CARD.md",
-    "s4br_execution_card": "Governance/SpiralRoadmap/S4BR-EXECUTION-CARD.md",
+    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
+    "s4b_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S4B-EXECUTION-CARD.md",
+    "s4br_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S4BR-EXECUTION-CARD.md",
 }
 
 SUPPORTED_SCENARIO = {"limit_down_chain", "liquidity_dryup", "all"}

@@ -324,7 +324,7 @@
 
 ## 本次同步（2026-02-22，TDL-S3-005：S3a artifact 清单对齐）
 
-1. 修订执行卡：`Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md`
+1. 修订执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md`
    - 移除错误产物：`artifacts/spiral-s3a/{trade_date}/quality_gate_report.md`
    - 补充真实续传游标：`artifacts/spiral-s3a/_state/fetch_progress.json`
    - 保持 S3a 三件套产物不变：`fetch_progress` / `throughput_benchmark` / `fetch_retry_report`
@@ -416,7 +416,7 @@
 1. 落地 MSS CLI 参数契约：`eq mss --threshold-mode` 与 `eq mss-probe --return-series-source` 可执行。
 2. 落地 Validation 独立入口：`eq validation --trade-date --threshold-mode --wfa --export-run-manifest` 可执行。
 3. 落地对应合同测试：S3d 两条 + S3e 三条，并通过回归。
-4. 执行卡状态同步：`S3D-EXECUTION-CARD.md`、`S3E-EXECUTION-CARD.md` 切换为 `Active`。
+4. 执行卡状态同步：`Governance/SpiralRoadmap/planA/execution-cards/S3D-EXECUTION-CARD.md`、`Governance/SpiralRoadmap/planA/execution-cards/S3E-EXECUTION-CARD.md` 切换为 `Active`。
 5. 债务口径同步：清偿 TD-S3-017（CLI 阻断）、TD-S1-007（MSS 固定阈值债务）、TD-S1-008（温度差代理收益债务）。
 
 ---
@@ -425,7 +425,7 @@
 
 1. 代码层补齐 S3r 修复入口：`eq backtest --repair s3r` 已接入 CLI 与回测流水线，并可产出 `s3r_patch_note/s3r_delta_report`。
 2. 修订 S3 路线/执行卡命令漂移：S3c 口径统一为 `eq run --to-l2 --strict-sw31`（移除无效 `--stage l2`）。
-3. 同步状态口径：`S3A-EXECUTION-CARD.md` 与 `S3AR-EXECUTION-CARD.md` 切换为 `Completed`，与 specs/主控状态一致。
+3. 同步状态口径：`Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md` 与 `Governance/SpiralRoadmap/planA/execution-cards/S3AR-EXECUTION-CARD.md` 切换为 `Completed`，与 specs/主控状态一致。
 4. 补齐阶段B计划圈 specs 骨架：新增 `spiral-s3r/s3c/s3d/s3e` 的 `requirements/review/final`，消除执行卡引用路径缺失。
 5. 当时未完成项记录：S3d（adaptive/probe CLI）与 S3e（`eq validation` 入口）曾为计划圈阻断项（该项已在 v4.24 清偿）。
 
@@ -494,7 +494,7 @@
 2. S3 回测新增窗口覆盖校验：窗口内 `mss_panorama/irs_industry_daily/stock_pas_daily` 任一为 0 时阻断收口。
 3. S3 证据链增强：`consumption.md` 与 `gate_report.md` 新增 DuckDB 路径与核心表覆盖统计，支持审计复核。
 4. 新增 S3 回归测试：`tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py`，覆盖“字段空值阻断/核心表缺失阻断/正常覆盖通过”。
-5. 同步执行卡与路线合同：`S3-EXECUTION-CARD.md`、`SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 已纳入新门禁与测试清单。
+5. 同步执行卡与路线合同：`Governance/SpiralRoadmap/planA/execution-cards/S3-EXECUTION-CARD.md`、`Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 已纳入新门禁与测试清单。
 
 ## 本次同步（2026-02-18，S4 收口）
 
@@ -578,7 +578,7 @@
 ## 本次同步（2026-02-23，S3A-S4B 路线图收口与 WARN 准入预算）
 
 1. 路线图状态更新：
-   - `Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 已从 `Active` 切换为 `Completed`（工程收口完成，健康基线含 WARN）。
+   - `Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 已从 `Active` 切换为 `Completed`（工程收口完成，健康基线含 WARN）。
    - “完成态复核”改为 2026-02-23 口径：`S3a/S3ar/S3/S3b/S3c/S3d/S3e/S4/S4b` 已完成，`S4r/S4br` 条件修复子圈已完成。
 2. WARN 准入预算（阶段 C）：
    - 允许进入 S5：结构性/样本不足类 WARN（空信号窗、样本不足导致的 N/A）。

@@ -32,27 +32,27 @@ from src.stress.pipeline import run_stress
 from src.trading.pipeline import run_paper_trade
 
 # DESIGN_TRACE:
-# - Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§3 入口兼容规则, §5 各圈执行合同)
-# - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3a)
-# - Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+# - Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§3 入口兼容规则, §5 各圈执行合同)
+# - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3a)
+# - Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 # - docs/design/core-infrastructure/backtest/backtest-algorithm.md (§1-§4)
 # - docs/design/core-infrastructure/analysis/analysis-algorithm.md (§1-§4)
 # - docs/design/core-infrastructure/trading/trading-algorithm.md (§2-§5)
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§5 周期阈值模式)
 # - docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md (§3 阈值, §4 输出)
-# - Governance/SpiralRoadmap/S3D-EXECUTION-CARD.md (§2 run, §3 test)
-# - Governance/SpiralRoadmap/S3E-EXECUTION-CARD.md (§2 run, §3 test)
+# - Governance/SpiralRoadmap/planA/execution-cards/S3D-EXECUTION-CARD.md (§2 run, §3 test)
+# - Governance/SpiralRoadmap/planA/execution-cards/S3E-EXECUTION-CARD.md (§2 run, §3 test)
 DESIGN_TRACE = {
-    "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
-    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
-    "s3a_execution_card": "Governance/SpiralRoadmap/S3A-EXECUTION-CARD.md",
+    "s0_s2_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
+    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
+    "s3a_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md",
     "backtest_algorithm_design": "docs/design/core-infrastructure/backtest/backtest-algorithm.md",
     "analysis_algorithm_design": "docs/design/core-infrastructure/analysis/analysis-algorithm.md",
     "trading_algorithm_design": "docs/design/core-infrastructure/trading/trading-algorithm.md",
     "mss_algorithm_design": "docs/design/core-algorithms/mss/mss-algorithm.md",
     "validation_algorithm_design": "docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md",
-    "s3d_execution_card": "Governance/SpiralRoadmap/S3D-EXECUTION-CARD.md",
-    "s3e_execution_card": "Governance/SpiralRoadmap/S3E-EXECUTION-CARD.md",
+    "s3d_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3D-EXECUTION-CARD.md",
+    "s3e_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3E-EXECUTION-CARD.md",
 }
 
 
@@ -308,6 +308,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     gui_parser = subparsers.add_parser("gui", help="Run S5 GUI launch/export pipeline.")
     gui_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    gui_parser.add_argument(
+        "--no-launch",
+        action="store_true",
+        help="Validate GUI entry without starting Streamlit server.",
+    )
+    gui_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Override Streamlit server port for this run.",
+    )
     gui_parser.add_argument(
         "--export",
         choices=("daily-report",),
@@ -1272,6 +1283,8 @@ def _run_gui(ctx: PipelineContext, args: argparse.Namespace) -> int:
             config=ctx.config,
             trade_date=str(args.date).strip(),
             export_mode=str(args.export or "").strip(),
+            launch_dashboard=not bool(args.no_launch),
+            streamlit_port=args.port,
         )
     except ValueError as exc:
         print(str(exc))
@@ -1293,6 +1306,9 @@ def _run_gui(ctx: PipelineContext, args: argparse.Namespace) -> int:
         payload["gate_report_path"] = str(result.gate_report_path)
     if result.consumption_path is not None:
         payload["consumption_path"] = str(result.consumption_path)
+    dashboard_url = getattr(result, "dashboard_url", None)
+    if dashboard_url:
+        payload["dashboard_url"] = str(dashboard_url)
     print(json.dumps(payload, ensure_ascii=True, sort_keys=True))
     return 1 if result.has_error else 0
 

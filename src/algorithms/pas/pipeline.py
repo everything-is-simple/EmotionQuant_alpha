@@ -11,11 +11,11 @@ from src.config.config import Config
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/pas/pas-algorithm.md (3 三因子, 5 方向, 6 RR)
 # - docs/design/core-algorithms/pas/pas-data-models.md (3 输出模型, 4 中间表)
-# - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (3 PAS, 6 artifact)
+# - Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md (3 PAS, 6 artifact)
 DESIGN_TRACE = {
     "pas_algorithm": "docs/design/core-algorithms/pas/pas-algorithm.md",
     "pas_data_models": "docs/design/core-algorithms/pas/pas-data-models.md",
-    "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md",
 }
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"

@@ -97,7 +97,7 @@
 | S6 | 稳定化闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s6/*` |
 | S7a | ENH-11 自动调度闭环 | 📋 planned | 待创建 `Governance/specs/spiral-s7a/*` |
 
-补充：阶段C（S5-S7a）执行合同已就位：`Governance/SpiralRoadmap/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`。
+补充：阶段C（S5-S7a）执行合同已就位：`Governance/SpiralRoadmap/planA/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`。
 
 ### 4.3 S2c 收口结论（2026-02-17）
 

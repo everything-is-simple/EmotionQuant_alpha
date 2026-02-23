@@ -31,8 +31,8 @@
 | 本圈做什么 | `Governance/Capability/SPIRAL-CP-OVERVIEW.md` |
 | 能力契约是什么 | `Governance/Capability/CP-*.md`（CP） |
 | 任务如何写 | `Governance/Capability/SPIRAL-TASK-TEMPLATE.md` |
-| 新系统按圈怎么推进 | `Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md` |
-| 跨圈依赖与外挂排布看哪里 | `Governance/SpiralRoadmap/DEPENDENCY-MAP.md` |
+| 新系统按圈怎么推进 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
+| 跨圈依赖与外挂排布看哪里 | `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` |
 | 6A 工作流如何执行 | `Governance/steering/6A-WORKFLOW.md` |
 | 技术需求与选型看哪里 | `Governance/steering/TRD.md` |
 | 改进行动主计划看哪里 | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |
@@ -85,7 +85,7 @@ CP 文档仅在契约变化时更新。
 |---|---|---|
 | v3.5.2 | 2026-02-14 | SoT 矩阵补充命名契约入口（schema/glossary/template），治理目录补充命名契约变更模板 |
 | v3.5.1 | 2026-02-14 | 修复 R33（review-011）：治理目录与 SoT 矩阵新增“跨文档变更联动模板”入口 |
-| v3.5.0 | 2026-02-12 | 新增 TRD 作为技术源头 SoT；SpiralRoadmap 入口由 `draft/` 收敛到 `VORTEX-EVOLUTION-ROADMAP.md`，并补充 `DEPENDENCY-MAP.md` 入口 |
+| v3.5.0 | 2026-02-12 | 新增 TRD 作为技术源头 SoT；SpiralRoadmap 入口由 `draft/` 收敛到 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`，并补充 `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` 入口 |
 | v3.4.1 | 2026-02-11 | 修复 R1：收敛 SpiralRoadmap 表述为候选草稿；SoT 补充核心原则/命名规范/系统总览/模块索引；修正 .claude 迁移列表缩进 |
 | v3.4.0 | 2026-02-11 | 补充设计目录三层结构与 SoT 映射（核心算法/核心基础设施/外挂增强） |
 | v3.3.0 | 2026-02-10 | 新增 `Governance/SpiralRoadmap/` 作为与 `Capability` 同级的新系统实现路线目录，并补充 SoT 入口 |

@@ -117,7 +117,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 - 设计目录总览：`docs/design/`（`core-algorithms/` + `core-infrastructure/` + `enhancements/`）
 - 路线总览：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 - 能力包（CP）：`Governance/Capability/CP-*.md`
-- 新系统螺旋实现路线：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md`（总路线） + `Governance/SpiralRoadmap/DEPENDENCY-MAP.md`（依赖图）
+- 新系统螺旋实现路线：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`（总路线） + `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`（依赖图）
 - 技术需求与选型（TRD）：`Governance/steering/TRD.md`
 - 治理 SoT 矩阵：`Governance/steering/GOVERNANCE-STRUCTURE.md`
 - 6A 工作流：`Governance/steering/6A-WORKFLOW.md`
@@ -137,7 +137,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 | v4.1.7 | 2026-02-18 | 固化本地部署口径：新增 `G:\EmotionQuant_data` 存储校验脚本入口；补充“仓库整洁度”执行口径（代码文档与数据目录分离） |
 | v4.1.6 | 2026-02-14 | 文档导航补齐命名契约体系入口（schema/glossary/模板）与质量门禁入口（本地检查命令 + CI workflow） |
 | v4.1.5 | 2026-02-14 | 修复 R33（review-011）：补充 `run/test/artifact/review/sync` 明文口径；A 股规则增加精度定义链接（铁律/原则）；新增“研究主选 vs 收口主线”术语消歧；文档导航补充 TRD/治理 SoT/6A 入口 |
-| v4.1.4 | 2026-02-12 | 文档导航中的 SpiralRoadmap 入口由 `draft/` 收敛为 `VORTEX-EVOLUTION-ROADMAP.md` + `DEPENDENCY-MAP.md` |
+| v4.1.4 | 2026-02-12 | 文档导航中的 SpiralRoadmap 入口由 `draft/` 收敛为 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` + `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` |
 | v4.1.3 | 2026-02-11 | 文档导航补充设计三层结构（核心算法/核心基础设施/外挂增强），对齐目录重构 |
 | v4.1.2 | 2026-02-09 | 修复 R29：明确技术指标边界与铁律一致（可对照/辅助特征但不得独立决策）；L3 分层补充 Validation 运行时输出 |
 | v4.1.1 | 2026-02-09 | 修复 R25：L2 分层补充 `stock_gene_cache`；明确回测引擎切换条件；补充 Altair 移除前置条件 |

@@ -3,7 +3,7 @@
 **状态**: Active  
 **更新时间**: 2026-02-16  
 **用途**: 定义 `阶段A/B/C` 的统一执行模板，约束每个大阶段的目标、门禁、产物与失败回退。  
-**角色**: 阶段级执行合同（配合微圈执行，不替代 `SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`）。
+**角色**: 阶段级执行合同（配合微圈执行，不替代 `Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`）。
 
 ---
 
@@ -146,10 +146,10 @@
 
 ## 6. 与现有文档关系
 
-- 全局看板：`Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md`
-- 依赖图：`Governance/SpiralRoadmap/DEPENDENCY-MAP.md`
-- 执行路线：`Governance/SpiralRoadmap/SPIRAL-PRODUCTION-ROUTES.md`
-- S0-S2c 微圈合同：`Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
+- 全局看板：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+- 依赖图：`Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
+- 执行路线：`Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
+- S0-S2c 微圈合同：`Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
 
 ---

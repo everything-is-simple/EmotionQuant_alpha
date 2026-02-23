@@ -66,4 +66,4 @@
 
 1. MSS `mss_rank/mss_percentile` 已作为正式契约字段稳定落库并可消费。
 2. Integration 四模式与推荐数量硬约束（每日<=20/行业<=5）已进入执行契约并通过回归测试。
-3. S2c 与 `S2A/S2B/S2C/S2R` 执行卡、`SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md` 一致性复核结论为 PASS。
+3. S2c 与 `S2A/S2B/S2C/S2R` 执行卡、`Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md` 一致性复核结论为 PASS。

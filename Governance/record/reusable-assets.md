@@ -36,7 +36,7 @@
 | S-GOV-014 | S3a 6A 证据档案模板 | `Governance/specs/spiral-s3a/*` | S | ENH-10 圈 requirements/review/final 与门禁证据骨架复用 |
 | S-GOV-015 | S2c 6A 阶段证据模板 | `Governance/specs/spiral-s2c/*` | A | 桥接硬门禁子步与 full 语义收口证据复用 |
 | S-GOV-016 | S3ar 6A 证据档案模板 | `Governance/specs/spiral-s3ar/*` | S | 采集稳定性修复圈 requirements/review/final 与门禁证据骨架复用 |
-| S-GOV-017 | S3ar 执行卡模板 | `Governance/SpiralRoadmap/S3AR-EXECUTION-CARD.md` | S | 双 TuShare 主备与 DuckDB 锁恢复 run/test/artifact/review/sync 合同复用 |
+| S-GOV-017 | S3ar 执行卡模板 | `Governance/SpiralRoadmap/planA/execution-cards/S3AR-EXECUTION-CARD.md` | S | 双 TuShare 主备与 DuckDB 锁恢复 run/test/artifact/review/sync 合同复用 |
 | S-GOV-018 | S2r 6A 修复子圈证据模板 | `Governance/specs/spiral-s2r/*` | S | FAIL 修复场景下 requirements/review/final 与 patch/delta 证据口径复用 |
 
 ---
@@ -154,7 +154,7 @@
 | 2026-02-20 | v2.22 | 新增 S3ar 实网验真证据样例集资产（A-QA-009），用于主备可用性/限速/窗口采集证据复用对照 |
 | 2026-02-20 | v2.21 | 新增 unit 环境隔离夹具资产（A-QA-008）与 S3ar 锁恢复/幂等写入代码测试资产（A-CODE-035、A-TEST-036） |
 | 2026-02-19 | v2.20 | 新增 TuShare 主备通道策略文档资产（S-DES-007）与吞吐压测脚本资产（A-QA-007）；将 AK/Bao 空缺调整为 S3ar-next 预留 |
-| 2026-02-19 | v2.19 | 新增 S3ar 资产登记：`Governance/specs/spiral-s3ar/*` 与 `S3AR-EXECUTION-CARD.md`；补充“多源兜底与锁恢复”空缺项 |
+| 2026-02-19 | v2.19 | 新增 S3ar 资产登记：`Governance/specs/spiral-s3ar/*` 与 `Governance/SpiralRoadmap/planA/execution-cards/S3AR-EXECUTION-CARD.md`；补充“多源兜底与锁恢复”空缺项 |
 | 2026-02-18 | v2.18 | 更新 S4 测试资产说明：补充收口样例证据入口（`artifacts/spiral-s4/20260222/manual_test_summary.md`） |
 | 2026-02-17 | v2.17 | 升级 S3a 资产登记为收口版：纳入真实 TuShare 适配、实测吞吐与失败恢复实测相关代码/测试资产 |
 | 2026-02-17 | v2.16 | 增加 S3 多交易日回放与 T+1/涨跌停资产（A-CODE-031、A-TEST-032）及 S4 paper trade 资产（A-CODE-033、A-TEST-034） |

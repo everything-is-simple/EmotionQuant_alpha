@@ -10,10 +10,10 @@ from src.config.config import Config
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/integration/integration-algorithm.md (§3 集成公式, §4 Gate 与桥接阻断)
-# - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§3 Integration)
+# - Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md (§3 Integration)
 DESIGN_TRACE = {
     "integration_algorithm": "docs/design/core-algorithms/integration/integration-algorithm.md",
-    "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md",
 }
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"

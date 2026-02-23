@@ -48,4 +48,4 @@
 
 - 集成模式语义已收口：`top_down/bottom_up/dual_verify/complementary` 全部可执行并可追溯。
 - 推荐数量硬约束已收口：每日最多 `20`、单行业最多 `5`。
-- 与 S2 执行卡/总路线图一致性结论：PASS（`Governance/SpiralRoadmap/S2B-EXECUTION-CARD.md` 与 `Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`）。
+- 与 S2 执行卡/总路线图一致性结论：PASS（`Governance/SpiralRoadmap/planA/execution-cards/S2B-EXECUTION-CARD.md` 与 `Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`）。

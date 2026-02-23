@@ -16,11 +16,11 @@ from src.config.config import Config
 from src.integration.pipeline import run_integrated_daily
 
 # DESIGN_TRACE:
-# - Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§5 S2a/S2b/S2c)
-# - Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md (§4 run, §5 test, §8 硬门禁)
+# - Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§5 S2a/S2b/S2c)
+# - Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md (§4 run, §5 test, §8 硬门禁)
 DESIGN_TRACE = {
-    "s0_s2_roadmap": "Governance/SpiralRoadmap/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
-    "s2c_execution_card": "Governance/SpiralRoadmap/S2C-EXECUTION-CARD.md",
+    "s0_s2_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md",
 }
 
 

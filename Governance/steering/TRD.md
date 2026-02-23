@@ -100,7 +100,7 @@ Data → Signal → Validation → Integration → Backtest → Trading → Anal
 2. 核心基础设施：Data/Backtest/Trading/Analysis/GUI
 3. 系统外挂：ENH-01~ENH-09
 
-当前规划占比（来自 `Governance/SpiralRoadmap/VORTEX-EVOLUTION-ROADMAP.md`）：
+当前规划占比（来自 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`）：
 - 核心算法：27%
 - 核心基础设施：46%
 - 系统外挂：27%

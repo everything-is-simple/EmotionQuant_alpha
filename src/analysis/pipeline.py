@@ -12,12 +12,12 @@ import pandas as pd
 from src.config.config import Config
 
 # DESIGN_TRACE:
-# - Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3b)
-# - Governance/SpiralRoadmap/S3B-EXECUTION-CARD.md (§1 目标, §4 artifact)
+# - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3b)
+# - Governance/SpiralRoadmap/planA/execution-cards/S3B-EXECUTION-CARD.md (§1 目标, §4 artifact)
 # - docs/design/core-infrastructure/analysis/analysis-algorithm.md (§1, §4, §6)
 DESIGN_TRACE = {
-    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
-    "s3b_execution_card": "Governance/SpiralRoadmap/S3B-EXECUTION-CARD.md",
+    "s3a_s4b_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
+    "s3b_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3B-EXECUTION-CARD.md",
     "analysis_algorithm_design": "docs/design/core-infrastructure/analysis/analysis-algorithm.md",
 }
 

@@ -15,7 +15,7 @@
 
 ## A2 Architect
 
-- 关联执行卡: `Governance/SpiralRoadmap/S3E-EXECUTION-CARD.md`
+- 关联执行卡: `Governance/SpiralRoadmap/planA/execution-cards/S3E-EXECUTION-CARD.md`
 - 目标测试:
   - `tests/unit/algorithms/validation/test_factor_future_returns_alignment_contract.py`（已新增并通过）
   - `tests/unit/algorithms/validation/test_weight_validation_dual_window_contract.py`（已新增并通过）
