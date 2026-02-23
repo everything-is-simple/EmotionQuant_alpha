@@ -32,14 +32,16 @@
   - 本地 DuckDB 可读写，`Config.from_env()` 注入有效。
   - 交易日历可用，A 股规则字段可追溯。
 - 圈内必须交付：
-  - canary 数据落地（建议先 `2022-01-01` 到 `2024-12-31`）。
+  - canary 数据落地（最低 `2020-01-01` 到 `2024-12-31`；理想 `2019-01-01` 到 `2026-02-13`）。
   - MSS/IRS/PAS/Validation/Integration 主链可运行。
   - 简单回测（本地引擎）可复现。
   - 最小归因（`signal/execution/cost` 三分解）可导出。
+  - 归因对比实验：`MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)`。
 - 出口硬门禁（全部满足才可进入螺旋 2）：
   - `data_coverage >= 99%`（目标窗口内）。
   - `eq run` 与 `eq backtest` 在同一窗口可重复运行。
   - 至少 1 份 canary 收益曲线 + 1 份归因报告。
+  - 对比结论可回答：去掉 MSS 后收益/风险变化是否显著。
   - `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 完成一轮更新。
 
 ### 螺旋 2：Full 闭环（3-4 个月）
@@ -54,6 +56,10 @@
   - 多窗口完整回测（至少 1y/3y/5y + 典型牛熊段）。
   - A/B/C 对照 + 实盘-回测偏差归因完整化。
   - SW31 全行业语义校准、MSS adaptive、Validation 生产校准闭环。
+  - `S3c/S3d/S3e` 双档门禁：
+    - `MVP`：满足最小可用准入（无 FAIL，可解释 WARN）。
+    - `FULL`：满足完整生产校准口径。
+  - 允许并行：`S3c/S3d/S3e` 的准备与实验可并行；最终收口与宣告必须按 `S3c -> S3d -> S3e` 串行。
 - 出口硬门禁（全部满足才可进入螺旋 3）：
   - 全市场历史数据落库完成并通过质量检查。
   - 回测报告覆盖多窗口且可复现。
@@ -76,6 +82,19 @@
   - 关键流程可回放、可追责、可恢复。
   - 生产就绪评估报告明确 `GO/NO_GO`。
 
+### 螺旋 3.5：Pre-Live 实盘预演（1-2 个月）
+
+- 位置：螺旋3后、任何小资金实盘前。
+- 目标：证明“真实行情、零真实下单”条件下系统稳定无重大偏差。
+- 圈内必须交付：
+  - 连续 20 个交易日预演日志（信号、执行模拟、风险触发、告警）。
+  - 每日偏差复盘：`signal_deviation/execution_deviation/cost_deviation`。
+  - 故障恢复演练记录（数据延迟/缺口、调度失败、重试补偿）。
+- 出口硬门禁：
+  - 连续 20 个交易日无 P0 事故。
+  - 风险熔断与恢复链路至少各通过 1 次演练。
+  - Pre-Live 评审明确 `GO/NO_GO`。
+
 ---
 
 ## 3. Plan A P0 增强（立即执行，不破坏主线）
@@ -83,12 +102,12 @@
 ### P0-1 本地数据止血
 
 ```bash
-eq fetch-batch --start 20220101 --end 20241231 --batch-size 365 --workers 3
+eq fetch-batch --start 20200101 --end 20241231 --batch-size 365 --workers 3
 eq fetch-retry
 eq data-quality-check --comprehensive
 ```
 
-目标：先让 canary-3y 数据可用，再持续扩窗至 16 年。
+目标：先让 canary-5y 数据可用（最低2020-2024），再持续扩窗至 16 年。
 
 ### P0-2 端到端可运行证据
 
@@ -109,6 +128,7 @@ eq analysis --start 20240101 --end 20241220 --ab-benchmark
 - 数据覆盖率、缺失率、最近交易日一致性
 - 回测窗口、收益/回撤/夏普
 - 归因结论（signal/execution/cost）
+- 对比归因（MSS vs 随机、MSS vs 技术基线）
 - 当前 `GO/NO_GO`
 
 ---
@@ -137,5 +157,6 @@ eq analysis --start 20240101 --end 20241220 --ab-benchmark
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.1 | 2026-02-23 | 同步提升到与 Plan B 同精度：Canary 窗口升级为 2020-2024（理想 2019-2026.02.13）、新增归因对比门禁、S3c/S3d/S3e 双档门禁、新增螺旋3.5 Pre-Live |
 | v2.0 | 2026-02-23 | 重写为 Reborn 增强版：三大螺旋闭环、P0 止血动作、成果可见看板与禁止事项落地 |
 | v1.0 | 2026-02-23 | 初版增强建议 |

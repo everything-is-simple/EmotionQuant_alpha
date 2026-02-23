@@ -33,6 +33,7 @@
 ### 螺旋3（Production）
 
 - `Governance/SpiralRoadmap/planA/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`
+- `Governance/SpiralRoadmap/planA/PLAN-A-REVALIDATION-CHECKLIST.md`（含螺旋3.5 Pre-Live 门禁）
 
 ### 横向支撑
 

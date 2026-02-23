@@ -27,6 +27,7 @@
 | 螺旋1 Canary | 本地数据+核心算法+简回测+最小归因闭环 | S0a-S2c + S3(min) + S3b(min) | in_progress | canary 数据覆盖、端到端可复现、归因可解释、看板 GO |
 | 螺旋2 Full | 16年数据+完整回测+完整归因+校准闭环 | S3a-S4b | planned | 全历史落库、多窗口回测、A/B/C+偏差归因、参数来源可追溯 |
 | 螺旋3 Production | 展示稳定化+调度运维+生产就绪评审 | S5-S7a | planned | S6 稳定基线、S7a 可观测可恢复、生产评审 GO |
+| 螺旋3.5 Pre-Live | 实盘预演（零真实下单）与故障恢复演练 | S7a 后预演圈 | planned | 连续20交易日无P0、偏差受控、预演评审 GO |
 
 说明：任何螺旋未通过出口门禁，不得宣称“可实战”。
 
@@ -36,16 +37,17 @@
 
 | 圈位 | 名称 | 实现状态 | 业务验证状态 | 下一动作 |
 |---|---|---|---|---|
-| S0a-S0c | 入口/L1/L2 | implemented | revalidate_required | 对齐 canary-3y 数据窗口并重验 |
+| S0a-S0c | 入口/L1/L2 | implemented | revalidate_required | 对齐 canary-5y 数据窗口并重验（最低2020-2024） |
 | S1a-S1b | MSS 评分/消费 | implemented | revalidate_required | 与真实本地数据重跑 probe |
 | S2a-S2c | 多算法/集成/桥接 | implemented | revalidate_required | 在 canary 数据窗口完成端到端联调 |
 | S3a/S3ar | 采集增强/稳定性 | implemented | partial | 先满足螺旋1数据门禁，再扩至16年 |
 | S3 | 回测闭环 | in_progress | partial | 固化简回测 + 多窗口计划 |
 | S4 | 纸上交易 | implemented | partial | 衔接 S3 回测参数并重放验证 |
 | S3b | 收益归因 | in_progress | partial | 先完成最小归因，再扩完整归因 |
-| S3c/S3d/S3e | 行业/自适应/生产校准 | planned | pending | 依赖 S3b 归因窗口 |
+| S3c/S3d/S3e | 行业/自适应/生产校准 | planned | pending | 依赖 S3b 归因窗口；准备可并行，收口需串行 |
 | S4b | 极端防御 | planned | pending | 依赖 S3e 校准证据 |
 | S5/S6/S7a | 展示/稳定化/调度 | planned | pending | 仅在螺旋2出口后推进 |
+| S3.5 | Pre-Live 预演 | planned | pending | 仅在螺旋3出口后推进，作为实盘前最后门禁 |
 
 ---
 
@@ -53,10 +55,12 @@
 
 | 阻断项 | 级别 | 当前判定 | 清除条件 |
 |---|---|---|---|
-| 本地历史数据未形成可用窗口 | P0 | open | canary-3y 覆盖>=99%，并有质量报告 |
+| 本地历史数据未形成可用窗口 | P0 | open | canary-5y（最低2020-2024）覆盖>=99%，并有质量报告 |
 | 端到端回测证据不足 | P0 | open | 同窗 run/backtest/analysis 全链路成功并留档 |
 | 归因无法回答收益来源 | P0 | open | 至少完成 signal/execution/cost 三分解 |
+| 归因无对比基准 | P0 | open | 完成 MSS vs 随机、MSS vs 技术基线 对比并可解释 |
 | 业务成果不可见 | P0 | open | `PLANA-BUSINESS-SCOREBOARD.md` 每圈更新并给 GO/NO_GO |
+| 实盘前无预演门禁 | P0 | open | 螺旋3.5 连续20交易日预演通过 |
 
 ---
 
@@ -67,9 +71,10 @@
    - `python -m scripts.quality.local_quality_check --contracts --governance`
    - `selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id` 桥接硬门禁。
 3. S3b 必须消费 S3+S4 真实执行结果，不允许只用回测推断。
-4. S3c -> S3d -> S3e -> S4b 按顺序推进，不允许并跳。
+4. S3c -> S3d -> S3e -> S4b 按顺序推进，不允许并跳；`S3c/S3d/S3e` 准备与实验工作可并行，但收口与宣告必须串行。
 5. S5/S6/S7a 在螺旋2出口前不得宣称阶段完成。
-6. 每圈收口前必须通过防跑偏门禁：
+6. 螺旋3完成后，必须先通过螺旋3.5（Pre-Live）才允许进入任何真实资金实盘。
+7. 每圈收口前必须通过防跑偏门禁：
    - `python -m scripts.quality.local_quality_check --contracts --governance`
    - `tests/unit/scripts/test_contract_behavior_regression.py`
 
@@ -91,5 +96,6 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.1 | 2026-02-23 | 与 Plan B 同步精度：canary 升级为5y最低窗口、新增归因对比 P0、S3c/S3d/S3e 双档执行口径（准备并行/收口串行）、新增螺旋3.5 Pre-Live |
 | v2.0 | 2026-02-23 | 按 Reborn 方法重写 SoT：新增业务/工程双视图、P0 阻断矩阵、成果可见强制看板与阶段推进硬约束 |
 | v1.6 | 2026-02-20 | 进度看板新增 `S3c/S3d/S3e`，关键顺序约束升级为 `S3b->S3c->S3d->S3e->S4b` |
