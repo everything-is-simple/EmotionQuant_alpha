@@ -1,7 +1,7 @@
 # EmotionQuant 治理结构与目录规范（Spiral 版）
 
-**版本**: v3.5.2  
-**最后更新**: 2026-02-14
+**版本**: v3.6.0  
+**最后更新**: 2026-02-23
 
 ---
 
@@ -33,6 +33,7 @@
 | 任务如何写 | `Governance/Capability/SPIRAL-TASK-TEMPLATE.md` |
 | 新系统按圈怎么推进 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
 | 跨圈依赖与外挂排布看哪里 | `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` |
+| 执行卡集中入口看哪里 | `Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md` |
 | 6A 工作流如何执行 | `Governance/steering/6A-WORKFLOW.md` |
 | 技术需求与选型看哪里 | `Governance/steering/TRD.md` |
 | 改进行动主计划看哪里 | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |
@@ -83,6 +84,7 @@ CP 文档仅在契约变化时更新。
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
+| v3.6.0 | 2026-02-23 | 对齐 SpiralRoadmap 重组：SoT 矩阵新增执行卡集中入口 `Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md` |
 | v3.5.2 | 2026-02-14 | SoT 矩阵补充命名契约入口（schema/glossary/template），治理目录补充命名契约变更模板 |
 | v3.5.1 | 2026-02-14 | 修复 R33（review-011）：治理目录与 SoT 矩阵新增“跨文档变更联动模板”入口 |
 | v3.5.0 | 2026-02-12 | 新增 TRD 作为技术源头 SoT；SpiralRoadmap 入口由 `draft/` 收敛到 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`，并补充 `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` 入口 |
