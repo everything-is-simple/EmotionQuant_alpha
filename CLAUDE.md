@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本文件为 Claude Code 代理提供最小、可执行的仓库工作规则。与 `WARP.md` 内容等价，面向 Claude Code 运行时。
+本文件为自动化代理提供最小、可执行的仓库工作规则。与 `AGENTS.en.md`、`CLAUDE.md`、`CLAUDE.en.md`、`WARP.md`、`WARP.en.md` 内容等价，面向通用代理运行时。
 
 ---
 
@@ -274,4 +274,5 @@ cache_dir = "G:/EmotionQuant_data/"
 - 旧版线性文档已归档至：`Governance/Capability/archive-legacy-linear-v4-20260207/`
 - 旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
 - 本文件不再维护线性 Stage 叙述。
+
 

@@ -1,8 +1,6 @@
-# EmotionQuant 项目规则（Spiral 版）
+# WARP.md
 
-**版本**: v1.1.2
-**最后更新**: 2026-02-14
-**状态**: 取代所有旧版个人 Rules，本文件为项目唯一 Warp 规则
+本文件为自动化代理提供最小、可执行的仓库工作规则。与 `AGENTS.en.md`、`CLAUDE.md`、`CLAUDE.en.md`、`WARP.md`、`WARP.en.md` 内容等价，面向通用代理运行时。
 
 ---
 
@@ -273,25 +271,8 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ## 13. 历史说明
 
-本文件取代以下旧版个人 Rules（均为 v3.x 线性 Phase 时代，已过时）：
-- CORE-PRINCIPLES v3.3.0（线性版）
-- 6A-WORKFLOW-phase-to-task v3.1.3（线性版）
-- 6A-WORKFLOW-task-to-step v3.1.3（线性版）
-- GOVERNANCE-STRUCTURE v1.1.1（线性版）
-
-旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
-
----
-
-## 变更记录
-
-| 版本 | 日期 | 变更内容 |
-|------|------|----------|
-| v1.1.2 | 2026-02-14 | 同步命名契约入口（schema/glossary/template）与 `contract_version` 字段口径；质量门控补充本地一致性检查命令（`--contracts --governance`） |
-| v1.1.1 | 2026-02-12 | 路径口径整理：补全选型文档完整路径；`debts.md` 统一到 `Governance/record/debts.md`；历史归档路径改为当前有效入口 |
-| v1.1.0 | 2026-02-11 | 与 CLAUDE.md 对齐同步：补充文档定位节、修正 Gate 决策归属、补充回测技术栈口径、补充仓库远端 |
-| v1.0.0 | 2026-02-10 | 首版：与 Spiral 治理文件全面对齐，取代 4 条旧版个人 Rules |
-
-
+- 旧版线性文档已归档至：`Governance/Capability/archive-legacy-linear-v4-20260207/`
+- 旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
+- 本文件不再维护线性 Stage 叙述。
 
 
