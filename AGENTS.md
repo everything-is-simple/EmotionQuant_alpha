@@ -9,7 +9,7 @@
 - 作用：给自动化代理提供最小、可执行的仓库工作规则。
 - 执行主计划唯一入口：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`（`docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` 仅作选型论证输入）。
 - 权威架构入口：`docs/system-overview.md`
-- 权威路线入口：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- 权威能力状态入口：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - 权威治理入口：`Governance/steering/`
 
 ---
@@ -81,7 +81,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。
 2. `Governance/record/development-status.md`
 3. `Governance/record/debts.md`
 4. `Governance/record/reusable-assets.md`
-5. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 CP 文档仅在契约变化时更新。
 
@@ -204,8 +204,8 @@ cache_dir = "G:/EmotionQuant_data/"
 
 | 场景 | 权威文件 |
 |------|----------|
-| 本圈做什么 | `Governance/Capability/SPIRAL-CP-OVERVIEW.md` |
-| 能力契约 | `Governance/Capability/CP-*.md`（CP） |
+| 本圈能力状态看哪里 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
+| 能力契约 | `Governance/archive/archive-capability-v8-20260223/CP-*.md`（CP） |
 | 6A 工作流 | `Governance/steering/6A-WORKFLOW.md` |
 | 系统铁律 | `Governance/steering/系统铁律.md` |
 | 核心原则 | `Governance/steering/CORE-PRINCIPLES.md` |
@@ -271,7 +271,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 ## 13. 历史说明
 
-- 旧版线性文档已归档至：`Governance/Capability/archive-legacy-linear-v4-20260207/`
+- 旧版线性文档已归档至：`Governance/archive/archive-legacy-linear-v4-20260207/`
 - 旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
 - 本文件不再维护线性 Stage 叙述。
 

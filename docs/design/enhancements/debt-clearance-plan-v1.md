@@ -15,7 +15,7 @@
 权威入口：
 
 - 核心计划：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`
-- 路线主控：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- 能力状态 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - 债务账本：`Governance/record/debts.md`
 - TuShare 通道口径：`docs/reference/tushare/tushare-channel-policy.md`
 
@@ -155,7 +155,7 @@
 3. 更新 `Governance/record/development-status.md`
 4. 更新 `Governance/record/debts.md`
 5. 更新 `Governance/record/reusable-assets.md`
-6. 更新 `Governance/Capability/SPIRAL-CP-OVERVIEW.md`（仅状态）
+6. 更新 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`（仅状态）
 
 ---
 

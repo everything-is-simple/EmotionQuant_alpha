@@ -36,7 +36,7 @@ Primary references:
 - `docs/naming-contracts.schema.json`
 - `docs/naming-contracts-glossary.md`
 - `docs/design/` (`docs/design/core-algorithms/` + `docs/design/core-infrastructure/` + `docs/design/enhancements/`)
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` (implementation master roadmap) + `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` (cross-spiral dependencies and ENH layout)
 
 ## Development model (Spiral)
@@ -53,7 +53,7 @@ Primary references:
 Workflow references:
 
 - `Governance/steering/6A-WORKFLOW.md`
-- `Governance/Capability/SPIRAL-TASK-TEMPLATE.md`
+- `Governance/steering/SPIRAL-TASK-TEMPLATE.md`
 
 ## Quick setup
 

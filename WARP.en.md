@@ -9,7 +9,7 @@ This file provides minimal, executable repository rules for automated agents. Co
 - Purpose: minimal, executable repository rules for automated agents.
 - Single execution baseline: `docs/design/enhancements/eq-improvement-plan-core-frozen.md` (`docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` serves only as selection rationale input).
 - Authoritative architecture entry: `docs/system-overview.md`
-- Authoritative roadmap entry: `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- Authoritative capability-status entry: `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - Authoritative governance entry: `Governance/steering/`
 
 ---
@@ -81,7 +81,7 @@ The spiral must NOT close if any of the following is missing:
 2. `Governance/record/development-status.md`
 3. `Governance/record/debts.md`
 4. `Governance/record/reusable-assets.md`
-5. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 CP docs updated only on contract changes.
 
@@ -204,8 +204,8 @@ cache_dir = "G:/EmotionQuant_data/"
 
 | Scenario | Authoritative file |
 |----------|-------------------|
-| What to do this spiral | `Governance/Capability/SPIRAL-CP-OVERVIEW.md` |
-| Capability contracts | `Governance/Capability/CP-*.md` (CPs) |
+| Capability status this spiral | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
+| Capability contracts | `Governance/archive/archive-capability-v8-20260223/CP-*.md` (CPs) |
 | 6A workflow | `Governance/steering/6A-WORKFLOW.md` |
 | Iron rules | `Governance/steering/系统铁律.md` |
 | Core principles | `Governance/steering/CORE-PRINCIPLES.md` |
@@ -271,7 +271,7 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 
 ## 13. Historical note
 
-- Legacy linear docs archived at: `Governance/Capability/archive-legacy-linear-v4-20260207/`
+- Legacy linear docs archived at: `Governance/archive/archive-legacy-linear-v4-20260207/`
 - Legacy workflow files have been merged into `Governance/steering/6A-WORKFLOW.md` (no separate archive directory is retained).
 - This file no longer maintains linear Stage narratives.
 

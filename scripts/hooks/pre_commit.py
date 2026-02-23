@@ -32,7 +32,7 @@ SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 
 CONTRACT_SENSITIVE_PREFIXES = (
     "Governance/steering/",
-    "Governance/Capability/CP-",
+    "Governance/SpiralRoadmap/planA/",
 )
 CONTRACT_SENSITIVE_FILES = {
     "AGENTS.md",

@@ -55,7 +55,7 @@
 - `Governance/record/development-status.md` 已更新
 - `Governance/record/debts.md` 已更新
 - `Governance/record/reusable-assets.md` 已更新
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 已更新
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 已更新
 
 ## 6. 跨文档联动
 

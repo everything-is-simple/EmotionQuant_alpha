@@ -72,7 +72,7 @@
 - [ ] `Governance/record/development-status.md` 已更新
 - [ ] `Governance/record/debts.md` 已更新（如有）
 - [ ] `Governance/record/reusable-assets.md` 已更新（如有）
-- [ ] `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 已更新
+- [ ] `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 已更新
 - [ ] 契约/治理检查结果路径已记录到 `final.md`（如适用）
 
 #### 8. 风险与回滚

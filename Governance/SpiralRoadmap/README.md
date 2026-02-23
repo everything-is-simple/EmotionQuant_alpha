@@ -59,7 +59,7 @@
 ## 清理原则
 
 - 过时评审、旧版归档原文、历史草稿、空文件全部删除
-- 本目录文档不得替代上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- 本目录文档不得替代上位 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 

@@ -7,7 +7,7 @@
 **核心交付**: L1-L4数据架构、Repository模式、数据质量监控
 **预估工期**: 4周
 **前置依赖**: 无
-**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/Capability/SPIRAL-CP-OVERVIEW.md`）
+**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`）
 
 ---
 ## 文档对齐声明

@@ -125,7 +125,7 @@ class MssRepository:
 - 不允许沿用上一交易日 `temperature/cycle/trend` 作为兜底输出。
 - 详细错误码与处理策略见：
   - `docs/design/core-algorithms/mss/mss-algorithm.md`
-  - `Governance/Capability/CP-02-mss.md`
+  - `Governance/archive/archive-capability-v8-20260223/CP-02-mss.md`
 
 ---
 

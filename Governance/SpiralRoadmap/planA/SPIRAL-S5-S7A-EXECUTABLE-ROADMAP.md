@@ -12,7 +12,7 @@
 冲突处理优先级（从高到低）：
 
 1. `docs/design/enhancements/eq-improvement-plan-core-frozen.md`（唯一执行基线）
-2. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`（路线主控）
+2. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`（能力状态 SoT）
 3. `Governance/steering/6A-WORKFLOW.md` + `Governance/steering/系统铁律.md`
 4. `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`（阶段A/B/C 门禁模板）
 5. 本文件（S5-S7a 微圈执行合同）
@@ -290,7 +290,7 @@ flowchart LR
 2. `Governance/record/development-status.md`
 3. `Governance/record/debts.md`
 4. `Governance/record/reusable-assets.md`
-5. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 

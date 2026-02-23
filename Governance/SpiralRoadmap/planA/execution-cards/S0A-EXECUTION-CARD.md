@@ -72,7 +72,7 @@ pytest tests/unit/config/test_env_docs_alignment.py -q
 - `Governance/record/development-status.md`
 - `Governance/record/debts.md`
 - `Governance/record/reusable-assets.md`
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 

@@ -125,7 +125,7 @@ class PasRepository:
 - 详细规则与处理策略见：
   - `docs/design/core-algorithms/pas/pas-algorithm.md`
   - `docs/design/core-algorithms/pas/pas-data-models.md`
-  - `Governance/Capability/CP-04-pas.md`
+  - `Governance/archive/archive-capability-v8-20260223/CP-04-pas.md`
 
 ---
 

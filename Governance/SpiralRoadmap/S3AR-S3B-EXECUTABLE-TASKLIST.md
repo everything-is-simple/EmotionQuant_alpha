@@ -46,4 +46,4 @@
 2. `Governance/record/development-status.md`
 3. `Governance/record/debts.md`
 4. `Governance/record/reusable-assets.md`
-5. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`

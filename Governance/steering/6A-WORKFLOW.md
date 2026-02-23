@@ -72,7 +72,7 @@
   2. `Governance/record/development-status.md`
   3. `Governance/record/debts.md`
   4. `Governance/record/reusable-assets.md`
-  5. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+  5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - 若涉及改进行动计划变更，同步更新：
   - `docs/design/enhancements/eq-improvement-plan-core-frozen.md`
 
@@ -123,8 +123,8 @@
 
 | 变更类型 | 必改文档（最小集） | 校验要求 |
 |---|---|---|
-| 数据契约变更（字段/语义） | 对应 `docs/design/**/data-models.md` + `Governance/Capability/CP-*.md` + `docs/naming-conventions.md` + `docs/naming-contracts.schema.json`（若命名/阈值变更） | 字段名/枚举/阈值一致，新增字段需给出默认与降级语义 |
-| 风控阈值或 Gate 规则变更 | 对应 `docs/design/**/algorithm.md` + `Governance/steering/TRD.md` + `Governance/Capability/CP-*.md` | FAIL/WARN/PASS 语义一致，阻断条件可复现 |
+| 数据契约变更（字段/语义） | 对应 `docs/design/**/data-models.md` + `Governance/archive/archive-capability-v8-20260223/CP-*.md` + `docs/naming-conventions.md` + `docs/naming-contracts.schema.json`（若命名/阈值变更） | 字段名/枚举/阈值一致，新增字段需给出默认与降级语义 |
+| 风控阈值或 Gate 规则变更 | 对应 `docs/design/**/algorithm.md` + `Governance/steering/TRD.md` + `Governance/archive/archive-capability-v8-20260223/CP-*.md` | FAIL/WARN/PASS 语义一致，阻断条件可复现 |
 | 数据边界变更（本地优先/远端补采） | `docs/system-overview.md` + `Governance/steering/系统铁律.md` + 对应 Data Layer 设计文档 | 不得出现主流程远端直读，降级字段口径一致 |
 
 执行记录要求：

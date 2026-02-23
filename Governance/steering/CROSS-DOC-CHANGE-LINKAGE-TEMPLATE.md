@@ -22,7 +22,7 @@
 | `Governance/steering/TRD.md` |  | `yes/no` |
 | `Governance/steering/系统铁律.md`（如涉及） |  | `yes/no` |
 | `Governance/steering/CORE-PRINCIPLES.md`（如涉及） |  | `yes/no` |
-| `Governance/Capability/CP-*.md`（如涉及） |  | `yes/no` |
+| `Governance/archive/archive-capability-v8-20260223/CP-*.md`（如涉及） |  | `yes/no` |
 | `docs/design/**/algorithm.md` |  | `yes/no` |
 | `docs/design/**/data-models.md` |  | `yes/no` |
 | `docs/naming-conventions.md`（命名变更时） |  | `yes/no` |

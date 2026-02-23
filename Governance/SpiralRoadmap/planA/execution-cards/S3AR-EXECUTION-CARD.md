@@ -76,7 +76,7 @@ pytest tests/unit/config/test_config_defaults.py -q
 - `Governance/record/development-status.md`
 - `Governance/record/debts.md`
 - `Governance/record/reusable-assets.md`
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 
@@ -92,7 +92,7 @@ pytest tests/unit/config/test_config_defaults.py -q
 - 微圈合同：`Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 依赖图：`Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
-- 上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- 上位 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - 通道策略：`docs/reference/tushare/tushare-channel-policy.md`
 
 ---

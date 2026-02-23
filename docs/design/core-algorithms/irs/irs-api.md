@@ -105,7 +105,7 @@ class IrsRepository:
 - 陈旧数据降级：当 `stale_days <= 3` 但样本不足时，可输出 `quality_flag="stale"`（合法输出，不抛异常）。
 - 详细错误码与处理策略见：
   - `docs/design/core-algorithms/irs/irs-algorithm.md`
-  - `Governance/Capability/CP-03-irs.md`
+  - `Governance/archive/archive-capability-v8-20260223/CP-03-irs.md`
 
 ---
 

@@ -182,7 +182,7 @@ def run_integration_contract_tests() -> dict:
 - 若候选方案执行约束不达标（可成交性/冲击成本）：不抛异常，回退 baseline，并标记 `warn_candidate_exec`。
 - 详细错误码与处理策略见：
   - `docs/design/core-algorithms/integration/integration-algorithm.md`
-  - `Governance/Capability/CP-05-integration.md`
+  - `Governance/archive/archive-capability-v8-20260223/CP-05-integration.md`
 
 ---
 

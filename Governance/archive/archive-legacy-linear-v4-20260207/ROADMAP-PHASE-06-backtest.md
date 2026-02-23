@@ -6,7 +6,7 @@
 **时间范围**: Phase 06
 **核心交付**: 回测接入与适配（优先 backtrader，qlib 为规划/实验项需技术选型变更）、覆盖 TD/BU、绩效计算
 **前置依赖**: Phase 05 (Integration)
-**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/Capability/SPIRAL-CP-OVERVIEW.md`）
+**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`）
 
 ---
 ## 文档对齐声明

@@ -13,7 +13,7 @@
    - `Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
    - `Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
    - `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
-3. 上位 SoT 仍为：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`。
+3. 上位 SoT 仍为：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`。
 
 ---
 

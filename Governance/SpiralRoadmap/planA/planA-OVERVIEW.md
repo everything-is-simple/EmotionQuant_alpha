@@ -46,4 +46,4 @@
 
 ## 5. 上位 SoT 提醒
 
-路线主控与状态口径以 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 为准。
+能力状态口径以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 为准。

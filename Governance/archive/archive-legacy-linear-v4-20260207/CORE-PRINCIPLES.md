@@ -262,7 +262,7 @@ main/master
 ---
 
 **关联文档**：
-- ROADMAP总览：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- ROADMAP总览：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - 系统总览：`docs/system-overview.md`
 
 

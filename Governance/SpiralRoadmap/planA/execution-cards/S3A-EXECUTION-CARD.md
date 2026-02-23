@@ -68,7 +68,7 @@ pytest tests/unit/data/test_fetch_retry_contract.py -q
 - `Governance/record/development-status.md`
 - `Governance/record/debts.md`
 - `Governance/record/reusable-assets.md`
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 
@@ -84,7 +84,7 @@ pytest tests/unit/data/test_fetch_retry_contract.py -q
 - 执行路线：`Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
 - 依赖图：`Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
-- 上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- 上位 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 

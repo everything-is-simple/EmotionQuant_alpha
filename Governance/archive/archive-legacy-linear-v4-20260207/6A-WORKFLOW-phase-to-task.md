@@ -29,7 +29,7 @@ Phase（阶段）→ Task（开发任务）→ Step（执行步骤）
 
 | 层级 | 示例 | 粒度 | 文档位置 |
 |------|------|------|----------|
-| **Phase** | Phase 01: Data Layer | 4周 | `Governance/Capability/CP-*.md` |
+| **Phase** | Phase 01: Data Layer | 4周 | `Governance/archive/archive-capability-v8-20260223/CP-*.md` |
 | **Task** | Task 2: L1 数据采集 | 3-5天 | `Governance/specs/phase-XX-task-Y/` |
 | **Step** | Step-2.1: 实现 fetch_daily | 1-4小时 | `Governance/specs/phase-XX-task-Y/tasks.md` |
 
@@ -47,14 +47,14 @@ Phase（阶段）→ Task（开发任务）→ Step（执行步骤）
 | 08 | GUI | 界面设计 | 仪表盘 | 交互功能 | 性能优化 |
 | 09 | Analysis | 报告设计 | 指标计算 | 报告生成 | 自动化验证 |
 
-> **详细 Task 规范**: 见各 Phase 文档的 Task 章节，格式遵循 `Governance/Capability/SPIRAL-TASK-TEMPLATE.md`
+> **详细 Task 规范**: 见各 Phase 文档的 Task 章节，格式遵循 `Governance/steering/SPIRAL-TASK-TEMPLATE.md`
 
 ### 1.3 五类文档
 
 | 类型 | 位置 | 角色 | 操作时机 |
 |------|------|------|----------|
 | **设计基准** | `docs/design/` | 定义"应该是什么样" | 只读（变更需评审） |
-| **Task规范** | `Governance/Capability/CP-*.md` | 定义Task的输入/输出/验收 | 规划时更新 |
+| **Task规范** | `Governance/archive/archive-capability-v8-20260223/CP-*.md` | 定义Task的输入/输出/验收 | 规划时更新 |
 | **项目记录** | `Governance/record/` | 记录进度/资产/债务 | **A1读取，A6更新** |
 | **实现记录** | `Governance/specs/phase-XX-task-Y/` | 记录"实际怎么做" | 实现时更新 |
 | **治理规范** | `Governance/steering/` | 定义"怎么做" | 版本化管理 |
@@ -182,9 +182,9 @@ develop → main/master                # Phase 01完成，里程碑M1
 Phase ROADMAP → Task 规范（模板） → Step 列表 → 6A 执行
 ```
 
-**Task 规范来源**：`Governance/Capability/CP-*.md` 中的 Task 章节
+**Task 规范来源**：`Governance/archive/archive-capability-v8-20260223/CP-*.md` 中的 Task 章节
 
-**Task 规范模板**：`Governance/Capability/SPIRAL-TASK-TEMPLATE.md`
+**Task 规范模板**：`Governance/steering/SPIRAL-TASK-TEMPLATE.md`
 
 ### 3.2 Task 规范内容（必须包含）
 
@@ -443,9 +443,9 @@ db_path = "G:/EmotionQuant_data/emotionquant.db"
 
 **权威来源**：
 
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md` - Phase 总览
-- `Governance/Capability/CP-*.md` - 各 Phase 详细规划（含 Task 规范）
-- `Governance/Capability/SPIRAL-TASK-TEMPLATE.md` - Task 规范模板
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` - Phase 总览
+- `Governance/archive/archive-capability-v8-20260223/CP-*.md` - 各 Phase 详细规划（含 Task 规范）
+- `Governance/steering/SPIRAL-TASK-TEMPLATE.md` - Task 规范模板
 - `docs/module-index.md` - 四位一体规范索引
 - `Governance/steering/workflow/6A-WORKFLOW-task-to-step.md` - Task→Step 工作流
 - `Governance/steering/CORE-PRINCIPLES.md` - 核心原则

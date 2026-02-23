@@ -6,7 +6,7 @@
 **时间范围**: Phase 08
 **核心交付**: 数据可视化、筛选功能、导出功能
 **前置依赖**: Phase 01-07
-**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/Capability/SPIRAL-CP-OVERVIEW.md`）
+**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`）
 
 ---
 ## 文档对齐声明

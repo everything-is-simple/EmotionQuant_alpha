@@ -558,7 +558,7 @@
    - `Governance/specs/spiral-s3b/review.md` 状态从 `in_progress` 调整为 `completed`。
    - 关键结论统一为跨窗口稳定口径：`A_not_dominant` + `dominant_component=none`。
 2. 同步路线看板：
-   - `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 中 `S3b` 状态切换为 `completed`。
+   - `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 中 `S3b` 状态切换为 `completed`。
 3. 当前执行焦点：
    - S3b 阻塞解除后，下一实现主战场切换至 S5（GUI 最小闭环：`eq gui` + 日报导出 + 基础测试）。
 
@@ -569,7 +569,7 @@
 1. 执行卡状态对齐：
    - 已将 `S3/S3B/S3C/S3D/S3E/S4/S4B/S4R/S4BR` 执行卡从 `Active` 统一切换为 `Completed`。
 2. 路线图状态对齐：
-   - `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 中 `S3/S3c/S3d/S3e` 由 `in_progress` 切换为 `completed`。
+   - `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 中 `S3/S3c/S3d/S3e` 由 `in_progress` 切换为 `completed`。
 3. 本文件看板状态对齐：
    - `S3/S3c/S3d/S3e` 从“🔄 进行中”统一切换为“✅ 已完成”。
 

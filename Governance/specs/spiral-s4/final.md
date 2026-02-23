@@ -43,7 +43,7 @@
 - `Governance/record/development-status.md` 已更新（S4 收口完成）
 - `Governance/record/debts.md` 已更新（清偿 S4 跨日持仓回放债务）
 - `Governance/record/reusable-assets.md` 已更新（登记 S4 收口复用资产）
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 已更新（S4 completed）
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 已更新（S4 completed）
 
 ## 5. 跨文档联动
 

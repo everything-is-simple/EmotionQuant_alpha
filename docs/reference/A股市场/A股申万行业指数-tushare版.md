@@ -7,7 +7,7 @@
 **数据源**: TuShare Pro + 申万宏源官方标准
 **优先级**: 申万行业分类权威参考（恒星组文档 ⭐⭐⭐）
 **定位**: 参考资料（非设计规范）
-**路线图口径**: Spiral + CP（命名 `CP-*`，以 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 为准）
+**路线图口径**: Spiral + CP（命名 `CP-*`，以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 为准）
 **冲突处理**: 若与 `docs/design/` 冲突，以设计文档为准
 **整理更新**: 2026-02-05（系统铁律表述更新）
 

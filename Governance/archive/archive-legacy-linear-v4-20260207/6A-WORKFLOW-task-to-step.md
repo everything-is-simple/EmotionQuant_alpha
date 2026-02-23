@@ -190,7 +190,7 @@ develop → main/master                # Phase 01完成，里程碑发布
 - **在 `requirements.md` 写入 `## 项目记录快照`**：记录当前Phase/Task状态、拟复用资产ID清单、相关债务ID与处理决策（阻塞/纳入本Task清偿/登记计划）。
 
 2. 读取路线图中的 Phase/Task 定义
-3. 读取 Task 规范（`Governance/Capability/CP-*.md` 中对应章节）
+3. 读取 Task 规范（`Governance/archive/archive-capability-v8-20260223/CP-*.md` 中对应章节）
 4. 读取设计基准文档（`docs/design/`）
 5. **标注继承资产**：列出本 Task 将复用的 S/A/B 级资产
 6. **确认债务状态**：检查是否有 P0/P1 债务阻塞当前 Task
@@ -699,9 +699,9 @@ pytest tests/ -v
 
 **权威来源**：
 
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md` - Phase 总览与里程碑定义
-- `Governance/Capability/CP-*.md` - 各 Phase 详细规划（含 Task 规范）
-- `Governance/Capability/SPIRAL-TASK-TEMPLATE.md` - Task 规范模板
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` - Phase 总览与里程碑定义
+- `Governance/archive/archive-capability-v8-20260223/CP-*.md` - 各 Phase 详细规划（含 Task 规范）
+- `Governance/steering/SPIRAL-TASK-TEMPLATE.md` - Task 规范模板
 - `docs/design/` - 四位一体设计文档
 - `Governance/steering/CORE-PRINCIPLES.md` - 零容忍规则
 - `Governance/steering/workflow/6A-WORKFLOW-phase-to-task.md` - Phase→Task 工作流

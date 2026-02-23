@@ -115,8 +115,8 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 - 命名契约 Schema：`docs/naming-contracts.schema.json`
 - 命名术语字典：`docs/naming-contracts-glossary.md`
 - 设计目录总览：`docs/design/`（`core-algorithms/` + `core-infrastructure/` + `enhancements/`）
-- 路线总览：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
-- 能力包（CP）：`Governance/Capability/CP-*.md`
+- 能力状态总览：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+- 能力包（CP）：`Governance/archive/archive-capability-v8-20260223/CP-*.md`
 - 新系统螺旋实现路线：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`（总路线） + `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`（依赖图）
 - 技术需求与选型（TRD）：`Governance/steering/TRD.md`
 - 治理 SoT 矩阵：`Governance/steering/GOVERNANCE-STRUCTURE.md`

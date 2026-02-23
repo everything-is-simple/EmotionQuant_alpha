@@ -16,7 +16,7 @@
 3. 路线图执行时如何判定“技术方案已落地”
 
 本文件与以下 SoT 联动：
-- 路线主控：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- 能力状态 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - 工作流：`Governance/steering/6A-WORKFLOW.md`
 - 系统总览：`docs/system-overview.md`
 - 改进主计划：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`

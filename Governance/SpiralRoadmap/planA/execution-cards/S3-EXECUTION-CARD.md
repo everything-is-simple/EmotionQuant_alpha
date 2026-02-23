@@ -69,7 +69,7 @@ pytest tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py -q
 - `Governance/record/development-status.md`
 - `Governance/record/debts.md`
 - `Governance/record/reusable-assets.md`
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 

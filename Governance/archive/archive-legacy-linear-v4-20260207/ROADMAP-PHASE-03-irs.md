@@ -6,7 +6,7 @@
 **时间范围**: Phase 03
 **核心交付**: IRS算法实现、六因子评分、轮动状态判断
 **前置依赖**: Phase 01 (Data Layer)
-**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/Capability/SPIRAL-CP-OVERVIEW.md`）
+**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`）
 
 ---
 ## 文档对齐声明

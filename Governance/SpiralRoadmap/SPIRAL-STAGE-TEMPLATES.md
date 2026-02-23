@@ -13,7 +13,7 @@
 2. 每个阶段必须先满足 `入口门禁` 才能开始，满足 `退出门禁` 才能进入下一阶段。
 3. 任一阶段未达 `退出门禁`，只允许在本阶段内开修复子圈，不允许跳阶段推进。
 4. 全阶段统一门禁：`python -m scripts.quality.local_quality_check --contracts --governance`。
-5. 阶段 DoD 与核心算法完成 DoD 分离：阶段推进遵循本模板；核心算法完成仅以 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 第 9 节为准。
+5. 阶段 DoD 与核心算法完成 DoD 分离：阶段推进遵循本模板；核心算法完成仅以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 第 9 节为准。
 
 ---
 
@@ -150,7 +150,7 @@
 - 依赖图：`Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
 - 执行路线：`Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
 - S0-S2c 微圈合同：`Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
-- 上位 SoT：`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- 上位 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 

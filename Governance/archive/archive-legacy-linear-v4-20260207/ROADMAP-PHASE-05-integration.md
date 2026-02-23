@@ -6,7 +6,7 @@
 **时间范围**: Phase 05
 **核心交付**: MSS+IRS+PAS集成、三分之一原则、推荐等级
 **前置依赖**: Phase 02 (MSS), Phase 03 (IRS), Phase 04 (PAS)
-**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/Capability/SPIRAL-CP-OVERVIEW.md`）
+**实现状态**: 未实现（截至 2026-02-06：`src/` 仅有 Skeleton/占位与少量基础骨架，详见 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`）
 
 ---
 ## 文档对齐声明

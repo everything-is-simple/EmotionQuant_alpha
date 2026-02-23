@@ -4,7 +4,7 @@
 
 - 状态: 当前唯一有效主计划（覆盖 R1-R31 收敛后实施阶段）
 - 最后更新: 2026-02-19
-- 适用: Spiral S0-S6（扩展微圈 S3a/S7a 可选，且与 `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 严格对齐）
+- 适用: Spiral S0-S6（扩展微圈 S3a/S7a 可选，且与 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 严格对齐）
 - 输入来源:
   - `.reports/archive-critique-r1-r31-20260210/`
   - `.reports/对标开源A股量化系统批判_20260209_150147.md`
@@ -37,8 +37,8 @@
 - `docs/module-index.md`
 - `docs/naming-conventions.md`
 - `docs/system-overview.md`
-- `Governance/Capability/CP-*.md`
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/archive/archive-capability-v8-20260223/CP-*.md`
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - `Governance/steering/系统铁律.md`
 
 ---
@@ -256,7 +256,7 @@
    - `Governance/record/development-status.md`
    - `Governance/record/debts.md`
    - `Governance/record/reusable-assets.md`
-   - `Governance/Capability/SPIRAL-CP-OVERVIEW.md`（仅状态）
+   - `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`（仅状态）
 
 ---
 

@@ -2,10 +2,10 @@
 
 **文件名**: `CP-09-analysis.md`  
 **版本**: v6.0.1  
-> ⚠️ 历史说明（2026-02-13）
-> 本文件为线性阶段能力包留档，仅供回顾历史，不作为当前路线图执行入口。
-> 当前执行入口：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`。
-> 除历史纠错外，不再作为迭代依赖。
+> ✅ 当前口径（2026-02-23）
+> 本文件为当前有效能力契约（CP），用于定义输入/输出/门禁/回退。
+> 本文件不承担路线主控；执行以运行事实与执行卡证据为准。
+> 执行入口：`Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md` 与 `Governance/record/development-status.md`。
 ---
 
 ## 1. 定位

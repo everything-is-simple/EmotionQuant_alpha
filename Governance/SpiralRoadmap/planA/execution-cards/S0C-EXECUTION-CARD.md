@@ -77,7 +77,7 @@ pytest tests/unit/data/test_flat_threshold_config_contract.py -q
 - `Governance/record/development-status.md`
 - `Governance/record/debts.md`
 - `Governance/record/reusable-assets.md`
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 ---
 

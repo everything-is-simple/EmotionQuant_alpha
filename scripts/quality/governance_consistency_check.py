@@ -110,14 +110,14 @@ EXPECTATIONS: tuple[Expectation, ...] = (
     Expectation(
         "workflow_sync_set",
         "Governance/steering/6A-WORKFLOW.md",
-        r"Governance/Capability/SPIRAL-CP-OVERVIEW\.md",
+        r"Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP\.md",
         "6A workflow must include roadmap sync target",
     ),
     Expectation(
-        "cp_closure",
-        "Governance/Capability/SPIRAL-CP-OVERVIEW.md",
-        r"run\s*\+\s*test\s*\+\s*artifact\s*\+\s*review\s*\+\s*sync",
-        "SPIRAL-CP-OVERVIEW must preserve five-piece closure wording",
+        "roadmap_overview",
+        "Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md",
+        r"Spiral\s*进度看板",
+        "VORTEX roadmap must preserve progress-board section",
     ),
     # SoT matrix
     Expectation(

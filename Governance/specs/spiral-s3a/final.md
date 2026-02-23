@@ -39,7 +39,7 @@
 - `Governance/record/development-status.md` 已更新（S3a completed）
 - `Governance/record/debts.md` 已更新（TD-S3A-011 清偿）
 - `Governance/record/reusable-assets.md` 已更新（登记 S3a 实战化资产）
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 已更新（S3a completed）
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 已更新（S3a completed）
 
 ## 5. 跨文档联动
 

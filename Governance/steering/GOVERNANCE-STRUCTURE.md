@@ -18,7 +18,7 @@
 - `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md`：命名契约变更联动模板
 - `Governance/record/`：状态、债务、复用资产
 - `Governance/specs/spiral-s*/`：每圈 specs 与复盘
-- `Governance/Capability/archive-legacy-linear-v4-20260207/`：线性旧版只读归档
+- `Governance/archive/archive-legacy-linear-v4-20260207/`：线性旧版只读归档
 
 ---
 
@@ -28,9 +28,9 @@
 |---|---|
 | 核心算法设计看哪里 | `docs/design/core-algorithms/` |
 | 核心基础设施设计看哪里 | `docs/design/core-infrastructure/` |
-| 本圈做什么 | `Governance/Capability/SPIRAL-CP-OVERVIEW.md` |
-| 能力契约是什么 | `Governance/Capability/CP-*.md`（CP） |
-| 任务如何写 | `Governance/Capability/SPIRAL-TASK-TEMPLATE.md` |
+| 本圈能力状态看哪里 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
+| 能力契约是什么 | `Governance/archive/archive-capability-v8-20260223/CP-*.md`（CP） |
+| 任务如何写 | `Governance/steering/SPIRAL-TASK-TEMPLATE.md` |
 | 新系统按圈怎么推进 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
 | 跨圈依赖与外挂排布看哪里 | `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` |
 | 执行卡集中入口看哪里 | `Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md` |
@@ -56,7 +56,7 @@
 2. `Governance/record/development-status.md`
 3. `Governance/record/debts.md`
 4. `Governance/record/reusable-assets.md`
-5. `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 
 CP 文档仅在契约变化时更新。
 
@@ -68,7 +68,7 @@ CP 文档仅在契约变化时更新。
 - 可复用内容迁移方向：
   - 命令级检查逻辑 -> `Governance/steering/`
   - 规则类约束 -> `Governance/steering/系统铁律.md`
-  - 经验模板 -> `Governance/Capability/SPIRAL-TASK-TEMPLATE.md`
+  - 经验模板 -> `Governance/steering/SPIRAL-TASK-TEMPLATE.md`
 
 ---
 

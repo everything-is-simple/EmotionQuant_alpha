@@ -44,7 +44,7 @@
 - `Governance/record/development-status.md` 已更新（S3b/S3c completed，S3/S3d/S3e 进行中）
 - `Governance/record/debts.md` 已更新（S3 执行细节债务口径刷新）
 - `Governance/record/reusable-assets.md` 已更新（登记 S3 扩展 + S4 启动资产）
-- `Governance/Capability/SPIRAL-CP-OVERVIEW.md` 已更新（S4 in_progress）
+- `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 已更新（S4 in_progress）
 
 ## 5. 跨文档联动
 

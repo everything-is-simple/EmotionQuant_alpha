@@ -33,7 +33,7 @@
 本文档定义的所有外挂**不得修改**以下冻结区语义：
 - `docs/design/**` 核心算法/数据模型/API/信息流
 - `docs/system-overview.md`、`docs/module-index.md`、`docs/naming-conventions.md`
-- `Governance/Capability/CP-*.md`、`Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+- `Governance/archive/archive-capability-v8-20260223/CP-*.md`、`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - `Governance/steering/系统铁律.md`、`Governance/steering/CORE-PRINCIPLES.md`
 - MSS/IRS/PAS/Validation 评分公式与门禁逻辑
 - Spiral + CP 主路线
@@ -226,8 +226,8 @@
     - `docs/system-overview.md`
     - `docs/module-index.md`
     - `docs/naming-conventions.md`
-    - `Governance/Capability/CP-*.md`
-    - `Governance/Capability/SPIRAL-CP-OVERVIEW.md`
+    - `Governance/archive/archive-capability-v8-20260223/CP-*.md`
+    - `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
     - `Governance/steering/系统铁律.md`
     - `Governance/steering/CORE-PRINCIPLES.md`
   - 阻断规则：任一锚点变化且无本圈审查记录时，直接 P0 失败

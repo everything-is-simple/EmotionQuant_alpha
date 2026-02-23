@@ -20,9 +20,9 @@
 
 | ID | 资产 | 路径 | 等级 | 用途 |
 |---|---|---|---|---|
-| S-GOV-001 | Spiral 主控路线图 | `Governance/Capability/SPIRAL-CP-OVERVIEW.md` | S | 圈级目标、CP 组合、最小同步 |
-| S-GOV-002 | CP 能力包模板 | `Governance/Capability/CP-*.md` | S | 契约/Slice/Gate 复用 |
-| S-GOV-003 | Task 闭环卡片模板 | `Governance/Capability/SPIRAL-TASK-TEMPLATE.md` | S | 每日任务拆解 |
+| S-GOV-001 | Spiral 主控路线图 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` | S | 圈级目标、CP 组合、最小同步 |
+| S-GOV-002 | CP 能力包模板 | `Governance/archive/archive-capability-v8-20260223/CP-*.md` | S | 契约/Slice/Gate 复用 |
+| S-GOV-003 | Task 闭环卡片模板 | `Governance/steering/SPIRAL-TASK-TEMPLATE.md` | S | 每日任务拆解 |
 | S-GOV-004 | 统一 6A 工作流 | `Governance/steering/6A-WORKFLOW.md` | S | Spiral 到 Task 到 Step 一体执行 |
 | S-GOV-005 | 6A 历史兼容说明 | `Governance/steering/6A-WORKFLOW.md` | A | 回溯历史口径（已并入主工作流），不参与当前执行 |
 | S-GOV-006 | 命名契约变更模板 | `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md` | S | 契约变更单点归档与审计 |
