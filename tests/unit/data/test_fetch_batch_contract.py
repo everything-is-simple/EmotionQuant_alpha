@@ -1,3 +1,9 @@
+"""
+批量采集流水线契约测试。
+
+覆盖：进度文件生成、实时进度回调、交易日历窗口过滤、
+月度批次支持、状态每批次持久化、交易日心跳以及并行执行。
+"""
 from __future__ import annotations
 
 import json
@@ -16,6 +22,7 @@ from src.data.fetch_batch_pipeline import (
 def test_fetch_batch_generates_progress_and_artifacts(
     tmp_path: Path, monkeypatch
 ) -> None:
+    """批量采集完成后应生成符合 nc-v1 契约的进度文件和吞吐基准报告。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
 
@@ -51,6 +58,7 @@ def test_fetch_batch_generates_progress_and_artifacts(
 
 
 def test_fetch_batch_emits_realtime_progress_events(tmp_path: Path, monkeypatch) -> None:
+    """采集过程应通过回调发出实时进度事件（started → completed）。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
     events: list[FetchBatchProgressEvent] = []
@@ -77,6 +85,7 @@ def test_fetch_batch_emits_realtime_progress_events(tmp_path: Path, monkeypatch)
 def test_fetch_batch_uses_trade_cal_window_once_and_runs_only_open_days(
     tmp_path: Path, monkeypatch
 ) -> None:
+    """应只查询一次交易日历，且仅对开市日执行 L1 采集。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
     called_trade_dates: list[str] = []
@@ -132,6 +141,7 @@ def test_fetch_batch_uses_trade_cal_window_once_and_runs_only_open_days(
 
 
 def test_fetch_batch_supports_month_unit(tmp_path: Path, monkeypatch) -> None:
+    """批量采集应支持按月分批（batch_unit='month'）。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
 
@@ -154,6 +164,7 @@ def test_fetch_batch_supports_month_unit(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_fetch_batch_writes_state_after_each_batch(tmp_path: Path, monkeypatch) -> None:
+    """每个批次完成后应立即持久化状态，支持中断后恢复。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
     call_index = 0
@@ -207,6 +218,7 @@ def test_fetch_batch_writes_state_after_each_batch(tmp_path: Path, monkeypatch) 
 def test_fetch_batch_writes_trade_date_heartbeat_within_batch(
     tmp_path: Path, monkeypatch
 ) -> None:
+    """批次内每个交易日处理时应更新心跳状态（当前交易日/索引/总数）。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
     called_trade_dates: list[str] = []
@@ -260,6 +272,7 @@ def test_fetch_batch_writes_trade_date_heartbeat_within_batch(
 
 
 def test_fetch_batch_parallel_workers_process_month_batches(tmp_path: Path, monkeypatch) -> None:
+    """多 worker 并行执行月度批次应正常完成。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
 

@@ -1,3 +1,5 @@
+"""raw_daily 仓储：股票日线行情（开/高/低/收/量/额）。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -8,7 +10,7 @@ from .base import BaseRepository
 
 
 class DailyRepository(BaseRepository):
-    """Repository for raw_daily."""
+    """股票日线行情仓储（raw_daily），按 trade_date 拉取。"""
 
     table_name = "raw_daily"
 

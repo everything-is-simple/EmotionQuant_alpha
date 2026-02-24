@@ -1,3 +1,8 @@
+"""数据模型契约对齐测试。
+
+验证各 dataclass 模型包含上下游约定的必要字段，
+确保模型定义与 MSS/IRS 算法输入契约保持一致。
+"""
 from __future__ import annotations
 
 from dataclasses import fields
@@ -7,15 +12,18 @@ from src.data.models.snapshots import IndustrySnapshot, MarketSnapshot
 
 
 def _field_names(model_cls: type) -> set[str]:
+    """提取 dataclass 类的所有字段名。"""
     return {f.name for f in fields(model_cls)}
 
 
 def test_entities_include_data_layer_core_fields() -> None:
+    """实体模型必须包含数据层核心字段（股票基本信息、交易日历）。"""
     assert {"ts_code", "name", "industry", "list_date"} <= _field_names(StockBasic)
     assert {"trade_date", "is_open", "pretrade_date"} <= _field_names(TradeCalendar)
 
 
 def test_market_snapshot_includes_mss_input_fields() -> None:
+    """MarketSnapshot 必须包含 MSS（市场情绪信号）算法所需的全部输入字段。"""
     required = {
         "trade_date",
         "total_stocks",
@@ -46,6 +54,7 @@ def test_market_snapshot_includes_mss_input_fields() -> None:
 
 
 def test_industry_snapshot_includes_irs_input_fields() -> None:
+    """IndustrySnapshot 必须包含 IRS（行业轮动信号）算法所需的全部输入字段。"""
     required = {
         "trade_date",
         "industry_code",

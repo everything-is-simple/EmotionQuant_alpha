@@ -1,3 +1,9 @@
+"""
+行业快照 SW31（申万一级 31 个行业）严格模式契约测试。
+
+验证 strict_sw31=True 时，industry_snapshot 恰好产生 31 行，
+不包含 ALL 汇总行，且包含 style_bucket 等字段。
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,6 +15,7 @@ from src.data.l2_pipeline import run_l2_snapshot
 
 
 def _build_config(tmp_path: Path) -> Config:
+    """构建测试用临时 Config。"""
     env_file = tmp_path / ".env.s3c.l2"
     data_path = tmp_path / "eq_data"
     env_file.write_text(
@@ -20,6 +27,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 
 def _seed_sw31_inputs(db_path: Path, trade_date: str) -> None:
+    """预埋 31 个行业的 L1 原始数据（行业分类/成员/日线/基本面/涨停）。"""
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with duckdb.connect(str(db_path)) as connection:
         connection.execute(
@@ -156,6 +164,7 @@ def _seed_sw31_inputs(db_path: Path, trade_date: str) -> None:
 
 
 def test_industry_snapshot_sw31_strict_contract(tmp_path: Path) -> None:
+    """严格模式下应产生恰好 31 行行业快照，不含 ALL，并生成审计文件。"""
     trade_date = "20260213"
     config = _build_config(tmp_path)
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"

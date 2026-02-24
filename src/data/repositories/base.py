@@ -1,3 +1,11 @@
+"""仓储基类（BaseRepository）和 DuckDB 锁恢复机制。
+
+提供：
+- save_to_database(): 带锁重试的 DuckDB 写入（线程锁 + 进程锁 + DuckDB 内部锁重试）
+- save_to_parquet(): Parquet 文件写入
+- acquire_duckdb_interprocess_lock(): Windows 上基于文件字节锁的进程间协调
+"""
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -20,6 +28,7 @@ except ImportError:  # pragma: no cover - non-Windows fallback
 
 
 def is_duckdb_lock_error(exc: Exception) -> bool:
+    # 判断异常是否为 DuckDB 锁相关错误（含中文 Windows 错误信息）
     message = str(exc).strip().lower()
     if not message:
         return False
@@ -34,6 +43,7 @@ def is_duckdb_lock_error(exc: Exception) -> bool:
 
 
 def extract_lock_holder_pid(message: str) -> str:
+    # 从错误信息中提取持锁进程 PID（便于诊断锁冲突）
     match = re.search(r"(?:process|pid)\s*[:=]?\s*(\d+)", message, flags=re.IGNORECASE)
     if not match:
         return ""
@@ -47,7 +57,11 @@ def acquire_duckdb_interprocess_lock(
     timeout_seconds: float,
     poll_seconds: float,
 ):
-    """Coordinate writes across Python processes on Windows via lock-file byte lock."""
+    """跨进程写入协调：在 Windows 上通过 lock 文件字节锁实现互斥。
+
+    非 Windows 平台直接 yield（不需要进程锁）。
+    超时未获取锁时抛出 TimeoutError。
+    """
     if os.name != "nt" or msvcrt is None:
         yield
         return
@@ -81,6 +95,7 @@ def acquire_duckdb_interprocess_lock(
 
 
 class DuckDBLockRecoveryError(RuntimeError):
+    """所有锁重试耗尽后抛出，携带详细诊断信息（重试次数、等待时间、持锁进程 PID）。"""
     def __init__(
         self,
         *,
@@ -107,7 +122,12 @@ class DuckDBLockRecoveryError(RuntimeError):
 
 
 class BaseRepository:
-    """Base repository for L1 raw datasets."""
+    """所有 L1 原始数据仓储的基类。
+
+    子类只需设置 table_name 并实现 fetch() 方法。
+    save_to_database() / save_to_parquet() 由基类统一提供，
+    内置线程锁 + 进程锁 + DuckDB 内部锁重试机制。
+    """
 
     table_name = ""
     duckdb_lock_max_attempts = 12
@@ -168,6 +188,11 @@ class BaseRepository:
         )
 
     def save_to_database(self, data: Any) -> int:
+        """将数据写入 DuckDB，按 trade_date 分区去重。
+
+        写入流程：获取线程锁 → 获取进程锁 → DuckDB connect → 建表/同步 schema → 删旧分区 → 插入新数据。
+        遇到 DuckDB 锁错误时自动重试（指数退避），重试耗尽后抛出 DuckDBLockRecoveryError。
+        """
         self._assert_table_name()
         records = self._normalize_records(data)
         if not records:
@@ -182,7 +207,7 @@ class BaseRepository:
         last_error_message = ""
         lock_holder_pid = ""
 
-        with self._write_io_lock:
+        with self._write_io_lock:  # 线程锁：同进程内串行化写入
             lock_wait_started = time.monotonic()
             try:
                 with acquire_duckdb_interprocess_lock(
@@ -240,6 +265,7 @@ class BaseRepository:
         return int(len(frame))
 
     def _sync_table_schema(self, connection: duckdb.DuckDBPyConnection) -> None:
+        # 自动补齐表缺少的列（incoming 有但 table 没有的列自动 ALTER TABLE ADD）
         existing = connection.execute(
             f"SELECT column_name FROM information_schema.columns "
             f"WHERE table_name = '{self.table_name}'"

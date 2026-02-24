@@ -1,3 +1,5 @@
+"""raw_index_member 仓储：申万行业指数成分股映射。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -24,7 +26,10 @@ def _attach_snapshot_trade_date(
 
 
 class IndexMemberRepository(BaseRepository):
-    """Repository for raw_index_member."""
+    """申万行业指数成分股仓储（raw_index_member）。
+
+    按月快照，尝试多种参数组合回退拉取（SW2021 → 无 src → trade_date）。
+    """
 
     table_name = "raw_index_member"
 

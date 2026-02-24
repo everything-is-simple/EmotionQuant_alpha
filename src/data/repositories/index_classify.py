@@ -1,3 +1,5 @@
+"""raw_index_classify 仓储：申万行业分类目录（SW2021 L1）。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -24,7 +26,10 @@ def _attach_snapshot_trade_date(
 
 
 class IndexClassifyRepository(BaseRepository):
-    """Repository for raw_index_classify."""
+    """申万行业分类目录仓储（raw_index_classify）。
+
+    半年快照，尝试多种参数组合回退拉取（SW2021 L1 → SW L1 → SW2021 → 空参数）。
+    """
 
     table_name = "raw_index_classify"
 

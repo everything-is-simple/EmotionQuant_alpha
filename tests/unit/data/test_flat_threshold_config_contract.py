@@ -1,3 +1,9 @@
+"""
+平盘阈值配置契约测试。
+
+验证 FLAT_THRESHOLD 环境变量能正确传递到 L2 快照计算，
+影响 flat_count 结果并落盘到 system_config 表。
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,6 +15,7 @@ from src.data.l2_pipeline import run_l2_snapshot
 
 
 def _build_config(tmp_path: Path) -> Config:
+    """构建测试用临时 Config，设置 FLAT_THRESHOLD=0.5。"""
     env_file = tmp_path / ".env.flat.threshold"
     data_path = tmp_path / "eq_data"
     env_file.write_text(
@@ -21,6 +28,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 
 def _seed_l1_inputs(db_path: Path, trade_date: str) -> None:
+    """预埋 L1 原始数据（raw_daily + raw_limit_list）供 L2 快照计算使用。"""
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with duckdb.connect(str(db_path)) as connection:
         connection.execute(
@@ -59,6 +67,7 @@ def _seed_l1_inputs(db_path: Path, trade_date: str) -> None:
 
 
 def test_flat_count_uses_flat_threshold_from_system_config(tmp_path: Path) -> None:
+    """快照中的 flat_count 应使用 system_config 中的阈值（而非硬编码默认值）。"""
     trade_date = "20260215"
     config = _build_config(tmp_path)
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"

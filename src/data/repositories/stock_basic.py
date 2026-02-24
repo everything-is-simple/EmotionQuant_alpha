@@ -1,3 +1,5 @@
+"""raw_stock_basic 仓储：股票基本信息列表。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -8,7 +10,10 @@ from .base import BaseRepository
 
 
 class StockBasicRepository(BaseRepository):
-    """Repository for raw_stock_basic."""
+    """股票基本信息仓储（raw_stock_basic）。
+
+    按月快照，分别拉取 L/D/P 三种 list_status 并合并去重。
+    """
 
     table_name = "raw_stock_basic"
 

@@ -1,9 +1,18 @@
+"""L2 快照模型：MarketSnapshot（市场快照）和 IndustrySnapshot（行业快照）。
+
+所有快照都携带数据质量三件套字段：
+- data_quality: 数据质量状态（normal / stale / cold_start）
+- stale_days: 数据滞后天数（normal 时必须为 0）
+- source_trade_date: 数据实际来源日期
+"""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 
+# 允许的数据质量状态枚举
 QUALITY_STATES = {"normal", "stale", "cold_start"}
 
 
@@ -27,6 +36,11 @@ def _validate_quality_fields(
 
 @dataclass(frozen=True)
 class MarketSnapshot:
+    """市场快照（L2 层）。
+
+    聚合当日全市场涨跌家数、涨跌停、波动率等指标。
+    由 l2_pipeline 从 raw_daily + raw_limit_list 计算生成。
+    """
     trade_date: str
     total_stocks: int = 0
     rise_count: int = 0
@@ -93,6 +107,11 @@ class MarketSnapshot:
 
 @dataclass(frozen=True)
 class IndustrySnapshot:
+    """行业快照（L2 层）。
+
+    按申万一级行业（SW2021 L1）维度聚合个股涨跌、涨停、成交等指标。
+    industry_code='ALL' 表示全市场聚合（无行业映射时的兜底）。
+    """
     trade_date: str
     industry_code: str
     industry_name: str = ""

@@ -1,3 +1,9 @@
+"""
+数据就绪性持久化契约测试。
+
+验证 L1 + L2 流程完成后，system_config、data_quality_report、
+data_readiness_gate 三张表正确落盘。
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,6 +17,7 @@ from src.data.l2_pipeline import run_l2_snapshot
 
 
 def _build_config(tmp_path: Path) -> Config:
+    """构建测试用临时 Config。"""
     env_file = tmp_path / ".env.readiness.persistence"
     data_path = tmp_path / "eq_data"
     env_file.write_text(
@@ -22,6 +29,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 
 def test_data_readiness_outputs_persist_after_l1_and_l2(tmp_path: Path) -> None:
+    """数据就绪性输出（配置/质量报告/门控决策）应在 L1+L2 后正确持久化。"""
     trade_date = "20260215"
     config = _build_config(tmp_path)
 

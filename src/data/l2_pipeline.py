@@ -1,3 +1,13 @@
+"""数据层 L2 快照生成流水线：从 L1 原始表计算市场快照和行业快照。
+
+流程：
+1. 从 DuckDB 读取 L1 原始表（raw_daily / raw_limit_list / raw_daily_basic）
+2. 加载申万行业分类 + 成分股映射
+3. 生成 MarketSnapshot + IndustrySnapshot（SW31 维度或全市场兜底）
+4. 写入 DuckDB + Parquet + 产物文件
+5. 评估 L2 质量门禁
+"""
+
 from __future__ import annotations
 
 import json
@@ -680,6 +690,11 @@ def run_l2_snapshot(
     config: Config,
     strict_sw31: bool = True,
 ) -> L2RunResult:
+    """执行单个交易日的 L2 快照生成。
+
+    从 L1 表计算 MarketSnapshot + IndustrySnapshot，
+    strict_sw31=True 时要求申万一级 31 个行业全覆盖，否则报错。
+    """
     if source.lower() != "tushare":
         raise ValueError(f"unsupported source for S0c: {source}")
 

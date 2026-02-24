@@ -1,3 +1,5 @@
+"""raw_daily_basic 仓储：股票每日指标（换手率 / PE / PB / 总市值）。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -24,7 +26,7 @@ def _attach_snapshot_trade_date(
 
 
 class DailyBasicRepository(BaseRepository):
-    """Repository for raw_daily_basic."""
+    """股票每日指标仓储（raw_daily_basic），按 trade_date 拉取。"""
 
     table_name = "raw_daily_basic"
 

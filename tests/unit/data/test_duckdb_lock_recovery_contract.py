@@ -1,3 +1,9 @@
+"""
+DuckDB 文件锁恢复机制契约测试。
+
+覆盖：写入时遇到文件锁的自动重试、重试耗尽后的审计记录、
+同 trade_date 写入幂等性、以及 quality_store 的锁重试能力。
+"""
 from __future__ import annotations
 
 import json
@@ -16,10 +22,12 @@ from src.data.repositories.daily import DailyRepository
 
 
 class _DummyRepository(BaseRepository):
+    """用于锁测试的轻量级 Repository 子类。"""
     table_name = "raw_dummy_lock"
 
 
 def _build_config(tmp_path: Path, env_name: str) -> Config:
+    """构建测试用临时 Config。"""
     env_file = tmp_path / env_name
     data_path = tmp_path / "eq_data"
     env_file.write_text(
@@ -33,6 +41,7 @@ def _build_config(tmp_path: Path, env_name: str) -> Config:
 def test_repository_retries_duckdb_lock_and_succeeds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """写入时遇到文件锁，重试后成功应正常插入数据。"""
     config = _build_config(tmp_path, ".env.s3ar.lock.retry")
     repository = _DummyRepository(config=config)
     repository.duckdb_lock_max_attempts = 4
@@ -59,6 +68,7 @@ def test_repository_retries_duckdb_lock_and_succeeds(
 def test_l1_collection_emits_lock_recovery_audit_fields(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """锁重试耗尽时，错误清单应包含审计字段（PID/重试次数/等待时间）。"""
     config = _build_config(tmp_path, ".env.s3ar.lock.audit")
 
     def _raise_lock_error(self: DailyRepository, data: Any) -> int:
@@ -95,6 +105,7 @@ def test_l1_collection_emits_lock_recovery_audit_fields(
 
 
 def test_repository_trade_date_writes_are_idempotent(tmp_path: Path) -> None:
+    """同 trade_date 重复写入应幂等（DELETE + INSERT），不产生重复数据。"""
     config = _build_config(tmp_path, ".env.s3ar.idempotent")
     repository = _DummyRepository(config=config)
     first_batch = [
@@ -129,6 +140,7 @@ def test_repository_trade_date_writes_are_idempotent(tmp_path: Path) -> None:
 def test_quality_store_retries_duckdb_lock_and_succeeds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """质量存储初始化时遇到文件锁，重试后应正常完成。"""
     config = _build_config(tmp_path, ".env.s3ar.quality.lock.retry")
     database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
     original_connect = duckdb.connect

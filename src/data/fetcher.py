@@ -1,3 +1,11 @@
+"""数据拉取层：TuShare API 封装、重试、限流、双通道故障转移。
+
+核心组件：
+- TuShareFetcher: 带重试 + 限流 + 双通道 failover 的数据拉取器
+- RealTuShareClient: 真实 TuShare SDK 适配器（支持 tushare / tinyshare）
+- SimulatedTuShareClient: 确定性离线模拟客户端（用于契约测试）
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,7 +39,10 @@ class FetchError(RuntimeError):
 
 
 class SimulatedTuShareClient:
-    """Deterministic offline TuShare-like client for S0b contract tests."""
+    """确定性离线模拟客户端，用于 S0b 契约测试。
+
+    返回固定的模拟数据，不依赖网络。当 Config 中无任何 token 时自动启用。
+    """
 
     _SIMULATED_CLOSED_TRADE_DAYS = frozenset(
         {
@@ -230,7 +241,11 @@ class SimulatedTuShareClient:
 
 
 class RealTuShareClient:
-    """Real TuShare client adapter for production fetch flow."""
+    """真实 TuShare SDK 适配器，用于生产环境数据拉取。
+
+    支持 tushare / tinyshare 两种 SDK，可配置第三方网关 http_url。
+    自动将 TuShare DataFrame 输出转为 list[dict] 并补全 stock_code 字段。
+    """
 
     _API_METHOD_MAP = {
         "daily": "daily",
@@ -343,7 +358,12 @@ class RealTuShareClient:
 
 
 class TuShareFetcher:
-    """TuShare data fetcher with retry tracing."""
+    """带重试、限流、双通道故障转移的 TuShare 数据拉取器。
+
+    初始化时根据 Config 自动构建 primary + fallback 两个通道。
+    每次调用按通道限流等待，主通道失败自动切换兜底通道。
+    重试轨迹记录在 retry_report 中，便于诊断。
+    """
 
     def __init__(
         self,
@@ -425,6 +445,7 @@ class TuShareFetcher:
                 self._channel_min_interval_seconds[channel_name] = 0.0
 
     def _respect_rate_limit(self, channel_name: str) -> None:
+        # 按通道独立限流：计算上次调用距今多久，不足最小间隔则 sleep
         min_interval_seconds = self._channel_min_interval_seconds.get(channel_name, 0.0)
         if min_interval_seconds <= 0:
             return
@@ -466,6 +487,7 @@ class TuShareFetcher:
         raise FetchError(api_name=api_name, attempts=attempts)
 
     def _call_with_failover(self, *, api_name: str, params: dict[str, Any]) -> Any:
+        # 主通道失败时自动切换兜底通道，所有通道都失败则抛出异常
         errors: list[str] = []
         for channel_name, channel_client in self._clients:
             try:

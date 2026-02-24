@@ -9,7 +9,8 @@ param(
     [int]$StatusPollSeconds = 10,
     [switch]$NoProgress,
     [switch]$UseEq,
-    [string]$PythonExe = ""
+    [string]$PythonExe = "",
+    [bool]$KillConcurrentFetchProcesses = $true
 )
 
 Set-StrictMode -Version Latest
@@ -31,7 +32,7 @@ function Get-Runner {
         if (-not (Get-Command eq -ErrorAction SilentlyContinue)) {
             throw "eq command not found. Remove -UseEq or install eq in current environment."
         }
-        return @{ Exe = "eq"; Prefix = @() }
+        return @{ Exe = "eq"; Prefix = @(); Mode = "eq" }
     }
     if (-not $resolvedPythonExe) {
         $venvPython = Join-Path (Get-Location).Path ".venv\Scripts\python.exe"
@@ -41,7 +42,7 @@ function Get-Runner {
             $resolvedPythonExe = "python"
         }
     }
-    return @{ Exe = $resolvedPythonExe; Prefix = @("-m", "src.pipeline.main") }
+    return @{ Exe = $resolvedPythonExe; Prefix = @("-m", "src.pipeline.main"); Mode = "python" }
 }
 
 function Get-ActiveFetchPipelineProcesses {
@@ -52,9 +53,25 @@ function Get-ActiveFetchPipelineProcesses {
 }
 
 function Assert-NoConcurrentFetchPipelineProcess {
-    $active = Get-ActiveFetchPipelineProcesses
+    $active = @(Get-ActiveFetchPipelineProcesses)
     if ($active.Count -le 0) {
         return
+    }
+    if ($KillConcurrentFetchProcesses) {
+        Write-Host ("[cleanup] detected {0} concurrent fetch process(es), stopping..." -f $active.Count) -ForegroundColor Yellow
+        foreach ($proc in $active) {
+            try {
+                Write-Host ("[cleanup] stop pid={0}" -f $proc.ProcessId) -ForegroundColor Yellow
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+            } catch {
+            }
+        }
+        Start-Sleep -Seconds 2
+        $active = @(Get-ActiveFetchPipelineProcesses)
+        if ($active.Count -le 0) {
+            Write-Host "[cleanup] concurrent fetch processes cleared." -ForegroundColor Green
+            return
+        }
     }
     $lines = @()
     foreach ($proc in $active) {
@@ -72,7 +89,7 @@ function Invoke-Runner {
         [hashtable]$Runner,
         [string[]]$CommandArgs
     )
-    if ($Runner.Exe -eq "python") {
+    if ($Runner.Mode -eq "python") {
         $allArgs = @()
         $allArgs += @($Runner.Prefix)
         $allArgs += @($CommandArgs)
@@ -154,7 +171,7 @@ function Invoke-FetchBatchProcess {
     $stdoutLog = Join-Path $stateDir ("monthly-{0}-{1}{2}.stdout.log" -f $MonthStartText, $MonthEndText, $suffix)
     $stderrLog = Join-Path $stateDir ("monthly-{0}-{1}{2}.stderr.log" -f $MonthStartText, $MonthEndText, $suffix)
 
-    if ($Runner.Exe -eq "python") {
+    if ($Runner.Mode -eq "python") {
         $processArgs = @()
         $processArgs += @($Runner.Prefix)
         $processArgs += @($FetchArgs)

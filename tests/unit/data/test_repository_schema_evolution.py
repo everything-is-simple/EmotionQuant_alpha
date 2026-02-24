@@ -1,3 +1,8 @@
+"""
+Repository 模式演进契约测试。
+
+验证当新批数据包含新字段时，Repository 能自动添加列（Schema Evolution）。
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,6 +14,7 @@ from src.data.repositories.trade_calendars import TradeCalendarsRepository
 
 
 def _build_config(tmp_path: Path) -> Config:
+    """构建测试用临时 Config。"""
     env_file = tmp_path / ".env.repo.schema"
     data_path = tmp_path / "eq_data"
     env_file.write_text(
@@ -20,6 +26,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 
 def test_repository_auto_adds_new_columns_on_insert(tmp_path: Path) -> None:
+    """第二批数据包含新字段 cal_date 时，表应自动添加该列而不报错。"""
     config = _build_config(tmp_path)
     repository = TradeCalendarsRepository(config)
 

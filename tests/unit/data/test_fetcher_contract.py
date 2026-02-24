@@ -1,3 +1,9 @@
+"""
+TuShareFetcher 契约测试。
+
+覆盖：重试机制、模拟客户端 API 覆盖、真实 TuShare/TinyShare 通道切换、
+主备通道自动降级、HTTP 网关配置、以及多通道独立频率限制。
+"""
 from __future__ import annotations
 
 import types
@@ -10,6 +16,7 @@ from src.data.fetcher import FetchError, SimulatedTuShareClient, TuShareFetcher
 
 
 class FlakyClient:
+    """模拟不稳定的 API 客户端，前 N 次调用失败，之后成功。"""
     def __init__(self, fail_times: int) -> None:
         self.fail_times = fail_times
         self.calls = 0
@@ -22,6 +29,7 @@ class FlakyClient:
 
 
 def test_fetcher_retries_then_succeeds() -> None:
+    """重试次数内恢复成功时，应返回正确数据且重试报告记录完整。"""
     fetcher = TuShareFetcher(client=FlakyClient(fail_times=2), max_retries=3)
     payload = fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
 
@@ -31,6 +39,7 @@ def test_fetcher_retries_then_succeeds() -> None:
 
 
 def test_fetcher_raises_after_retry_exhausted() -> None:
+    """重试次数耗尽后应抛出 FetchError，包含所有尝试记录。"""
     fetcher = TuShareFetcher(client=FlakyClient(fail_times=5), max_retries=2)
 
     with pytest.raises(FetchError) as exc_info:
@@ -42,6 +51,7 @@ def test_fetcher_raises_after_retry_exhausted() -> None:
 
 
 def test_simulated_client_covers_s0b_required_apis() -> None:
+    """模拟客户端必须覆盖 S0b 所需的全部 8 个 API（daily/daily_basic/trade_cal/limit_list/index_daily/index_member/index_classify/stock_basic）。"""
     fetcher = TuShareFetcher(client=SimulatedTuShareClient(), max_retries=1)
     daily_rows = fetcher.fetch_with_retry("daily", {"trade_date": "20260215"})
     daily_basic_rows = fetcher.fetch_with_retry("daily_basic", {"trade_date": "20260215"})
@@ -68,6 +78,7 @@ def test_simulated_client_covers_s0b_required_apis() -> None:
 
 
 def test_simulated_trade_cal_marks_lunar_new_year_closure_days_as_closed() -> None:
+    """模拟交易日历应正确标记春节休市日为关闭（is_open=0）。"""
     fetcher = TuShareFetcher(client=SimulatedTuShareClient(), max_retries=1)
     rows = fetcher.fetch_with_retry(
         "trade_cal",
@@ -84,6 +95,7 @@ def test_simulated_trade_cal_marks_lunar_new_year_closure_days_as_closed() -> No
 def test_fetcher_uses_real_tushare_client_when_token_exists(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """配置了 TUSHARE_TOKEN 时，应使用真实 TuShare SDK，并正确将 ts_code 转换为 stock_code。"""
     class FakeProApi:
         def daily(self, **_: Any) -> list[dict[str, Any]]:
             return [{"ts_code": "000001.SZ", "trade_date": "20260215"}]
@@ -150,6 +162,7 @@ def test_fetcher_uses_real_tushare_client_when_token_exists(
 def test_fetcher_uses_tinyshare_provider_when_configured(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """配置 SDK_PROVIDER=tinyshare 时，应使用 tinyshare 通道获取数据。"""
     class FakeTinyProApi:
         def daily(self, **_: Any) -> list[dict[str, Any]]:
             return [{"ts_code": "000333.SZ", "trade_date": "20260215"}]
@@ -216,6 +229,7 @@ def test_fetcher_uses_tinyshare_provider_when_configured(
 def test_fetcher_applies_primary_http_url_when_configured(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """配置了 HTTP_URL 时，TuShare SDK 应指向指定网关地址。"""
     class FakeGatewayProApi:
         def __init__(self) -> None:
             self._DataApi__http_url = ""
@@ -254,6 +268,7 @@ def test_fetcher_applies_primary_http_url_when_configured(
 def test_fetcher_falls_back_to_official_channel_when_primary_fails(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """主通道失败时应自动降级到备用通道，并返回备用数据。"""
     counters = {"primary_daily_calls": 0, "fallback_daily_calls": 0}
 
     class FakePrimaryProApi:
@@ -292,6 +307,7 @@ def test_fetcher_falls_back_to_official_channel_when_primary_fails(
 
 
 class FakeClock:
+    """模拟时钟，用于测试频率限制逻辑而无需真实等待。"""
     def __init__(self) -> None:
         self.current = 0.0
         self.sleeps: list[float] = []
@@ -307,6 +323,7 @@ class FakeClock:
 def test_fetcher_applies_primary_channel_rate_limit_when_configured(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """主通道配置独立频率限制时，调用间隔应符合其专属限速。"""
     class FakeProApi:
         def daily(self, **_: Any) -> list[dict[str, Any]]:
             return [{"ts_code": "000001.SZ", "trade_date": "20260215"}]
@@ -344,6 +361,7 @@ def test_fetcher_applies_primary_channel_rate_limit_when_configured(
 def test_fetcher_applies_fallback_channel_rate_limit_when_primary_unlimited(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """备用通道配置独立频率限制时，降级后的调用应按备用通道限速等待。"""
     class FakePrimaryProApi:
         def daily(self, **_: Any) -> list[dict[str, Any]]:
             raise RuntimeError("primary_temporarily_unavailable")

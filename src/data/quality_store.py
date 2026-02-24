@@ -1,3 +1,11 @@
+"""质量门禁持久化层：将 Quality Gate 决策和检查报告写入 DuckDB。
+
+主要表：
+- system_config: 系统配置参数（平盘阈值、覆盖率门限等）
+- data_quality_report: 各检查项的详细结果
+- data_readiness_gate: 每个交易日的门禁决策
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable

@@ -1,3 +1,5 @@
+"""raw_limit_list 仓储：涨跌停列表。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -8,7 +10,7 @@ from .base import BaseRepository
 
 
 class LimitListRepository(BaseRepository):
-    """Repository for raw_limit_list."""
+    """涨跌停列表仓储（raw_limit_list），按 trade_date 拉取。"""
 
     table_name = "raw_limit_list"
 

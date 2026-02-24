@@ -1,3 +1,13 @@
+"""数据层 L1 采集流水线：按交易日拉取全量 L1 原始数据并落盘。
+
+流程：
+1. 确定哪些数据集需要拉取（日频 / 月频 / 半年频）
+2. 通过 Repository.fetch() + TuShareFetcher 拉取数据
+3. save_to_database() + save_to_parquet() 落盘
+4. 评估数据质量门禁（Quality Gate）
+5. 输出产物文件（raw_counts / retry_report / quality_gate_report）
+"""
+
 from __future__ import annotations
 
 import json
@@ -194,6 +204,12 @@ def run_l1_collection(
     config: Config,
     fetcher: TuShareFetcher | None = None,
 ) -> L1RunResult:
+    """执行单个交易日的 L1 数据采集。
+
+    依次拉取 8 个数据集（daily / daily_basic / index_daily / limit_list /
+    trade_cal / stock_basic / index_member / index_classify），
+    落盘后评估 Quality Gate，输出产物文件。
+    """
     if source.lower() != "tushare":
         raise ValueError(f"unsupported source for S0b: {source}")
 

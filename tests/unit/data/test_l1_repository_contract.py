@@ -1,3 +1,9 @@
+"""
+L1 数据采集流水线契约测试。
+
+覆盖：正常采集落盘、缺失交易日历处理、休市日处理、
+低频数据集月内去重、index_daily 必填 ts_code 回退等场景。
+"""
 from __future__ import annotations
 
 import json
@@ -12,6 +18,7 @@ from src.data.l1_pipeline import run_l1_collection
 
 
 class MissingTradeCalClient:
+    """模拟 trade_cal 返回空数据的客户端，用于触发缺失交易日历错误。"""
     def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         trade_date = str(params.get("trade_date") or params.get("start_date") or "")
         if api_name == "daily":
@@ -34,6 +41,7 @@ class MissingTradeCalClient:
 
 
 class ClosedDayClient:
+    """模拟休市日场景的客户端：trade_cal is_open=0，日线数据为空。"""
     def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         trade_date = str(params.get("trade_date") or params.get("start_date") or "")
         if api_name == "daily":
@@ -56,6 +64,7 @@ class ClosedDayClient:
 
 
 class StrictIndexDailyClient:
+    """模拟要求 index_daily 必填 ts_code 的严格模式客户端。"""
     def call(self, api_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         trade_date = str(params.get("trade_date") or params.get("start_date") or "")
         if api_name == "daily":
@@ -81,6 +90,7 @@ class StrictIndexDailyClient:
 
 
 def _build_config(tmp_path: Path) -> Config:
+    """构建测试用临时 Config，数据路径指向 tmp_path。"""
     env_file = tmp_path / ".env.s0b"
     data_path = tmp_path / "eq_data"
     env_file.write_text(
@@ -92,6 +102,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 
 def test_l1_collection_persists_required_raw_tables_and_artifacts(tmp_path: Path) -> None:
+    """正常采集流程应将数据落盘到 DuckDB 并生成必要产物文件。"""
     config = _build_config(tmp_path)
 
     result = run_l1_collection(
@@ -122,6 +133,7 @@ def test_l1_collection_persists_required_raw_tables_and_artifacts(tmp_path: Path
 
 
 def test_l1_collection_writes_error_manifest_when_gate_fails(tmp_path: Path) -> None:
+    """交易日历缺失时应输出错误清单并标记 has_error=True。"""
     config = _build_config(tmp_path)
     fetcher = TuShareFetcher(client=MissingTradeCalClient(), max_retries=1)
 
@@ -142,6 +154,7 @@ def test_l1_collection_writes_error_manifest_when_gate_fails(tmp_path: Path) -> 
 
 
 def test_l1_collection_allows_closed_trade_date_without_daily_rows(tmp_path: Path) -> None:
+    """休市日无日线数据是正常情况，不应报错。"""
     config = _build_config(tmp_path)
     fetcher = TuShareFetcher(client=ClosedDayClient(), max_retries=1)
 
@@ -158,6 +171,7 @@ def test_l1_collection_allows_closed_trade_date_without_daily_rows(tmp_path: Pat
 
 
 def test_l1_collection_skips_low_frequency_datasets_in_same_month(tmp_path: Path) -> None:
+    """同月第二次采集应跳过低频数据集（index_member/stock_basic/index_classify）。"""
     config = _build_config(tmp_path)
     fetcher = TuShareFetcher(max_retries=1)
 
@@ -184,6 +198,7 @@ def test_l1_collection_skips_low_frequency_datasets_in_same_month(tmp_path: Path
 
 
 def test_l1_collection_fallbacks_when_index_daily_requires_ts_code(tmp_path: Path) -> None:
+    """当 index_daily 要求必填 ts_code 时，应自动回退为逐指数查询。"""
     config = _build_config(tmp_path)
     fetcher = TuShareFetcher(client=StrictIndexDailyClient(), max_retries=1)
 

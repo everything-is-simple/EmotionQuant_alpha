@@ -1,3 +1,10 @@
+"""数据质量门控（Quality Gate）契约测试。
+
+验证 evaluate_data_quality_gate 在不同输入条件下返回正确的状态：
+- READY：所有检查通过
+- DEGRADED：数据略陈旧但在允许范围内
+- BLOCKED：跨日不一致或陈旧天数超限
+"""
 from __future__ import annotations
 
 from src.data.quality_gate import (
@@ -9,6 +16,7 @@ from src.data.quality_gate import (
 
 
 def test_quality_gate_ready_when_all_checks_pass() -> None:
+    """所有数据集覆盖率达标且无陈旧数据时，状态应为 READY。"""
     decision = evaluate_data_quality_gate(
         trade_date="20260214",
         coverage_ratio=0.97,
@@ -22,6 +30,7 @@ def test_quality_gate_ready_when_all_checks_pass() -> None:
 
 
 def test_quality_gate_degraded_when_within_stale_limit() -> None:
+    """数据陈旧天数在硬限内时，状态应为 DEGRADED（降级但可用）。"""
     decision = evaluate_data_quality_gate(
         trade_date="20260214",
         coverage_ratio=0.96,
@@ -35,6 +44,7 @@ def test_quality_gate_degraded_when_within_stale_limit() -> None:
 
 
 def test_quality_gate_blocked_when_cross_day_mixed() -> None:
+    """不同数据集的交易日不一致（跨日混合）时，状态应为 BLOCKED。"""
     decision = evaluate_data_quality_gate(
         trade_date="20260214",
         coverage_ratio=0.98,
@@ -47,6 +57,7 @@ def test_quality_gate_blocked_when_cross_day_mixed() -> None:
 
 
 def test_quality_gate_blocked_when_stale_days_exceed_limit() -> None:
+    """陈旧天数超过硬限（默认 3 天）时，状态应为 BLOCKED。"""
     decision = evaluate_data_quality_gate(
         trade_date="20260214",
         coverage_ratio=0.96,

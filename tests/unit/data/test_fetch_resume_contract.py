@@ -1,3 +1,9 @@
+"""
+批量采集断点续传契约测试。
+
+验证中断后重新运行不会重复处理已完成批次，
+并且最终状态一致。
+"""
 from __future__ import annotations
 
 import json
@@ -10,6 +16,7 @@ from src.data.fetch_batch_pipeline import run_fetch_batch
 def test_fetch_batch_resume_does_not_duplicate_completed_batches(
     tmp_path: Path, monkeypatch
 ) -> None:
+    """中断后续传不应重复已完成的批次，且最终 completed_batches == total_batches。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
 

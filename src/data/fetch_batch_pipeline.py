@@ -1,3 +1,10 @@
+"""批量数据拉取流水线（S3a）：支持断点续传、多线程并行、失败重试。
+
+将日期范围切分为 batch window，每个 batch 内逐个交易日调用 run_l1_collection。
+进度持久化到 JSON，中断后可从上次进度继续。
+失败的 batch 可通过 run_fetch_retry() 单独重试。
+"""
+
 from __future__ import annotations
 
 import calendar

@@ -66,10 +66,11 @@ class PipelineContext:
 
 @contextmanager
 def _fetch_command_lock(ctx: PipelineContext):
-    database_path = Path(ctx.config.duckdb_dir) / "emotionquant.duckdb"
+    # Use a dedicated fetch-command guard lock to avoid re-entering DB write lock.
+    guard_path = Path(ctx.config.duckdb_dir) / "emotionquant.fetch_command.guard"
     try:
         with acquire_duckdb_interprocess_lock(
-            database_path,
+            guard_path,
             timeout_seconds=1.0,
             poll_seconds=0.1,
         ):

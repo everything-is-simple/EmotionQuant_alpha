@@ -1,3 +1,9 @@
+"""
+L2 快照生成契约测试。
+
+验证 L1 采集后执行 L2 快照能正确生成 market_snapshot 和 industry_snapshot，
+并包含质量字段和产物文件。
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,6 +17,7 @@ from src.data.l2_pipeline import run_l2_snapshot
 
 
 def _build_config(tmp_path: Path) -> Config:
+    """构建测试用临时 Config。"""
     env_file = tmp_path / ".env.s0c"
     data_path = tmp_path / "eq_data"
     env_file.write_text(
@@ -22,6 +29,7 @@ def _build_config(tmp_path: Path) -> Config:
 
 
 def test_s0c_generates_market_and_industry_snapshots(tmp_path: Path) -> None:
+    """L1 + L2 流程应生成市场快照和行业快照，并包含质量字段和产物文件。"""
     config = _build_config(tmp_path)
     run_l1_collection(
         trade_date="20260215",

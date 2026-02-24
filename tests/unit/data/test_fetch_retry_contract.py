@@ -1,3 +1,9 @@
+"""
+批量采集失败批次重试契约测试。
+
+验证 run_fetch_retry 能够恢复上次运行中失败的批次，
+并生成重试报告。
+"""
 from __future__ import annotations
 
 import json
@@ -8,6 +14,7 @@ from src.data.fetch_batch_pipeline import run_fetch_batch, run_fetch_retry
 
 
 def test_fetch_retry_recovers_failed_batches(tmp_path: Path, monkeypatch) -> None:
+    """重试应恢复失败批次，最终 failed_batches=0 且重试报告完整。"""
     monkeypatch.chdir(tmp_path)
     config = Config.from_env(env_file=None)
 

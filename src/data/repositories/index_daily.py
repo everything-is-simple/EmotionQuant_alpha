@@ -1,3 +1,5 @@
+"""raw_index_daily 仓储：指数日线行情（上证、深证、创业板、沉300等）。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -24,7 +26,10 @@ def _attach_snapshot_trade_date(
 
 
 class IndexDailyRepository(BaseRepository):
-    """Repository for raw_index_daily."""
+    """指数日线行情仓储（raw_index_daily）。
+
+    TuShare index_daily 可能要求传 ts_code，失败时自动回退到核心指数逐个拉取。
+    """
 
     table_name = "raw_index_daily"
 

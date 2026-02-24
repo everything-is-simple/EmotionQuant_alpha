@@ -1,8 +1,17 @@
+"""数据质量门禁（Quality Gate）评估逻辑。
+
+输入各数据集的覆盖率、新鲜度、质量状态，输出三态决策：
+- ready: 所有检查通过，可正常进入下游流程
+- degraded: 部分警告但不阻断（如 cold_start 数据集）
+- blocked: 存在严重问题，阻断下游流程
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Mapping
 
+# 允许的数据质量状态枚举
 ALLOWED_QUALITY_STATES = {"normal", "stale", "cold_start"}
 
 STATUS_READY = "ready"
@@ -12,6 +21,13 @@ STATUS_BLOCKED = "blocked"
 
 @dataclass(frozen=True)
 class DataGateDecision:
+    """质量门禁决策结果。
+
+    - status: ready / degraded / blocked
+    - is_ready: status != blocked 时为 True
+    - issues: 阻断性问题列表（导致 blocked）
+    - warnings: 警告性问题列表（导致 degraded）
+    """
     trade_date: str
     status: str
     is_ready: bool
@@ -32,6 +48,14 @@ def evaluate_data_quality_gate(
     min_coverage: float = 0.95,
     stale_hard_limit: int = 3,
 ) -> DataGateDecision:
+    """评估数据质量门禁。
+
+    检查项：
+    1. 覆盖率是否达标（coverage_ratio >= min_coverage）
+    2. 跨日一致性（各数据集来源日期是否相同）
+    3. 数据新鲜度（stale_days 是否超过硬限）
+    4. 各数据集质量状态与 stale_days 的一致性
+    """
     issues: list[str] = []
     warnings: list[str] = []
 
