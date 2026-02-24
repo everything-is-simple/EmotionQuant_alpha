@@ -61,7 +61,18 @@ Plan B 必须与以下权威设计保持一致，不得降级或替换语义：
 
 ---
 
-## 6. 配套文件
+## 6. 四类失控风险防线（针对 Plan A 旧问题）
+
+| 旧问题 | Plan B 防线 |
+|---|---|
+| 数据断层 | 螺旋1强制 `fetch-batch/fetch-retry/data-quality-check` + 覆盖率门禁 |
+| 模块孤立 | 每螺旋强制端到端同窗 `run/backtest/analysis` |
+| 成果不可见 | 每螺旋看板更新 + `GO/NO_GO` 强制结论 |
+| 回测缺失 | 螺旋1最小回测 + 螺旋2多窗口完整回测与归因硬门禁 |
+
+---
+
+## 7. 配套文件
 
 - `Governance/SpiralRoadmap/planB/PLAN-B-EXECUTION-CHECKLIST.md`
 - `Governance/SpiralRoadmap/planB/PLAN-B-READINESS-SCOREBOARD.md`
@@ -71,10 +82,11 @@ Plan B 必须与以下权威设计保持一致，不得降级或替换语义：
 
 ---
 
-## 7. 变更记录
+## 8. 变更记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v3.2 | 2026-02-24 | 新增“Plan A 四类失控风险防线”映射，确保 Plan B 作为同精度应急方案直接对焦旧问题 |
 | v3.1 | 2026-02-24 | 按“实事求是+螺旋闭环”重构总览：绑定 `docs/design/**`，固化三螺旋递进与同精度硬约束 |
 | v3.0 | 2026-02-24 | 真螺旋版 |
 | v2.0 | 2026-02-23 | 实事求是版 |

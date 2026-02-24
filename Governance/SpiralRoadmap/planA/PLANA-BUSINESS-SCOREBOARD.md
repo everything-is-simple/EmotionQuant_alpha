@@ -1,7 +1,7 @@
 # Plan A 业务价值看板（强制更新）
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-24  
 **用途**: 回答“做成了吗？做得怎么样？”
 
 ---
@@ -70,8 +70,35 @@
 
 ---
 
-## 6. 更新规则
+## 6. 设计对齐检查（docs/design）
+
+| 设计域 | 检查项 | 状态 |
+|---|---|---|
+| core-algorithms/mss | `mss_panorama` 字段与语义一致 | pending |
+| core-algorithms/irs | SW31 门禁与行业覆盖一致 | pending |
+| core-algorithms/pas | PAS 输出字段一致 | pending |
+| core-algorithms/validation | `validation_weight_plan` 桥接一致 | pending |
+| core-algorithms/integration | 四模式与硬约束一致 | pending |
+| core-infrastructure/data-layer | L1-L4 依赖与落库口径一致 | pending |
+| core-infrastructure/backtest | 回测口径与主线引擎一致 | pending |
+| core-infrastructure/trading | A股规则与风控口径一致 | pending |
+| core-infrastructure/analysis | 归因链路与偏差分解一致 | pending |
+| core-infrastructure/gui | 只读展示口径一致 | pending |
+
+---
+
+## 7. 更新规则
 
 1. 每个微圈收口必须更新本文件。
 2. 若任一核心指标是 `blocked`，不得宣称“阶段完成”。
 3. 该看板与 `Governance/record/development-status.md` 同步更新，出现冲突以本文件的 `GO/NO_GO` 结论为准并在复盘中解释。
+4. 任一设计对齐检查未完成，不得给出螺旋最终 `GO`。
+
+---
+
+## 8. 变更记录
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v1.1 | 2026-02-24 | 增加 `docs/design` 设计对齐检查，提升与 Plan B 同精度门禁口径 |
+| v1.0 | 2026-02-23 | 首版看板：三螺旋+Pre-Live 评分卡 |

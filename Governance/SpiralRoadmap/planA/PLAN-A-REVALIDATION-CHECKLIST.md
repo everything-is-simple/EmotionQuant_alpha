@@ -1,7 +1,7 @@
 # Plan A Revalidation 执行清单
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-24  
 **状态**: Active  
 **用途**: 不重写代码，按新 Plan A 完成闭环重验
 
@@ -12,6 +12,7 @@
 1. 本清单只做重验（revalidation），不做 rewrite。
 2. 通过标准以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 为准。
 3. 每一项都要有 `run/test/artifact/review/sync` 五件套证据。
+4. 每个螺旋收口必须附“设计对齐结论”（`docs/design/core-algorithms/`、`docs/design/core-infrastructure/`、`docs/design/enhancements/eq-improvement-plan-core-frozen.md`）。
 
 ---
 
@@ -37,6 +38,12 @@
 - [ ] 更新 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`（螺旋1全部字段）
 - [ ] 给出螺旋1 `GO/NO_GO`
 - [ ] 若 `NO_GO`：只允许在 S0-S2/S3/S3b 修复，不推进螺旋2
+
+### 2.4 螺旋1设计对齐复核
+
+- [ ] `core-algorithms`：MSS/IRS/PAS/Validation/Integration 语义无降级
+- [ ] `core-infrastructure`：Data/Backtest/Analysis 契约链路无绕过
+- [ ] `enhancements`：执行动作与 `eq-improvement-plan-core-frozen.md` 一致
 
 ---
 
@@ -71,6 +78,12 @@
 - [ ] 给出螺旋2 `GO/NO_GO`
 - [ ] 螺旋2未 `GO` 前，S5-S7 只可开发，不可宣称生产就绪
 
+### 3.5 螺旋2设计对齐复核
+
+- [ ] `core-algorithms`：S3c/S3d/S3e 的 MVP/FULL 门禁与设计语义一致
+- [ ] `core-infrastructure`：Data/Backtest/Trading/Analysis 证据链完整
+- [ ] `enhancements`：ENH-09/10 的执行与主计划一致
+
 ---
 
 ## 4. 螺旋3（Production）准入重验
@@ -87,6 +100,12 @@
 - [ ] 完成至少 1 次故障恢复演练（数据延迟/调度失败/重试补偿）
 - [ ] 输出预演评审报告（`GO/NO_GO`）
 - [ ] 未通过 `GO` 禁止进入任何真实资金实盘
+
+## 4.6 螺旋3设计对齐复核
+
+- [ ] `core-infrastructure/gui`：只读消费，不在展示层做算法重算
+- [ ] `core-infrastructure/trading/analysis`：运行日志与偏差复盘可追溯
+- [ ] `enhancements`：ENH-07/08/11 的收口证据齐备
 
 ---
 
@@ -105,5 +124,6 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.2 | 2026-02-24 | 增加 PlanA/PlanB 同精度“设计对齐复核”条目：螺旋1/2/3均要求 `docs/design` 与主计划对齐结论 |
 | v1.1 | 2026-02-23 | 与 Plan B 对齐精度：canary窗口升级、新增归因对比、S3c/S3d/S3e 双档门禁、增加螺旋3.5 Pre-Live 重验 |
 | v1.0 | 2026-02-23 | 首版：按新 Plan A 三螺旋门禁定义 revalidation 执行清单 |
