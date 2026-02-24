@@ -24,6 +24,12 @@ def test_build_parser_fetch_batch_default_size_is_30_days() -> None:
     assert args.batch_size == 30
 
 
+def test_build_parser_fetch_batch_default_unit_is_day() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["fetch-batch", "--start", "20260102", "--end", "20260213"])
+    assert args.batch_unit == "day"
+
+
 def test_main_help_exits_with_zero() -> None:
     with pytest.raises(SystemExit) as exc_info:
         main(["--help"])
@@ -934,6 +940,7 @@ def test_main_fetch_batch_status_and_retry(
     assert fetch_payload["event"] == "s3a_fetch_batch"
     assert fetch_payload["status"] == "completed"
     assert fetch_payload["failed_batches"] == 0
+    assert fetch_payload["batch_unit"] == "day"
 
     status_exit = main(["--env-file", str(env_file), "fetch-status"])
     assert status_exit == 0
@@ -941,6 +948,13 @@ def test_main_fetch_batch_status_and_retry(
     assert status_payload["event"] == "s3a_fetch_status"
     assert status_payload["status"] == "completed"
     assert status_payload["completed_batches"] == status_payload["total_batches"]
+    assert status_payload["batch_unit"] == "day"
+    assert status_payload["current_batch_id"] is None
+    assert status_payload["current_start_date"] is None
+    assert status_payload["current_end_date"] is None
+    assert status_payload["current_trade_date"] is None
+    assert status_payload["current_trade_index"] is None
+    assert status_payload["current_trade_total"] is None
 
     retry_exit = main(["--env-file", str(env_file), "fetch-retry"])
     assert retry_exit == 0

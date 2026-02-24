@@ -2,6 +2,8 @@ param(
     [string]$Start = "",
     [string]$End = "",
     [int]$BatchSize = 365,
+    [ValidateSet("day", "month", "year")]
+    [string]$BatchUnit = "day",
     [int]$Workers = 3,
     [int]$RetryMax = 10,
     [string]$LogFile = "",
@@ -338,7 +340,12 @@ if ($Background) {
     if (-not [string]::IsNullOrWhiteSpace($End)) {
         $childArgs += @("-End", $End)
     }
-    $childArgs += @("-BatchSize", $BatchSize.ToString(), "-Workers", $Workers.ToString(), "-RetryMax", $RetryMax.ToString())
+    $childArgs += @(
+        "-BatchSize", $BatchSize.ToString(),
+        "-BatchUnit", $BatchUnit,
+        "-Workers", $Workers.ToString(),
+        "-RetryMax", $RetryMax.ToString()
+    )
     if ($NoProgress) { $childArgs += "-NoProgress" }
     if ($RetryOnly) { $childArgs += "-RetryOnly" }
     if ($CheckLock) { $childArgs += "-CheckLock" }
@@ -388,7 +395,14 @@ if ((-not $RetryOnly) -and ([string]::IsNullOrWhiteSpace($Start) -or [string]::I
 }
 
 if (-not $RetryOnly) {
-    Write-Host ("[range] {0} -> {1}  batch_size={2} workers={3}" -f $Start, $End, $BatchSize, $Workers)
+    Write-Host (
+        "[range] {0} -> {1}  batch_size={2} batch_unit={3} workers={4}" -f `
+            $Start, `
+            $End, `
+            $BatchSize, `
+            $BatchUnit, `
+            $Workers
+    )
 }
 
 $batchArgs = @(
@@ -396,6 +410,7 @@ $batchArgs = @(
     "--start", $Start,
     "--end", $End,
     "--batch-size", $BatchSize.ToString(),
+    "--batch-unit", $BatchUnit,
     "--workers", $Workers.ToString()
 )
 if ($NoProgress) {
@@ -424,6 +439,18 @@ while ($status.status -ne "completed" -and [int]$status.failed_batches -gt 0 -an
     $retryExit = Invoke-PipelineCommand -Runner $runner -CommandArgs @("fetch-retry")
     if ($retryExit -ne 0) {
         Write-Host ("[warn] fetch-retry exit code={0}" -f $retryExit)
+    }
+    $status = Get-FetchStatus -Runner $runner
+    Show-StatusSummary -Status $status
+}
+
+$resumeRound = 0
+while ($status.status -ne "completed" -and [int]$status.failed_batches -eq 0 -and $resumeRound -lt $RetryMax) {
+    $resumeRound += 1
+    Write-Host ("[resume] round {0}/{1} status={2} failed={3}" -f $resumeRound, $RetryMax, $status.status, $status.failed_batches)
+    $resumeExit = Invoke-PipelineCommand -Runner $runner -CommandArgs $batchArgs
+    if ($resumeExit -ne 0) {
+        Write-Host ("[warn] fetch-batch resume exit code={0}" -f $resumeExit)
     }
     $status = Get-FetchStatus -Runner $runner
     Show-StatusSummary -Status $status

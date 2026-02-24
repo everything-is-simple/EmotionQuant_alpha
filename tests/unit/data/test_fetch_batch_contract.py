@@ -6,7 +6,11 @@ from types import SimpleNamespace
 
 from src.config.config import Config
 import src.data.fetch_batch_pipeline as fetch_batch_pipeline
-from src.data.fetch_batch_pipeline import FetchBatchProgressEvent, run_fetch_batch
+from src.data.fetch_batch_pipeline import (
+    BatchExecutionRecord,
+    FetchBatchProgressEvent,
+    run_fetch_batch,
+)
 
 
 def test_fetch_batch_generates_progress_and_artifacts(
@@ -115,7 +119,7 @@ def test_fetch_batch_uses_trade_cal_window_once_and_runs_only_open_days(
     )
 
     assert result.status == "completed"
-    assert result.workers == 1
+    assert result.workers == 3
     assert called_trade_dates == ["20260102", "20260104"]
     assert len(_FakeFetcher.instances) == 1
     calls = _FakeFetcher.instances[0].calls
@@ -125,3 +129,173 @@ def test_fetch_batch_uses_trade_cal_window_once_and_runs_only_open_days(
             {"start_date": "20260101", "end_date": "20260104"},
         )
     ]
+
+
+def test_fetch_batch_supports_month_unit(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = Config.from_env(env_file=None)
+
+    result = run_fetch_batch(
+        start_date="20260101",
+        end_date="20260331",
+        batch_size=1,
+        batch_unit="month",
+        workers=3,
+        config=config,
+    )
+
+    assert result.status == "completed"
+    assert result.batch_unit == "month"
+    assert result.total_batches == 3
+    progress_payload = json.loads(result.progress_path.read_text(encoding="utf-8"))
+    assert progress_payload["batch_unit"] == "month"
+    assert progress_payload["completed_batches"] == 3
+    assert progress_payload["failed_batches"] == 0
+
+
+def test_fetch_batch_writes_state_after_each_batch(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = Config.from_env(env_file=None)
+    call_index = 0
+
+    def _fake_execute_batch_window(
+        window: fetch_batch_pipeline.BatchWindow,
+        *,
+        config: Config,
+        trade_date_callback=None,
+    ) -> BatchExecutionRecord:
+        del config
+        del trade_date_callback
+        nonlocal call_index
+        call_index += 1
+        if call_index == 2:
+            payload = json.loads(
+                Path("artifacts/spiral-s3a/_state/fetch_progress.json").read_text(encoding="utf-8")
+            )
+            assert payload["completed_batches"] == 1
+            assert payload["last_success_batch_id"] == 1
+            assert payload["current_batch_id"] == 2
+            assert payload["status"] == "in_progress"
+        return BatchExecutionRecord(
+            batch_id=window.batch_id,
+            start_date=window.start_date,
+            end_date=window.end_date,
+            status="success",
+            elapsed_seconds=0.0,
+            trade_dates=1,
+            open_trade_dates=1,
+        )
+
+    monkeypatch.setattr(fetch_batch_pipeline, "_execute_batch_window", _fake_execute_batch_window)
+
+    result = run_fetch_batch(
+        start_date="20260101",
+        end_date="20260106",
+        batch_size=2,
+        workers=1,
+        config=config,
+    )
+
+    assert result.status == "completed"
+    final_payload = json.loads(result.progress_path.read_text(encoding="utf-8"))
+    assert final_payload["current_batch_id"] is None
+    assert final_payload["current_start_date"] is None
+    assert final_payload["current_end_date"] is None
+    assert final_payload["completed_batches"] == final_payload["total_batches"]
+
+
+def test_fetch_batch_writes_trade_date_heartbeat_within_batch(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = Config.from_env(env_file=None)
+    called_trade_dates: list[str] = []
+
+    class _FakeFetcher:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            del args, kwargs
+
+        def fetch_with_retry(self, api_name: str, params: dict[str, str]) -> list[dict[str, object]]:
+            assert api_name == "trade_cal"
+            assert params["start_date"] == "20260101"
+            assert params["end_date"] == "20260104"
+            return [
+                {"trade_date": "20260102", "is_open": 1},
+                {"trade_date": "20260103", "is_open": 1},
+            ]
+
+    def _fake_run_l1_collection(**kwargs: object) -> SimpleNamespace:
+        trade_date = str(kwargs["trade_date"])
+        called_trade_dates.append(trade_date)
+        if len(called_trade_dates) == 2:
+            payload = json.loads(
+                Path("artifacts/spiral-s3a/_state/fetch_progress.json").read_text(encoding="utf-8")
+            )
+            assert payload["current_trade_date"] == "20260103"
+            assert payload["current_trade_index"] == 2
+            assert payload["current_trade_total"] == 2
+        return SimpleNamespace(
+            has_error=False,
+            error_manifest_path=Path("artifacts/error_manifest_sample.json"),
+        )
+
+    monkeypatch.setattr(fetch_batch_pipeline, "_has_live_tushare_token", lambda _cfg: True)
+    monkeypatch.setattr(fetch_batch_pipeline, "TuShareFetcher", _FakeFetcher)
+    monkeypatch.setattr(fetch_batch_pipeline, "run_l1_collection", _fake_run_l1_collection)
+
+    result = run_fetch_batch(
+        start_date="20260101",
+        end_date="20260104",
+        batch_size=30,
+        workers=3,
+        config=config,
+    )
+
+    assert result.status == "completed"
+    assert called_trade_dates == ["20260102", "20260103"]
+    final_payload = json.loads(result.progress_path.read_text(encoding="utf-8"))
+    assert final_payload["current_trade_date"] is None
+    assert final_payload["current_trade_index"] is None
+    assert final_payload["current_trade_total"] is None
+
+
+def test_fetch_batch_parallel_workers_process_month_batches(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = Config.from_env(env_file=None)
+
+    def _fake_execute_batch_window(
+        window: fetch_batch_pipeline.BatchWindow,
+        *,
+        config: Config,
+        trade_date_callback=None,
+    ) -> BatchExecutionRecord:
+        del config
+        del trade_date_callback
+        return BatchExecutionRecord(
+            batch_id=window.batch_id,
+            start_date=window.start_date,
+            end_date=window.end_date,
+            status="success",
+            elapsed_seconds=0.0,
+            trade_dates=1,
+            open_trade_dates=1,
+        )
+
+    monkeypatch.setattr(fetch_batch_pipeline, "_has_live_tushare_token", lambda _cfg: True)
+    monkeypatch.setattr(fetch_batch_pipeline, "_execute_batch_window", _fake_execute_batch_window)
+
+    result = run_fetch_batch(
+        start_date="20260101",
+        end_date="20260331",
+        batch_size=1,
+        batch_unit="month",
+        workers=3,
+        config=config,
+    )
+
+    assert result.status == "completed"
+    assert result.workers == 3
+    assert result.total_batches == 3
+    assert result.completed_batches == 3
+    benchmark = result.throughput_benchmark_path.read_text(encoding="utf-8")
+    assert "execution_mode: real_tushare_parallel_batch_write_lock" in benchmark

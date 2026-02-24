@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import calendar
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -57,6 +59,7 @@ class FetchBatchRunResult:
     start_date: str
     end_date: str
     batch_size: int
+    batch_unit: str
     workers: int
     artifacts_dir: Path
     progress_path: Path
@@ -77,12 +80,19 @@ class FetchStatusResult:
     start_date: str
     end_date: str
     batch_size: int
+    batch_unit: str
     workers: int
     total_batches: int
     completed_batches: int
     failed_batches: int
     last_success_batch_id: int
     status: str
+    current_batch_id: int | None
+    current_start_date: str | None
+    current_end_date: str | None
+    current_trade_date: str | None
+    current_trade_index: int | None
+    current_trade_total: int | None
 
 
 @dataclass(frozen=True)
@@ -114,6 +124,29 @@ def _utc_now_text() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _normalize_batch_unit(batch_unit: str | None) -> str:
+    unit = str(batch_unit or "day").strip().lower()
+    if unit not in {"day", "month", "year"}:
+        raise ValueError(f"invalid batch_unit: {batch_unit}; expected day/month/year")
+    return unit
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"none", "null"}:
+        return None
+    return text
+
+
+def _optional_int(value: Any) -> int | None:
+    text = _optional_text(value)
+    if text is None:
+        return None
+    return int(text)
+
+
 def _parse_trade_date(value: str) -> datetime:
     try:
         return datetime.strptime(value, "%Y%m%d")
@@ -124,6 +157,8 @@ def _parse_trade_date(value: str) -> datetime:
 def _serialize_state(state: dict[str, Any]) -> dict[str, Any]:
     completed_ids = sorted({int(item) for item in state.get("completed_batch_ids", [])})
     failed_ids = sorted({int(item) for item in state.get("failed_batch_ids", [])})
+    batch_unit = _normalize_batch_unit(str(state.get("batch_unit", "day")))
+    current_batch_id = _optional_int(state.get("current_batch_id"))
     failed_batch_errors_raw = state.get("failed_batch_errors", {})
     failed_batch_errors = {
         str(int(batch_id)): str(message)
@@ -137,6 +172,7 @@ def _serialize_state(state: dict[str, Any]) -> dict[str, Any]:
         "start_date": str(state.get("start_date", "")),
         "end_date": str(state.get("end_date", "")),
         "batch_size": int(state.get("batch_size", 0)),
+        "batch_unit": batch_unit,
         "workers": int(state.get("workers", 1)),
         "total_batches": total_batches,
         "completed_batches": len(completed_ids),
@@ -149,6 +185,12 @@ def _serialize_state(state: dict[str, Any]) -> dict[str, Any]:
             {int(item) for item in state.get("failure_injected_batch_ids", [])}
         ),
         "last_success_batch_id": int(state.get("last_success_batch_id", 0)),
+        "current_batch_id": current_batch_id,
+        "current_start_date": _optional_text(state.get("current_start_date")),
+        "current_end_date": _optional_text(state.get("current_end_date")),
+        "current_trade_date": _optional_text(state.get("current_trade_date")),
+        "current_trade_index": _optional_int(state.get("current_trade_index")),
+        "current_trade_total": _optional_int(state.get("current_trade_total")),
         "status": status,
         "updated_at": str(state.get("updated_at", _utc_now_text())),
     }
@@ -162,9 +204,34 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     )
 
 
-def _build_batches(start_date: str, end_date: str, batch_size: int) -> list[BatchWindow]:
+def _add_months(value: datetime, months: int) -> datetime:
+    total_month = value.month - 1 + months
+    year = value.year + (total_month // 12)
+    month = (total_month % 12) + 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+    return datetime(year=year, month=month, day=day)
+
+
+def _advance_cursor(cursor: datetime, *, batch_size: int, batch_unit: str) -> datetime:
+    if batch_unit == "day":
+        return cursor + timedelta(days=batch_size)
+    if batch_unit == "month":
+        return _add_months(cursor, batch_size)
+    if batch_unit == "year":
+        return _add_months(cursor, 12 * batch_size)
+    raise ValueError(f"unsupported batch unit: {batch_unit}")
+
+
+def _build_batches(
+    start_date: str,
+    end_date: str,
+    batch_size: int,
+    *,
+    batch_unit: str = "day",
+) -> list[BatchWindow]:
     if batch_size <= 0:
         raise ValueError(f"batch_size must be > 0, got {batch_size}")
+    unit = _normalize_batch_unit(batch_unit)
     start_dt = _parse_trade_date(start_date)
     end_dt = _parse_trade_date(end_date)
     if end_dt < start_dt:
@@ -174,7 +241,8 @@ def _build_batches(start_date: str, end_date: str, batch_size: int) -> list[Batc
     cursor = start_dt
     batch_id = 1
     while cursor <= end_dt:
-        batch_end = min(cursor + timedelta(days=batch_size - 1), end_dt)
+        next_cursor = _advance_cursor(cursor, batch_size=batch_size, batch_unit=unit)
+        batch_end = min(next_cursor - timedelta(days=1), end_dt)
         windows.append(
             BatchWindow(
                 batch_id=batch_id,
@@ -192,6 +260,7 @@ def _build_initial_state(
     start_date: str,
     end_date: str,
     batch_size: int,
+    batch_unit: str,
     workers: int,
     total_batches: int,
 ) -> dict[str, Any]:
@@ -200,6 +269,7 @@ def _build_initial_state(
         "start_date": start_date,
         "end_date": end_date,
         "batch_size": int(batch_size),
+        "batch_unit": _normalize_batch_unit(batch_unit),
         "workers": max(1, int(workers)),
         "total_batches": total_batches,
         "completed_batch_ids": [],
@@ -207,6 +277,12 @@ def _build_initial_state(
         "failed_batch_errors": {},
         "failure_injected_batch_ids": [],
         "last_success_batch_id": 0,
+        "current_batch_id": None,
+        "current_start_date": None,
+        "current_end_date": None,
+        "current_trade_date": None,
+        "current_trade_index": None,
+        "current_trade_total": None,
         "status": "in_progress",
         "updated_at": _utc_now_text(),
     }
@@ -346,15 +422,18 @@ def _resolve_state(
     start_date: str,
     end_date: str,
     batch_size: int,
+    batch_unit: str,
     workers: int,
     total_batches: int,
 ) -> dict[str, Any]:
+    unit = _normalize_batch_unit(batch_unit)
     loaded = _load_state()
     if loaded is None:
         return _build_initial_state(
             start_date=start_date,
             end_date=end_date,
             batch_size=batch_size,
+            batch_unit=unit,
             workers=workers,
             total_batches=total_batches,
         )
@@ -363,16 +442,19 @@ def _resolve_state(
         str(loaded.get("start_date", "")) == start_date
         and str(loaded.get("end_date", "")) == end_date
         and int(loaded.get("batch_size", 0)) == int(batch_size)
+        and _normalize_batch_unit(str(loaded.get("batch_unit", "day"))) == unit
     )
     if not same_contract:
         return _build_initial_state(
             start_date=start_date,
             end_date=end_date,
             batch_size=batch_size,
+            batch_unit=unit,
             workers=workers,
             total_batches=total_batches,
         )
 
+    loaded["batch_unit"] = unit
     loaded["workers"] = max(1, int(workers))
     loaded["total_batches"] = int(total_batches)
     return loaded
@@ -441,7 +523,12 @@ def _has_live_tushare_token(config: Config) -> bool:
     )
 
 
-def _execute_batch_window(window: BatchWindow, *, config: Config) -> BatchExecutionRecord:
+def _execute_batch_window(
+    window: BatchWindow,
+    *,
+    config: Config,
+    trade_date_callback: Callable[[str, int, int], None] | None = None,
+) -> BatchExecutionRecord:
     started = perf_counter()
     trade_dates = _iter_trade_dates(window.start_date, window.end_date)
     if not _has_live_tushare_token(config):
@@ -463,7 +550,9 @@ def _execute_batch_window(window: BatchWindow, *, config: Config) -> BatchExecut
             end_date=window.end_date,
         )
         open_trade_dates = len(open_dates)
-        for trade_date in open_dates:
+        for index, trade_date in enumerate(open_dates, start=1):
+            if trade_date_callback is not None:
+                trade_date_callback(trade_date, index, open_trade_dates)
             result = run_l1_collection(
                 trade_date=trade_date,
                 source="tushare",
@@ -535,6 +624,7 @@ def run_fetch_batch(
     start_date: str,
     end_date: str,
     batch_size: int,
+    batch_unit: str = "day",
     workers: int,
     config: Config,
     fail_once_batch_ids: set[int] | None = None,
@@ -542,15 +632,21 @@ def run_fetch_batch(
     progress_callback: Callable[[FetchBatchProgressEvent], None] | None = None,
 ) -> FetchBatchRunResult:
     requested_workers = max(1, int(workers))
-    execution_mode = (
-        "real_tushare_sequential_write_safe" if _has_live_tushare_token(config) else "simulated_offline"
-    )
-    effective_workers = 1 if execution_mode == "real_tushare_sequential_write_safe" else requested_workers
-    windows = _build_batches(start_date, end_date, batch_size)
+    unit = _normalize_batch_unit(batch_unit)
+    has_live_token = _has_live_tushare_token(config)
+    if has_live_token and requested_workers > 1:
+        execution_mode = "real_tushare_parallel_batch_write_lock"
+    elif has_live_token:
+        execution_mode = "real_tushare_sequential_write_safe"
+    else:
+        execution_mode = "simulated_offline"
+    effective_workers = requested_workers
+    windows = _build_batches(start_date, end_date, batch_size, batch_unit=unit)
     state = _resolve_state(
         start_date=start_date,
         end_date=end_date,
         batch_size=batch_size,
+        batch_unit=unit,
         workers=effective_workers,
         total_batches=len(windows),
     )
@@ -563,6 +659,18 @@ def run_fetch_batch(
         str(int(batch_id)): str(message)
         for batch_id, message in state.get("failed_batch_errors", {}).items()
     }
+    state["status"] = "in_progress"
+    state["current_batch_id"] = None
+    state["current_start_date"] = None
+    state["current_end_date"] = None
+    state["current_trade_date"] = None
+    state["current_trade_index"] = None
+    state["current_trade_total"] = None
+    state["completed_batch_ids"] = sorted(completed_ids)
+    state["failed_batch_ids"] = sorted(failed_ids)
+    state["failure_injected_batch_ids"] = sorted(injected_ids)
+    state["failed_batch_errors"] = failed_batch_errors
+    _, progress_path = _save_state(state)
     _emit_progress_event(
         progress_callback=progress_callback,
         total_batches=int(state.get("total_batches", len(windows))),
@@ -575,45 +683,18 @@ def run_fetch_batch(
     processed = 0
     execution_records: list[BatchExecutionRecord] = []
     started = perf_counter()
-    for window in windows:
-        if stop_after_batches is not None and processed >= max(0, int(stop_after_batches)):
-            break
+    stop_after_limit = None if stop_after_batches is None else max(0, int(stop_after_batches))
+    pending_windows: list[BatchWindow] = []
+
+    def _record_batch_result(window: BatchWindow, record: BatchExecutionRecord) -> None:
+        nonlocal processed, progress_path
         batch_id = int(window.batch_id)
-        if batch_id in completed_ids:
-            continue
-        if batch_id in failed_ids:
-            failed_ids.discard(batch_id)
-            failed_batch_errors.pop(str(batch_id), None)
-
-        if batch_id in fail_once and batch_id not in injected_ids:
-            failed_ids.add(batch_id)
-            injected_ids.add(batch_id)
-            failed_batch_errors[str(batch_id)] = "simulated_batch_failure"
-            execution_records.append(
-                BatchExecutionRecord(
-                    batch_id=batch_id,
-                    start_date=window.start_date,
-                    end_date=window.end_date,
-                    status="failed",
-                    elapsed_seconds=0.0,
-                    trade_dates=len(_iter_trade_dates(window.start_date, window.end_date)),
-                    open_trade_dates=0,
-                    error="simulated_batch_failure",
-                )
-            )
-            processed += 1
-            _emit_progress_event(
-                progress_callback=progress_callback,
-                total_batches=int(state.get("total_batches", len(windows))),
-                completed_ids=completed_ids,
-                failed_ids=failed_ids,
-                window=window,
-                current_status="failed",
-            )
-            continue
-
-        record = _execute_batch_window(window, config=config)
-        execution_records.append(record)
+        state["current_batch_id"] = batch_id
+        state["current_start_date"] = window.start_date
+        state["current_end_date"] = window.end_date
+        state["current_trade_date"] = None
+        state["current_trade_index"] = None
+        state["current_trade_total"] = None
         if record.status == "success":
             completed_ids.add(batch_id)
             failed_ids.discard(batch_id)
@@ -623,6 +704,12 @@ def run_fetch_batch(
             failed_ids.add(batch_id)
             failed_batch_errors[str(batch_id)] = record.error or "batch_execution_failed"
         processed += 1
+        state["completed_batch_ids"] = sorted(completed_ids)
+        state["failed_batch_ids"] = sorted(failed_ids)
+        state["failure_injected_batch_ids"] = sorted(injected_ids)
+        state["failed_batch_errors"] = failed_batch_errors
+        _update_status(state)
+        _, progress_path = _save_state(state)
         _emit_progress_event(
             progress_callback=progress_callback,
             total_batches=int(state.get("total_batches", len(windows))),
@@ -632,11 +719,108 @@ def run_fetch_batch(
             current_status=record.status,
         )
 
+    for window in windows:
+        if stop_after_limit is not None and (processed + len(pending_windows)) >= stop_after_limit:
+            break
+        batch_id = int(window.batch_id)
+        if batch_id in completed_ids:
+            continue
+        if batch_id in failed_ids:
+            failed_ids.discard(batch_id)
+            failed_batch_errors.pop(str(batch_id), None)
+
+        if batch_id in fail_once and batch_id not in injected_ids:
+            injected_ids.add(batch_id)
+            simulated_failure = BatchExecutionRecord(
+                batch_id=batch_id,
+                start_date=window.start_date,
+                end_date=window.end_date,
+                status="failed",
+                elapsed_seconds=0.0,
+                trade_dates=len(_iter_trade_dates(window.start_date, window.end_date)),
+                open_trade_dates=0,
+                error="simulated_batch_failure",
+            )
+            execution_records.append(simulated_failure)
+            _record_batch_result(window, simulated_failure)
+            continue
+
+        pending_windows.append(window)
+
+    if effective_workers <= 1 or len(pending_windows) <= 1:
+        for window in pending_windows:
+            batch_id = int(window.batch_id)
+            state["current_batch_id"] = batch_id
+            state["current_start_date"] = window.start_date
+            state["current_end_date"] = window.end_date
+            state["current_trade_date"] = None
+            state["current_trade_index"] = None
+            state["current_trade_total"] = None
+            state["completed_batch_ids"] = sorted(completed_ids)
+            state["failed_batch_ids"] = sorted(failed_ids)
+            state["failure_injected_batch_ids"] = sorted(injected_ids)
+            state["failed_batch_errors"] = failed_batch_errors
+            state["status"] = "in_progress"
+            _, progress_path = _save_state(state)
+
+            def _on_trade_date_processed(trade_date: str, index: int, total: int) -> None:
+                state["current_trade_date"] = trade_date
+                state["current_trade_index"] = int(index)
+                state["current_trade_total"] = int(total)
+                state["status"] = "in_progress"
+                state["updated_at"] = _utc_now_text()
+                _save_state(state)
+
+            record = _execute_batch_window(
+                window,
+                config=config,
+                trade_date_callback=_on_trade_date_processed,
+            )
+            execution_records.append(record)
+            _record_batch_result(window, record)
+    else:
+        state["current_batch_id"] = None
+        state["current_start_date"] = None
+        state["current_end_date"] = None
+        state["current_trade_date"] = None
+        state["current_trade_index"] = None
+        state["current_trade_total"] = None
+        state["status"] = "in_progress"
+        _, progress_path = _save_state(state)
+        with ThreadPoolExecutor(max_workers=effective_workers) as executor:
+            futures = {
+                executor.submit(_execute_batch_window, window, config=config): window
+                for window in pending_windows
+            }
+            for future in as_completed(futures):
+                window = futures[future]
+                try:
+                    record = future.result()
+                except Exception as exc:  # pragma: no cover - defensive
+                    record = BatchExecutionRecord(
+                        batch_id=int(window.batch_id),
+                        start_date=window.start_date,
+                        end_date=window.end_date,
+                        status="failed",
+                        elapsed_seconds=0.0,
+                        trade_dates=len(_iter_trade_dates(window.start_date, window.end_date)),
+                        open_trade_dates=0,
+                        error=str(exc),
+                    )
+                execution_records.append(record)
+                _record_batch_result(window, record)
+
     wall_seconds = perf_counter() - started
     state["completed_batch_ids"] = sorted(completed_ids)
     state["failed_batch_ids"] = sorted(failed_ids)
     state["failure_injected_batch_ids"] = sorted(injected_ids)
     state["failed_batch_errors"] = failed_batch_errors
+    state["current_batch_id"] = None
+    state["current_start_date"] = None
+    state["current_end_date"] = None
+    state["current_trade_date"] = None
+    state["current_trade_index"] = None
+    state["current_trade_total"] = None
     _update_status(state)
     _emit_progress_event(
         progress_callback=progress_callback,
@@ -671,6 +855,7 @@ def run_fetch_batch(
         start_date=start_date,
         end_date=end_date,
         batch_size=int(batch_size),
+        batch_unit=unit,
         workers=int(state.get("workers", workers)),
         artifacts_dir=artifacts_dir,
         progress_path=progress_path,
@@ -696,12 +881,19 @@ def read_fetch_status(*, config: Config) -> FetchStatusResult:
             start_date="",
             end_date="",
             batch_size=0,
+            batch_unit="day",
             workers=0,
             total_batches=0,
             completed_batches=0,
             failed_batches=0,
             last_success_batch_id=0,
             status="not_started",
+            current_batch_id=None,
+            current_start_date=None,
+            current_end_date=None,
+            current_trade_date=None,
+            current_trade_index=None,
+            current_trade_total=None,
         )
 
     progress_path = _artifacts_dir(str(state.get("end_date", ""))) / "fetch_progress.json"
@@ -711,12 +903,19 @@ def read_fetch_status(*, config: Config) -> FetchStatusResult:
         start_date=str(state.get("start_date", "")),
         end_date=str(state.get("end_date", "")),
         batch_size=int(state.get("batch_size", 0)),
+        batch_unit=_normalize_batch_unit(str(state.get("batch_unit", "day"))),
         workers=int(state.get("workers", 0)),
         total_batches=int(state.get("total_batches", 0)),
         completed_batches=int(state.get("completed_batches", 0)),
         failed_batches=int(state.get("failed_batches", 0)),
         last_success_batch_id=int(state.get("last_success_batch_id", 0)),
         status=str(state.get("status", "not_started")),
+        current_batch_id=_optional_int(state.get("current_batch_id")),
+        current_start_date=_optional_text(state.get("current_start_date")),
+        current_end_date=_optional_text(state.get("current_end_date")),
+        current_trade_date=_optional_text(state.get("current_trade_date")),
+        current_trade_index=_optional_int(state.get("current_trade_index")),
+        current_trade_total=_optional_int(state.get("current_trade_total")),
     )
 
 
@@ -729,6 +928,7 @@ def run_fetch_retry(*, config: Config) -> FetchRetryRunResult:
         str(state.get("start_date", "")),
         str(state.get("end_date", "")),
         int(state.get("batch_size", 0)),
+        batch_unit=str(state.get("batch_unit", "day")),
     )
     window_map = {int(item.batch_id): item for item in windows}
 
@@ -769,6 +969,12 @@ def run_fetch_retry(*, config: Config) -> FetchRetryRunResult:
     state["completed_batch_ids"] = sorted(completed_ids)
     state["failed_batch_ids"] = sorted(next_failed_ids)
     state["failed_batch_errors"] = failed_batch_errors
+    state["current_batch_id"] = None
+    state["current_start_date"] = None
+    state["current_end_date"] = None
+    state["current_trade_date"] = None
+    state["current_trade_index"] = None
+    state["current_trade_total"] = None
     _update_status(state)
 
     _, progress_path = _save_state(state)

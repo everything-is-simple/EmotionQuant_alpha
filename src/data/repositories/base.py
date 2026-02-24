@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,7 @@ class BaseRepository:
     table_name = ""
     duckdb_lock_max_attempts = 3
     duckdb_lock_retry_base_seconds = 0.2
+    _write_io_lock = threading.RLock()
 
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or Config.from_env()
@@ -122,38 +124,39 @@ class BaseRepository:
         last_error_message = ""
         lock_holder_pid = ""
 
-        for attempt in range(1, max_attempts + 1):
-            try:
-                with duckdb.connect(str(self.database_path)) as connection:
-                    connection.register("incoming_df", frame)
-                    connection.execute(
-                        f"CREATE TABLE IF NOT EXISTS {self.table_name} "
-                        "AS SELECT * FROM incoming_df WHERE 1=0"
-                    )
-                    self._sync_table_schema(connection)
-                    self._replace_trade_date_partition(connection)
-                    connection.execute(f"INSERT INTO {self.table_name} BY NAME SELECT * FROM incoming_df")
-                    connection.unregister("incoming_df")
-                return int(len(frame))
-            except Exception as exc:
-                if not self._is_duckdb_lock_error(exc):
-                    raise
-                last_error_message = str(exc)
-                extracted_pid = self._extract_lock_holder_pid(last_error_message)
-                if extracted_pid:
-                    lock_holder_pid = extracted_pid
-                if attempt >= max_attempts:
-                    raise DuckDBLockRecoveryError(
-                        database_path=self.database_path,
-                        retry_attempts=max_attempts,
-                        wait_seconds_total=wait_seconds_total,
-                        last_error_message=last_error_message,
-                        lock_holder_pid=lock_holder_pid,
-                    ) from exc
-                wait_seconds = wait_base_seconds * float(attempt)
-                if wait_seconds > 0:
-                    time.sleep(wait_seconds)
-                    wait_seconds_total += wait_seconds
+        with self._write_io_lock:
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    with duckdb.connect(str(self.database_path)) as connection:
+                        connection.register("incoming_df", frame)
+                        connection.execute(
+                            f"CREATE TABLE IF NOT EXISTS {self.table_name} "
+                            "AS SELECT * FROM incoming_df WHERE 1=0"
+                        )
+                        self._sync_table_schema(connection)
+                        self._replace_trade_date_partition(connection)
+                        connection.execute(f"INSERT INTO {self.table_name} BY NAME SELECT * FROM incoming_df")
+                        connection.unregister("incoming_df")
+                    return int(len(frame))
+                except Exception as exc:
+                    if not self._is_duckdb_lock_error(exc):
+                        raise
+                    last_error_message = str(exc)
+                    extracted_pid = self._extract_lock_holder_pid(last_error_message)
+                    if extracted_pid:
+                        lock_holder_pid = extracted_pid
+                    if attempt >= max_attempts:
+                        raise DuckDBLockRecoveryError(
+                            database_path=self.database_path,
+                            retry_attempts=max_attempts,
+                            wait_seconds_total=wait_seconds_total,
+                            last_error_message=last_error_message,
+                            lock_holder_pid=lock_holder_pid,
+                        ) from exc
+                    wait_seconds = wait_base_seconds * float(attempt)
+                    if wait_seconds > 0:
+                        time.sleep(wait_seconds)
+                        wait_seconds_total += wait_seconds
 
         return int(len(frame))
 
@@ -180,7 +183,8 @@ class BaseRepository:
         output_path = self.parquet_root / f"{self.table_name}.parquet"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         frame = pd.DataFrame.from_records(records)
-        frame.to_parquet(output_path, index=False)
+        with self._write_io_lock:
+            frame.to_parquet(output_path, index=False)
         return output_path
 
     def count_by_trade_date(self, trade_date: str) -> int:
