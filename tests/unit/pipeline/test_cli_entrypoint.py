@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -962,6 +963,36 @@ def test_main_fetch_batch_status_and_retry(
     assert retry_payload["event"] == "s3a_fetch_retry"
     assert retry_payload["retried_batches"] == 0
     assert retry_payload["status"] == "completed"
+
+
+def test_main_fetch_batch_rejects_concurrent_process(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    env_file = tmp_path / ".env.s3a.cli.lock"
+    env_file.write_text("ENVIRONMENT=test\n", encoding="utf-8")
+
+    @contextmanager
+    def _lock_conflict(*args: object, **kwargs: object):
+        del args, kwargs
+        raise TimeoutError("busy")
+        yield
+
+    monkeypatch.setattr(cli_main_module, "acquire_duckdb_interprocess_lock", _lock_conflict)
+
+    fetch_exit = main(
+        [
+            "--env-file",
+            str(env_file),
+            "fetch-batch",
+            "--start",
+            "20260101",
+            "--end",
+            "20260105",
+        ]
+    )
+    assert fetch_exit == 2
+    assert "fetch_command_lock_conflict" in capsys.readouterr().out
 
 
 def test_main_backtest_runs_with_s3a_consumption(

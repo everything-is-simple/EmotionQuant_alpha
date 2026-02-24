@@ -8,7 +8,8 @@ param(
     [double]$MaxMonthMinutes = 20,
     [int]$StatusPollSeconds = 10,
     [switch]$NoProgress,
-    [switch]$UseEq
+    [switch]$UseEq,
+    [string]$PythonExe = ""
 )
 
 Set-StrictMode -Version Latest
@@ -25,13 +26,45 @@ function Get-MonthEnd {
 }
 
 function Get-Runner {
+    $resolvedPythonExe = $PythonExe
     if ($UseEq) {
         if (-not (Get-Command eq -ErrorAction SilentlyContinue)) {
             throw "eq command not found. Remove -UseEq or install eq in current environment."
         }
         return @{ Exe = "eq"; Prefix = @() }
     }
-    return @{ Exe = "python"; Prefix = @("-m", "src.pipeline.main") }
+    if (-not $resolvedPythonExe) {
+        $venvPython = Join-Path (Get-Location).Path ".venv\Scripts\python.exe"
+        if (Test-Path $venvPython) {
+            $resolvedPythonExe = $venvPython
+        } else {
+            $resolvedPythonExe = "python"
+        }
+    }
+    return @{ Exe = $resolvedPythonExe; Prefix = @("-m", "src.pipeline.main") }
+}
+
+function Get-ActiveFetchPipelineProcesses {
+    return @(Get-CimInstance Win32_Process | Where-Object {
+        $_.Name -match "^python(\.exe)?$" -and
+        $_.CommandLine -match "src\.pipeline\.main\s+fetch-(batch|retry)"
+    })
+}
+
+function Assert-NoConcurrentFetchPipelineProcess {
+    $active = Get-ActiveFetchPipelineProcesses
+    if ($active.Count -le 0) {
+        return
+    }
+    $lines = @()
+    foreach ($proc in $active) {
+        $cmd = [string]$proc.CommandLine
+        if ($cmd.Length -gt 200) {
+            $cmd = $cmd.Substring(0, 200) + "..."
+        }
+        $lines += ("pid={0} name={1} cmd={2}" -f $proc.ProcessId, $proc.Name, $cmd)
+    }
+    throw ("concurrent_fetch_process_detected`n{0}" -f ($lines -join "`n"))
 }
 
 function Invoke-Runner {
@@ -212,6 +245,7 @@ if ($StatusPollSeconds -le 0) {
 }
 
 $runner = Get-Runner
+Write-Host ("[runner] exe={0}" -f $runner.Exe)
 $cursor = $startDate
 
 while ($cursor -le $endDate) {
@@ -224,6 +258,7 @@ while ($cursor -le $endDate) {
     $monthEndText = $monthEnd.ToString("yyyyMMdd")
 
     Write-Host ("[month] {0} -> {1}" -f $monthStartText, $monthEndText)
+    Assert-NoConcurrentFetchPipelineProcess
 
     $fetchArgs = @(
         "fetch-batch",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import json
 import sys
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from src.data.fetch_batch_pipeline import (
 )
 from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
+from src.data.repositories.base import acquire_duckdb_interprocess_lock
 from src.gui.app import run_gui
 from src.pipeline.recommend import run_recommendation
 from src.stress.pipeline import run_stress
@@ -60,6 +62,23 @@ DESIGN_TRACE = {
 class PipelineContext:
     config: Config
     command: str
+
+
+@contextmanager
+def _fetch_command_lock(ctx: PipelineContext):
+    database_path = Path(ctx.config.duckdb_dir) / "emotionquant.duckdb"
+    try:
+        with acquire_duckdb_interprocess_lock(
+            database_path,
+            timeout_seconds=1.0,
+            poll_seconds=0.1,
+        ):
+            yield
+    except TimeoutError as exc:
+        raise RuntimeError(
+            "fetch_command_lock_conflict: another fetch process is running; "
+            "stop duplicate `fetch-batch/fetch-retry` processes first."
+        ) from exc
 
 
 def _normalize_env_file(env_file: str | None) -> str | None:
@@ -951,16 +970,17 @@ def _run_fetch_batch(ctx: PipelineContext, args: argparse.Namespace) -> int:
 
     progress_callback = None if bool(args.no_progress) else _render_progress
     try:
-        result = run_fetch_batch(
-            start_date=args.start,
-            end_date=args.end,
-            batch_size=int(args.batch_size),
-            batch_unit=str(args.batch_unit),
-            workers=int(args.workers),
-            config=ctx.config,
-            progress_callback=progress_callback,
-        )
-    except ValueError as exc:
+        with _fetch_command_lock(ctx):
+            result = run_fetch_batch(
+                start_date=args.start,
+                end_date=args.end,
+                batch_size=int(args.batch_size),
+                batch_unit=str(args.batch_unit),
+                workers=int(args.workers),
+                config=ctx.config,
+                progress_callback=progress_callback,
+            )
+    except (ValueError, RuntimeError) as exc:
         print(str(exc))
         return 2
     print(
@@ -1023,8 +1043,9 @@ def _run_fetch_status(ctx: PipelineContext) -> int:
 
 def _run_fetch_retry(ctx: PipelineContext) -> int:
     try:
-        result = run_fetch_retry(config=ctx.config)
-    except ValueError as exc:
+        with _fetch_command_lock(ctx):
+            result = run_fetch_retry(config=ctx.config)
+    except (ValueError, RuntimeError) as exc:
         print(str(exc))
         return 2
     print(
