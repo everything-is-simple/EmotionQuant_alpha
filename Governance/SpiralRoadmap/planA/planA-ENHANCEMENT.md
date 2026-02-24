@@ -1,7 +1,7 @@
 # Plan A 路线修订（Reborn 增强版）
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-24  
 **目标**: 不推倒现有 Plan A，在原路线内恢复“真螺旋闭环”  
 **状态**: Active（执行合同）
 
@@ -19,6 +19,15 @@
    - 下一圈凭什么能进？
 4. 继续复用现有 S0-S7 执行卡，不做重构式推翻。
 5. 上位 SoT 仍是 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`。
+
+### 1.1 设计绑定约束（新增）
+
+为避免“路线修订与核心设计脱钩”，Plan A 全圈位必须绑定以下设计基线：
+
+1. `docs/design/core-algorithms/`：MSS/IRS/PAS/Validation/Integration 语义不可降级。
+2. `docs/design/core-infrastructure/`：Data/Backtest/Trading/Analysis/GUI 契约不可绕过。
+3. `docs/design/enhancements/eq-improvement-plan-core-frozen.md`：增强项执行顺序与边界不可随意改写。
+4. 任一螺旋收口评审必须附“设计对齐结论”，否则不得给出 `GO`。
 
 ---
 
@@ -157,6 +166,7 @@ eq analysis --start 20240101 --end 20241220 --ab-benchmark
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.2 | 2026-02-24 | 增加“设计绑定约束”：Plan A 螺旋收口必须附 `docs/design/**` 与主计划对齐结论，否则不得给 GO |
 | v2.1 | 2026-02-23 | 同步提升到与 Plan B 同精度：Canary 窗口升级为 2020-2024（理想 2019-2026.02.13）、新增归因对比门禁、S3c/S3d/S3e 双档门禁、新增螺旋3.5 Pre-Live |
 | v2.0 | 2026-02-23 | 重写为 Reborn 增强版：三大螺旋闭环、P0 止血动作、成果可见看板与禁止事项落地 |
 | v1.0 | 2026-02-23 | 初版增强建议 |

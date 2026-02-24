@@ -1,7 +1,7 @@
 # Plan A 路线总览（Reborn 增强版入口）
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-24  
 **状态**: Active  
 **定位**: Plan A 集中入口（不替代上位 SoT）
 
@@ -17,6 +17,14 @@
    - 业务价值可见看板（回答“做成了吗”）
 4. `Governance/SpiralRoadmap/planA/PLAN-A-REVALIDATION-CHECKLIST.md`  
    - 重验执行清单（回答“下一步怎么重验”）
+
+### 1.1 设计基线（不可降级）
+
+Plan A 全部执行与重验必须绑定以下设计源，不得用临时口径替代：
+
+1. `docs/design/core-algorithms/`
+2. `docs/design/core-infrastructure/`
+3. `docs/design/enhancements/eq-improvement-plan-core-frozen.md`
 
 ---
 

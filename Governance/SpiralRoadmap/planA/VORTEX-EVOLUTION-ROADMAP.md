@@ -1,7 +1,7 @@
 # EmotionQuant VORTEX 演进路线图（Plan A SoT）
 
 **状态**: Active（Rebaseline）  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-24  
 **定位**: Plan A 唯一能力状态 SoT（业务与工程双视图）
 
 ---
@@ -17,6 +17,9 @@
    - `Governance/SpiralRoadmap/planA/planA-ENHANCEMENT.md`
    - `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`
    - `Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
+   - `docs/design/core-algorithms/`
+   - `docs/design/core-infrastructure/`
+   - `docs/design/enhancements/eq-improvement-plan-core-frozen.md`
 
 ---
 
@@ -77,6 +80,7 @@
 7. 每圈收口前必须通过防跑偏门禁：
    - `python -m scripts.quality.local_quality_check --contracts --governance`
    - `tests/unit/scripts/test_contract_behavior_regression.py`
+8. 每个螺旋收口评审必须给出“设计对齐结论”（core-algorithms/core-infrastructure/enhancements），缺失则判定 `NO_GO`。
 
 ---
 
@@ -96,6 +100,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.2 | 2026-02-24 | 增加设计基线绑定：VORTEX 显式挂接 `docs/design/**` 与 `eq-improvement-plan-core-frozen.md`，并将“设计对齐结论”设为螺旋收口硬门禁 |
 | v2.1 | 2026-02-23 | 与 Plan B 同步精度：canary 升级为5y最低窗口、新增归因对比 P0、S3c/S3d/S3e 双档执行口径（准备并行/收口串行）、新增螺旋3.5 Pre-Live |
 | v2.0 | 2026-02-23 | 按 Reborn 方法重写 SoT：新增业务/工程双视图、P0 阻断矩阵、成果可见强制看板与阶段推进硬约束 |
 | v1.6 | 2026-02-20 | 进度看板新增 `S3c/S3d/S3e`，关键顺序约束升级为 `S3b->S3c->S3d->S3e->S4b` |

@@ -1,254 +1,92 @@
-# Reborn 第三螺旋：实战闭环（Plan B）
+# Reborn 第三螺旋：Production 闭环（Plan B）
 
 **螺旋编号**: Reborn-Spiral-3  
-**目标**: 迎接实盘交易，完善运维体系  
-**预期周期**: 2-3个月  
-**前置**: 第二螺旋完成  
+**更新时间**: 2026-02-24  
+**周期**: 2-3个月（+ 螺旋3.5 预演）  
+**定位**: 生产运行闭环，目标是“可运维、可回放、可审计”，不是口头实盘就绪
 
 ---
 
-## 核心目标
+## 1. 螺旋目标
 
-在第二螺旋基础上实现生产级系统：
-- 实盘交易就绪
-- 7×24小时运维监控
-- 监管合规体系
-- 客户服务界面
+1. 完成 S5-S7a 的生产化闭环。
+2. 通过螺旋3.5 预演门禁后才允许进入真实资金。
+3. 维持与 `docs/design/core-infrastructure/*` 一致，不新增脱轨架构。
 
 ---
 
-## 前置约束（与 Plan A 同精度）
+## 2. 设计文档绑定
 
-1. 仅当螺旋2 `GO` 时允许推进螺旋3生产宣告。
-2. 螺旋3结束后，必须进入螺旋3.5（Pre-Live）预演，不允许直接进入真实资金实盘。
-
----
-
-## 实时数据流
-
-### 生产级数据架构
-```python
-class RealTimeDataStream:
-    def __init__(self):
-        self.data_sources = {
-            'primary': 'TuShare_Realtime',
-            'backup': 'Wind_Realtime', 
-            'emergency': 'Local_Cache'
-        }
-        self.latency_target = 100  # 毫秒级延迟
-    
-    def stream_market_data(self):
-        # 实时行情接收
-        # 自动故障切换
-        # 数据质量监控
-        pass
-```
-
-### 监控告警系统
-```python
-class MonitoringSystem:
-    def __init__(self):
-        self.alerts = {
-            'data_delay': 300,      # 数据延迟>5分钟
-            'system_error': 'immediate',
-            'performance_drift': 'daily',
-            'risk_breach': 'immediate'
-        }
-    
-    def real_time_monitoring(self):
-        # 系统健康监控
-        # 策略表现监控
-        # 风险指标监控
-        # 自动告警推送
-        pass
-```
+| 设计域 | 文档目录 | 螺旋3要求 |
+|---|---|---|
+| GUI | `docs/design/core-infrastructure/gui/` | 只读展示、日报导出、无页面侧算法重算 |
+| Analysis | `docs/design/core-infrastructure/analysis/` | L4 产物可追溯 |
+| Trading | `docs/design/core-infrastructure/trading/` | 风控事件与执行日志可回放 |
+| Data Layer | `docs/design/core-infrastructure/data-layer/` | 调度后的数据落库一致性 |
+| Enhancements | `docs/design/enhancements/` | ENH-07/08/11 执行收口 |
 
 ---
 
-## 生产级算法
+## 3. 范围与圈位映射
 
-### 自适应优化
-```python
-class AdaptiveOptimizer:
-    def __init__(self):
-        self.optimization_frequency = 'weekly'
-        self.performance_threshold = 0.05  # 5%性能下降触发优化
-    
-    def auto_optimize_parameters(self):
-        # 基于最新表现调优参数
-        # A/B测试新策略
-        # 渐进式参数更新
-        pass
-```
-
-### 极端风险管理
-```python
-class ExtremeRiskManager:
-    def __init__(self):
-        self.circuit_breakers = {
-            'daily_loss': 0.03,     # 日损失>3%熔断
-            'drawdown': 0.08,       # 回撤>8%熔断
-            'volatility': 2.0       # 波动率>2倍熔断
-        }
-    
-    def emergency_response(self):
-        # 自动止损
-        # 仓位削减
-        # 风险报告
-        pass
-```
+- 圈位范围：`S5 -> S6 -> S7a`
+- 预演圈：`螺旋3.5（S7a 后）`
 
 ---
 
-## 交易执行系统
+## 4. 执行闭环
 
-### 券商接口
-```python
-class BrokerInterface:
-    def __init__(self):
-        self.supported_brokers = [
-            '华泰证券', '中信证券', '国泰君安'
-        ]
-    
-    def execute_orders(self, order_list):
-        # 智能订单路由
-        # 最优执行算法
-        # 实时成交监控
-        pass
-```
+### 4.1 S5（展示闭环）
 
-### 订单管理
-```python
-class OrderManager:
-    def __init__(self):
-        self.order_types = [
-            'market', 'limit', 'stop_loss', 'iceberg'
-        ]
-    
-    def smart_order_execution(self):
-        # 订单拆分算法
-        # 市场冲击最小化
-        # 执行成本优化
-        pass
-```
+- GUI 只读消费真实产物
+- 日报导出可追溯到 L1-L3 输入
+
+### 4.2 S6（稳定化闭环）
+
+- 全链路重跑一致性验证
+- 设计冻结检查与债务清偿同步
+
+### 4.3 S7a（调度闭环）
+
+- 调度安装、状态、历史、失败重试可审计
+- 自动化运行可复盘
+
+### 4.4 螺旋3.5（Pre-Live）
+
+- 连续20交易日零真实下单预演
+- 每日偏差复盘：`signal/execution/cost`
+- 至少1次故障恢复演练通过
+- 预演期间 0 个 P0 事故
 
 ---
 
-## 运营监控体系
+## 5. 螺旋3门禁
 
-### 系统监控
-```python
-class SystemMonitor:
-    def __init__(self):
-        self.metrics = {
-            'system_uptime': 0.9999,    # 99.99%可用性
-            'response_time': 1000,      # <1秒响应
-            'throughput': 10000,        # 10K TPS
-            'error_rate': 0.001         # <0.1%错误率
-        }
-    
-    def health_check(self):
-        # 系统性能监控
-        # 资源使用监控
-        # 服务可用性检查
-        pass
-```
+### 5.1 入口门禁
 
-### 合规报告
-```python
-class ComplianceReporter:
-    def __init__(self):
-        self.report_types = [
-            'daily_position',    # 每日持仓报告
-            'risk_exposure',     # 风险敞口报告
-            'transaction_log',   # 交易流水
-            'performance_attribution' # 业绩归因
-        ]
-    
-    def generate_regulatory_reports(self):
-        # 监管报告自动生成
-        # 合规检查
-        # 审计跟踪
-        pass
-```
+- 螺旋2 `GO`
+- 关键 P0 阻断项已清除
+
+### 5.2 出口门禁（进入真实资金前）
+
+- [ ] S5/S6/S7a 闭环证据齐备
+- [ ] 螺旋3.5 全项通过
+- [ ] 预演评审给出 `GO`
+- [ ] `PLAN-B-READINESS-SCOREBOARD.md` 更新完成
 
 ---
 
-## 客户服务界面
+## 6. 失败处理
 
-### 专业投资者界面
-```python
-class ProfessionalUI:
-    def __init__(self):
-        self.features = [
-            'real_time_pnl',     # 实时盈亏
-            'risk_dashboard',    # 风险仪表板
-            'strategy_analytics', # 策略分析
-            'custom_reports'     # 定制报告
-        ]
-    
-    def render_dashboard(self):
-        # 专业级数据可视化
-        # 交互式分析工具
-        # 个性化配置
-        pass
-```
+1. S5/S6/S7a 任一环失败：螺旋3判定 `NO_GO`。
+2. 螺旋3.5 未通过：禁止真实资金。
+3. 连续两轮 `NO_GO`：必须回溯螺旋2输入假设，不得强行上线。
 
 ---
 
-## 收口标准
+## 7. 变更记录
 
-### 系统稳定性
-- [ ] 99.99%系统可用性
-- [ ] <100ms数据延迟
-- [ ] 7×24小时无人值守运行
-
-### 交易就绪
-- [ ] 通过券商测试环境验证
-- [ ] 订单执行成功率>99.9%
-- [ ] 风险控制实时生效
-
-### 合规要求
-- [ ] 满足证监会监管要求
-- [ ] 完整审计跟踪
-- [ ] 风险披露完整
-
-### 运营能力
-- [ ] 完整监控告警体系
-- [ ] 自动化运维流程
-- [ ] 7×24客户服务支持
-
----
-
-## 螺旋3.5（Pre-Live）硬门禁
-
-- [ ] 连续20个交易日实盘预演（零真实下单）
-- [ ] 预演期 `signal/execution/cost` 偏差复盘完整
-- [ ] 预演期 0 个 P0 事故
-- [ ] 至少 1 次故障恢复演练通过
-- [ ] 输出 Pre-Live 评审报告（`GO/NO_GO`）
-- [ ] 未 `GO` 禁止任何真实资金实盘
-
----
-
-## 实施里程碑
-
-### Month 1: 基础设施
-- 实时数据流搭建
-- 监控系统部署
-- 基础运维流程
-
-### Month 2: 交易系统
-- 券商接口对接
-- 订单管理系统
-- 风险控制升级
-
-### Month 3: 生产上线
-- 系统压力测试
-- 合规审查
-- 正式上线运营
-
-### Month 4: Pre-Live 预演（新增）
-- 连续20交易日真实行情预演
-- 偏差复盘与故障恢复演练
-- 预演评审（GO/NO_GO）
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v2.1 | 2026-02-24 | 重写为生产闭环执行合同，删除理想化实现叙述，收敛为可验门禁 |
+| v2.0 | 2026-02-23 | 同精度版 |

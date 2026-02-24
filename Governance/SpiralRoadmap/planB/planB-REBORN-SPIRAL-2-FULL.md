@@ -1,202 +1,109 @@
-# Reborn 第二螺旋：完整闭环（Plan B）
+# Reborn 第二螺旋：Full 闭环（Plan B）
 
 **螺旋编号**: Reborn-Spiral-2  
-**目标**: 扩展到全市场，完善核心算法  
-**预期周期**: 3-4个月  
-**前置**: 第一螺旋完成  
+**更新时间**: 2026-02-24  
+**周期**: 3-4个月  
+**定位**: 全历史数据与完整校准闭环，不允许“局部通过即宣告完成”
 
 ---
 
-## 核心目标
+## 1. 螺旋目标
 
-在第一螺旋基础上扩展到全A股市场，实现：
-- 全市场4000+股票覆盖
-- 16年完整历史数据
-- 多周期严格回测验证
-- 专业级风险管理
-- 完整归因分析体系
+1. 在全市场与16年历史窗口验证策略稳健性。
+2. 完成从归因到校准到极端防御的完整证据链。
+3. 产出可审计 `GO/NO_GO`，作为进入生产螺旋的唯一依据。
 
 ---
 
-## 执行口径（与 Plan A 同精度）
+## 2. 设计文档绑定（必须对应）
 
-1. `S3c/S3d/S3e` 采用双档门禁：
-   - `MVP`：最小可用（无 FAIL、WARN 可解释）
-   - `FULL`：完整生产口径
-2. 允许并行准备：`S3c/S3d/S3e` 的数据准备与实验可并行。
-3. 强制串行收口：`S3c -> S3d -> S3e` 的收口与宣告必须串行。
-4. 螺旋2必须输出 `GO/NO_GO` 并同步到 `PLAN-B-READINESS-SCOREBOARD.md`。
+| 设计域 | 文档目录 | 螺旋2要求 |
+|---|---|---|
+| Data | `docs/design/core-infrastructure/data-layer/` | 2008-2024 落库 + 质量报告 |
+| Backtest | `docs/design/core-infrastructure/backtest/` | 多窗口回测 + 主线引擎口径一致 |
+| Trading | `docs/design/core-infrastructure/trading/` | 纸上交易记录可复盘 |
+| Analysis | `docs/design/core-infrastructure/analysis/` | A/B/C + 偏差归因完整 |
+| IRS | `docs/design/core-algorithms/irs/` | S3c SW31 语义校准 |
+| MSS | `docs/design/core-algorithms/mss/` | S3d adaptive + probe 收益校准 |
+| Validation | `docs/design/core-algorithms/validation/` | S3e 生产校准 + 双窗口WFA |
+| Integration | `docs/design/core-algorithms/integration/` | 产物消费链持续有效 |
 
 ---
 
-## S3c/S3d/S3e 双档量化门禁（MVP/FULL）
+## 3. 范围与圈位映射
+
+- 圈位范围：`S3a -> S3ar -> S3 -> S4 -> S3b -> S3c -> S3d -> S3e -> S4b`
+- 窗口范围：`2008-01-01 ~ 2024-12-31`
+
+---
+
+## 4. 关键闭环
+
+### 4.1 数据闭环（S3a/S3ar）
+
+- 16年数据落库
+- 采集稳定性可审计（重试、限流、锁恢复）
+
+### 4.2 回测与归因闭环（S3/S4/S3b）
+
+- 多窗口回测可复现
+- A/B/C 对照齐备
+- `signal/execution/cost` 偏差分解齐备
+
+### 4.3 校准与防御闭环（S3c/S3d/S3e/S4b）
+
+- S3c 行业语义校准
+- S3d MSS adaptive 校准
+- S3e Validation 生产校准
+- S4b 极端防御参数追溯
+
+---
+
+## 5. S3c/S3d/S3e 双档量化门禁
 
 | 圈位 | MVP（最小可用） | FULL（完整生产口径） |
 |---|---|---|
-| S3c（SW31校准） | `industry_snapshot` 覆盖 31 行业，IRS 依赖字段齐全；允许 `WARN`，但必须有修复计划与时限 | 31 行业覆盖在近3个窗口连续稳定，质量告警清零或仅剩非阻断告警且完成闭环 |
-| S3d（MSS adaptive） | 自适应阈值可运行；样本不足自动回退固定阈值；禁止连续2窗负 spread | 自适应阈值在可用样本窗默认启用；关键窗口负 spread 为0；probe 结果可解释且可复跑 |
-| S3e（Validation校准） | 双窗口 WFA 可运行；`final_gate` 不得 `FAIL`；`factor_gate_raw=FAIL` 仅允许在 `neutral_regime` 软化且必须审计说明 | 双窗口 WFA 稳定通过；`factor_gate_raw` 不得 `FAIL`；`selected_weight_plan` 全链可追溯且 OOS 指标达标 |
+| S3c | 31行业覆盖齐全，允许可解释 WARN | 近3窗口稳定覆盖，告警闭环 |
+| S3d | 自适应阈值可运行，样本不足可回退固定阈值 | 关键窗口无负spread，probe可复跑 |
+| S3e | 双窗口WFA可运行，`final_gate` 不得 FAIL | `factor_gate_raw` 不得 FAIL，OOS指标达标 |
 
-补充约束：
+补充规则：
 
-1. 任一圈未达到 `MVP`，不得进入 `S4b`。
-2. 任一圈未达到 `FULL`，不得宣称“螺旋2生产就绪”。
-
----
-
-## 数据层升级
-
-### 全市场数据
-```
-覆盖范围：
-- A股全市场：主板+创业板+科创板+北交所
-- 股票数量：4000+只
-- 历史跨度：2008-2024（16年）
-- 数据频率：日频+分钟频（关键时点）
-
-数据源策略：
-- 主源：TuShare Pro
-- 备源：Wind/AKShare
-- 应急：本地缓存
-```
-
-### 数据质量体系
-```python
-class DataQualityManager:
-    def __init__(self):
-        self.quality_rules = {
-            'completeness': 0.995,  # 完整性>99.5%
-            'consistency': 0.999,   # 一致性>99.9%
-            'timeliness': 300,      # 延迟<5分钟
-            'accuracy': 0.9999      # 准确性>99.99%
-        }
-    
-    def daily_quality_check(self):
-        # 数据完整性检查
-        # 数据一致性检查  
-        # 异常值检测
-        # 质量报告生成
-        pass
-```
+1. 准备可并行，收口宣告必须串行 `S3c -> S3d -> S3e`。
+2. 未达到 `MVP`：不得进入 S4b。
+3. 未达到 `FULL`：不得宣称螺旋2生产就绪。
 
 ---
 
-## 算法层完整版
+## 6. 螺旋2门禁
 
-### MSS完整版
-```python
-class MSS_Full:
-    def __init__(self):
-        self.factors = [
-            'volume_surge',      # 成交量异动
-            'price_momentum',    # 价格动量
-            'volatility_regime', # 波动率状态
-            'sentiment_proxy',   # 情绪代理指标
-            'market_microstructure' # 微观结构
-        ]
-    
-    def calculate_adaptive_score(self, stock_data, market_regime):
-        # 根据市场状态自适应调整权重
-        # 多因子综合评分
-        # 历史分位数标准化
-        pass
-```
+### 6.1 入口门禁
 
-### IRS完整版
-```python
-class IRS_Full:
-    def __init__(self):
-        self.industries = self.load_sw_industries()  # 申万31个行业
-        self.factors = [
-            'relative_strength',  # 相对强度
-            'rotation_momentum',  # 轮动动量
-            'fund_flow',         # 资金流向
-            'valuation_spread',  # 估值差异
-            'policy_impact'      # 政策影响
-        ]
-    
-    def calculate_industry_allocation(self, market_data):
-        # 行业轮动识别
-        # 动态权重分配
-        # 风险预算控制
-        pass
-```
+- 螺旋1 `GO`
+- `validation_weight_plan` 桥接链稳定
+
+### 6.2 出口门禁
+
+- [ ] 16年数据落库完成并通过质量检查
+- [ ] 多窗口回测与A/B/C对照齐备
+- [ ] 完整归因可回答收益来源
+- [ ] S3c/S3d/S3e 的 MVP/FULL 均通过
+- [ ] S4b 参数可追溯到 S3b + S3e
+- [ ] `PLAN-B-READINESS-SCOREBOARD.md` 更新并给 `GO/NO_GO`
 
 ---
 
-## 验证体系升级
+## 7. 失败处理
 
-### 多周期回测
-```python
-class MultiPeriodBacktester:
-    def __init__(self):
-        self.test_periods = [
-            ('2008-2010', '金融危机'),
-            ('2014-2016', '股灾周期'), 
-            ('2018-2020', '贸易战+疫情'),
-            ('2021-2024', '结构性行情')
-        ]
-    
-    def run_comprehensive_backtest(self):
-        results = {}
-        for period, description in self.test_periods:
-            results[period] = self.backtest_period(period)
-        return self.generate_comprehensive_report(results)
-```
-
-### 归因分析系统
-```python
-class AttributionAnalyzer:
-    def __init__(self):
-        self.attribution_factors = [
-            'stock_selection',   # 选股贡献
-            'industry_allocation', # 行业配置贡献
-            'timing',           # 择时贡献
-            'interaction'       # 交互效应
-        ]
-    
-    def decompose_returns(self, portfolio_returns, benchmark_returns):
-        # Brinson归因模型
-        # 多因子风险模型归因
-        # 时变归因分析
-        pass
-```
-
-### 归因对比（新增硬门禁）
-
-- 必须包含 `signal/execution/cost` 三分解。
-- 必须包含 `MSS vs 随机基准` 与 `MSS vs 技术基线`。
-- 必须明确“收益来源主要由信号还是执行驱动”。
+1. 任一出口项未通过：`NO_GO`。
+2. `NO_GO` 时只允许在螺旋2范围修复，不得推进螺旋3。
+3. 若校准链连续卡住，允许回到对应圈位重验，不得跳圈宣告完成。
 
 ---
 
-## 收口标准
+## 8. 变更记录
 
-### 数据层
-- [ ] 全市场16年数据完整入库
-- [ ] 数据质量>99.5%
-- [ ] 实时更新延迟<5分钟
-
-### 算法层  
-- [ ] 每日产生20-50个信号
-- [ ] 多市场状态下稳定运行
-- [ ] 算法执行时间<30分钟
-
-### 回测层
-- [ ] 多周期回测年化收益>15%
-- [ ] 最大回撤<20%
-- [ ] 信息比率>1.5
-- [ ] 完整归因分析报告
-- [ ] S3c/S3d/S3e `MVP` 与 `FULL` 门禁均通过
-
-### 系统层
-- [ ] 7×24小时稳定运行
-- [ ] 完整监控告警体系
-- [ ] 专业级GUI界面
-
----
-
-## 螺旋2退出约束（新增）
-
-1. 若仅通过 `MVP` 未通过 `FULL`，状态为 `WARN`，不得进入真实资金流程。
-2. 螺旋2未 `GO` 时，螺旋3只能做开发，不得宣称实战就绪。
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v2.2 | 2026-02-24 | 重写为设计绑定执行合同，保留同精度门禁并强化闭环证据链 |
+| v2.1 | 2026-02-23 | 新增双档量化门禁 |
