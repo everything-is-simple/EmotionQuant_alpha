@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict
 import json
 from pathlib import Path
+import time
 from typing import Any
 
 import duckdb
@@ -10,6 +12,12 @@ import pandas as pd
 
 from src.config.config import Config
 from src.data.quality_gate import DataGateDecision
+from src.data.repositories.base import (
+    DuckDBLockRecoveryError,
+    acquire_duckdb_interprocess_lock,
+    extract_lock_holder_pid,
+    is_duckdb_lock_error,
+)
 
 
 DEFAULT_CONFIG_DESCRIPTIONS = {
@@ -18,10 +26,70 @@ DEFAULT_CONFIG_DESCRIPTIONS = {
     "stale_hard_limit_days": "stale_days 硬门限（天）",
     "enable_intraday_incremental": "是否启用盘中增量（true/false）",
 }
+QUALITY_DUCKDB_LOCK_MAX_ATTEMPTS = 12
+QUALITY_DUCKDB_LOCK_RETRY_BASE_SECONDS = 0.5
+QUALITY_DUCKDB_PROCESS_LOCK_TIMEOUT_SECONDS = 120.0
+QUALITY_DUCKDB_PROCESS_LOCK_POLL_SECONDS = 0.1
 
 
 def _utc_now_iso() -> str:
     return pd.Timestamp.utcnow().isoformat()
+
+
+def _with_duckdb_write_connection(
+    database_path: Path,
+    *,
+    operation: Callable[[duckdb.DuckDBPyConnection], Any],
+) -> Any:
+    max_attempts = max(1, int(QUALITY_DUCKDB_LOCK_MAX_ATTEMPTS))
+    wait_base_seconds = max(0.0, float(QUALITY_DUCKDB_LOCK_RETRY_BASE_SECONDS))
+    wait_seconds_total = 0.0
+    last_error_message = ""
+    lock_holder_pid = ""
+    lock_wait_started = time.monotonic()
+    try:
+        with acquire_duckdb_interprocess_lock(
+            database_path,
+            timeout_seconds=float(QUALITY_DUCKDB_PROCESS_LOCK_TIMEOUT_SECONDS),
+            poll_seconds=float(QUALITY_DUCKDB_PROCESS_LOCK_POLL_SECONDS),
+        ):
+            wait_seconds_total += max(0.0, time.monotonic() - lock_wait_started)
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    with duckdb.connect(str(database_path)) as connection:
+                        return operation(connection)
+                except Exception as exc:
+                    if not is_duckdb_lock_error(exc):
+                        raise
+                    last_error_message = str(exc)
+                    extracted_pid = extract_lock_holder_pid(last_error_message)
+                    if extracted_pid:
+                        lock_holder_pid = extracted_pid
+                    if attempt >= max_attempts:
+                        raise DuckDBLockRecoveryError(
+                            database_path=database_path,
+                            retry_attempts=max_attempts,
+                            wait_seconds_total=wait_seconds_total,
+                            last_error_message=last_error_message,
+                            lock_holder_pid=lock_holder_pid,
+                        ) from exc
+                    wait_seconds = wait_base_seconds * float(attempt)
+                    if wait_seconds > 0:
+                        time.sleep(wait_seconds)
+                        wait_seconds_total += wait_seconds
+    except TimeoutError as exc:
+        wait_seconds_total += max(0.0, time.monotonic() - lock_wait_started)
+        last_error_message = str(exc)
+        extracted_pid = extract_lock_holder_pid(last_error_message)
+        if extracted_pid:
+            lock_holder_pid = extracted_pid
+        raise DuckDBLockRecoveryError(
+            database_path=database_path,
+            retry_attempts=max_attempts,
+            wait_seconds_total=wait_seconds_total,
+            last_error_message=last_error_message,
+            lock_holder_pid=lock_holder_pid,
+        ) from exc
 
 
 def ensure_quality_tables(connection: duckdb.DuckDBPyConnection) -> None:
@@ -223,10 +291,11 @@ def persist_data_readiness_gate(
 
 def init_quality_context(database_path: Path, *, config: Config) -> dict[str, float | int]:
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(str(database_path)) as connection:
+    def _operation(connection: duckdb.DuckDBPyConnection) -> dict[str, float | int]:
         ensure_quality_tables(connection)
         upsert_system_config_defaults(connection, config=config)
         return load_quality_thresholds(connection, config=config)
+    return _with_duckdb_write_connection(database_path, operation=_operation)
 
 
 def persist_quality_outputs(
@@ -237,7 +306,7 @@ def persist_quality_outputs(
     config: Config,
 ) -> None:
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(str(database_path)) as connection:
+    def _operation(connection: duckdb.DuckDBPyConnection) -> None:
         ensure_quality_tables(connection)
         upsert_system_config_defaults(connection, config=config)
         persist_data_quality_report(
@@ -246,6 +315,7 @@ def persist_quality_outputs(
             rows=report_rows,
         )
         persist_data_readiness_gate(connection, decision=decision)
+    _with_duckdb_write_connection(database_path, operation=_operation)
 
 
 def decision_to_json(decision: DataGateDecision) -> dict[str, Any]:

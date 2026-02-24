@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+import os
 import re
 import threading
 import time
@@ -10,6 +12,72 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+
+try:
+    import msvcrt
+except ImportError:  # pragma: no cover - non-Windows fallback
+    msvcrt = None
+
+
+def is_duckdb_lock_error(exc: Exception) -> bool:
+    message = str(exc).strip().lower()
+    if not message:
+        return False
+    lock_signals = (
+        "database is locked",
+        "conflicting lock is held",
+        "could not set lock on file",
+        "lock is already held",
+        "另一个程序正在使用此文件",
+    )
+    return any(signal in message for signal in lock_signals)
+
+
+def extract_lock_holder_pid(message: str) -> str:
+    match = re.search(r"(?:process|pid)\s*[:=]?\s*(\d+)", message, flags=re.IGNORECASE)
+    if not match:
+        return ""
+    return str(match.group(1))
+
+
+@contextmanager
+def acquire_duckdb_interprocess_lock(
+    database_path: Path,
+    *,
+    timeout_seconds: float,
+    poll_seconds: float,
+):
+    """Coordinate writes across Python processes on Windows via lock-file byte lock."""
+    if os.name != "nt" or msvcrt is None:
+        yield
+        return
+    lock_path = database_path.with_suffix(f"{database_path.suffix}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    timeout = max(0.0, float(timeout_seconds))
+    poll = max(0.01, float(poll_seconds))
+    deadline = time.monotonic() + timeout
+    while True:
+        handle = lock_path.open("a+b")
+        try:
+            handle.seek(0)
+            handle.write(b"\0")
+            handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            break
+        except OSError:
+            handle.close()
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"duckdb_interprocess_lock_timeout: {lock_path}")
+            time.sleep(poll)
+    try:
+        yield
+    finally:
+        try:
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        finally:
+            handle.close()
 
 
 class DuckDBLockRecoveryError(RuntimeError):
@@ -42,8 +110,10 @@ class BaseRepository:
     """Base repository for L1 raw datasets."""
 
     table_name = ""
-    duckdb_lock_max_attempts = 3
-    duckdb_lock_retry_base_seconds = 0.2
+    duckdb_lock_max_attempts = 12
+    duckdb_lock_retry_base_seconds = 0.5
+    duckdb_process_lock_timeout_seconds = 120.0
+    duckdb_process_lock_poll_seconds = 0.1
     _write_io_lock = threading.RLock()
 
     def __init__(self, config: Config | None = None) -> None:
@@ -70,23 +140,11 @@ class BaseRepository:
 
     @staticmethod
     def _is_duckdb_lock_error(exc: Exception) -> bool:
-        message = str(exc).strip().lower()
-        if not message:
-            return False
-        lock_signals = (
-            "database is locked",
-            "conflicting lock is held",
-            "could not set lock on file",
-            "lock is already held",
-        )
-        return any(signal in message for signal in lock_signals)
+        return is_duckdb_lock_error(exc)
 
     @staticmethod
     def _extract_lock_holder_pid(message: str) -> str:
-        match = re.search(r"(?:process|pid)\s*[:=]?\s*(\d+)", message, flags=re.IGNORECASE)
-        if not match:
-            return ""
-        return str(match.group(1))
+        return extract_lock_holder_pid(message)
 
     def _table_has_column(
         self, connection: duckdb.DuckDBPyConnection, *, table_name: str, column_name: str
@@ -125,38 +183,59 @@ class BaseRepository:
         lock_holder_pid = ""
 
         with self._write_io_lock:
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    with duckdb.connect(str(self.database_path)) as connection:
-                        connection.register("incoming_df", frame)
-                        connection.execute(
-                            f"CREATE TABLE IF NOT EXISTS {self.table_name} "
-                            "AS SELECT * FROM incoming_df WHERE 1=0"
-                        )
-                        self._sync_table_schema(connection)
-                        self._replace_trade_date_partition(connection)
-                        connection.execute(f"INSERT INTO {self.table_name} BY NAME SELECT * FROM incoming_df")
-                        connection.unregister("incoming_df")
-                    return int(len(frame))
-                except Exception as exc:
-                    if not self._is_duckdb_lock_error(exc):
-                        raise
-                    last_error_message = str(exc)
-                    extracted_pid = self._extract_lock_holder_pid(last_error_message)
-                    if extracted_pid:
-                        lock_holder_pid = extracted_pid
-                    if attempt >= max_attempts:
-                        raise DuckDBLockRecoveryError(
-                            database_path=self.database_path,
-                            retry_attempts=max_attempts,
-                            wait_seconds_total=wait_seconds_total,
-                            last_error_message=last_error_message,
-                            lock_holder_pid=lock_holder_pid,
-                        ) from exc
-                    wait_seconds = wait_base_seconds * float(attempt)
-                    if wait_seconds > 0:
-                        time.sleep(wait_seconds)
-                        wait_seconds_total += wait_seconds
+            lock_wait_started = time.monotonic()
+            try:
+                with acquire_duckdb_interprocess_lock(
+                    self.database_path,
+                    timeout_seconds=float(self.duckdb_process_lock_timeout_seconds),
+                    poll_seconds=float(self.duckdb_process_lock_poll_seconds),
+                ):
+                    wait_seconds_total += max(0.0, time.monotonic() - lock_wait_started)
+                    for attempt in range(1, max_attempts + 1):
+                        try:
+                            with duckdb.connect(str(self.database_path)) as connection:
+                                connection.register("incoming_df", frame)
+                                connection.execute(
+                                    f"CREATE TABLE IF NOT EXISTS {self.table_name} "
+                                    "AS SELECT * FROM incoming_df WHERE 1=0"
+                                )
+                                self._sync_table_schema(connection)
+                                self._replace_trade_date_partition(connection)
+                                connection.execute(f"INSERT INTO {self.table_name} BY NAME SELECT * FROM incoming_df")
+                                connection.unregister("incoming_df")
+                            return int(len(frame))
+                        except Exception as exc:
+                            if not self._is_duckdb_lock_error(exc):
+                                raise
+                            last_error_message = str(exc)
+                            extracted_pid = self._extract_lock_holder_pid(last_error_message)
+                            if extracted_pid:
+                                lock_holder_pid = extracted_pid
+                            if attempt >= max_attempts:
+                                raise DuckDBLockRecoveryError(
+                                    database_path=self.database_path,
+                                    retry_attempts=max_attempts,
+                                    wait_seconds_total=wait_seconds_total,
+                                    last_error_message=last_error_message,
+                                    lock_holder_pid=lock_holder_pid,
+                                ) from exc
+                            wait_seconds = wait_base_seconds * float(attempt)
+                            if wait_seconds > 0:
+                                time.sleep(wait_seconds)
+                                wait_seconds_total += wait_seconds
+            except TimeoutError as exc:
+                wait_seconds_total += max(0.0, time.monotonic() - lock_wait_started)
+                last_error_message = str(exc)
+                extracted_pid = self._extract_lock_holder_pid(last_error_message)
+                if extracted_pid:
+                    lock_holder_pid = extracted_pid
+                raise DuckDBLockRecoveryError(
+                    database_path=self.database_path,
+                    retry_attempts=max_attempts,
+                    wait_seconds_total=wait_seconds_total,
+                    last_error_message=last_error_message,
+                    lock_holder_pid=lock_holder_pid,
+                ) from exc
 
         return int(len(frame))
 

@@ -10,6 +10,7 @@ import pytest
 from src.config.config import Config
 from src.data.fetcher import TuShareFetcher
 from src.data.l1_pipeline import run_l1_collection
+from src.data.quality_store import init_quality_context
 from src.data.repositories.base import BaseRepository, DuckDBLockRecoveryError
 from src.data.repositories.daily import DailyRepository
 
@@ -123,3 +124,26 @@ def test_repository_trade_date_writes_are_idempotent(tmp_path: Path) -> None:
         ).fetchone()[0]
     assert int(row_count_after_replace) == 1
     assert float(value) == pytest.approx(1.5, abs=1e-12)
+
+
+def test_quality_store_retries_duckdb_lock_and_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _build_config(tmp_path, ".env.s3ar.quality.lock.retry")
+    database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    original_connect = duckdb.connect
+    attempts = {"count": 0}
+
+    def _flaky_connect(path: str, *args: Any, **kwargs: Any) -> duckdb.DuckDBPyConnection:
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise RuntimeError(
+                'IO Error: Could not set lock on file "emotionquant.duckdb": '
+                "Conflicting lock is held in process 7654"
+            )
+        return original_connect(path, *args, **kwargs)
+
+    monkeypatch.setattr(duckdb, "connect", _flaky_connect)
+    thresholds = init_quality_context(database_path, config=config)
+    assert attempts["count"] == 3
+    assert float(thresholds["min_coverage_ratio"]) == pytest.approx(config.min_coverage_ratio, abs=1e-12)
