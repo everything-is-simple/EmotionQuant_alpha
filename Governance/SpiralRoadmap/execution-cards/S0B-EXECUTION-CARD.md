@@ -50,6 +50,7 @@ pytest tests/unit/data/test_data_readiness_persistence_contract.py -q
 - `artifacts/spiral-s0b/{trade_date}/fetch_retry_report.md`
 - `artifacts/spiral-s0b/{trade_date}/error_manifest_sample.json`
 - `artifacts/spiral-s0b/{trade_date}/l1_quality_gate_report.md`
+- `artifacts/spiral-s0b/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `raw_daily/raw_trade_cal/data_readiness_gate` 与 `data-layer-data-models.md` 一致性）
 
 ---
 
@@ -63,6 +64,7 @@ pytest tests/unit/data/test_data_readiness_persistence_contract.py -q
   - `data_readiness_gate` 是否落库且状态可复核（ready/degraded/blocked）
   - `data_quality_report` 是否记录覆盖率与动作（continue/block/fallback）
   - 失败链路是否输出 `error_manifest`
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

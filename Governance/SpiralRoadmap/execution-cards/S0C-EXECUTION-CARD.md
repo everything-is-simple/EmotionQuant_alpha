@@ -53,8 +53,9 @@ pytest tests/unit/data/test_flat_threshold_config_contract.py -q
 - `artifacts/spiral-s0c/{trade_date}/industry_snapshot_sample.parquet`
 - `artifacts/spiral-s0c/{trade_date}/s0_canary_report.md`
 - `artifacts/spiral-s0c/{trade_date}/error_manifest_sample.json`
-- `artifacts/spiral-s3c/{trade_date}/sw_mapping_audit.md`
+- `artifacts/spiral-s0c/{trade_date}/sw_mapping_audit.md`
 - `artifacts/spiral-s0c/{trade_date}/l2_quality_gate_report.md`
+- `artifacts/spiral-s0c/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `market_snapshot/industry_snapshot` 与 `data-layer-data-models.md` 一致性）
 
 ---
 
@@ -69,6 +70,7 @@ pytest tests/unit/data/test_flat_threshold_config_contract.py -q
   - 质量字段是否齐全
   - `data_readiness_gate` 是否落库并与 gate 结论一致
   - 错误分级是否可追溯
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

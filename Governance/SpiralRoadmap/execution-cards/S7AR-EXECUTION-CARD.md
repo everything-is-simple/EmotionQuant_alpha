@@ -48,6 +48,7 @@ pytest tests/unit/pipeline/test_scheduler_run_history_contract.py -q
   - 调度阻断项是否全部清除
   - 修复前后稳定性差异是否可解释
   - 返回 S7a 重验是否通过
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

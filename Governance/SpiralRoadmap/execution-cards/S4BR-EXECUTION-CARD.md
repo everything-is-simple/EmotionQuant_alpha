@@ -49,6 +49,7 @@ pytest tests/unit/trading/test_stress_liquidity_dryup.py -q
   - 防御阻断项是否全部清除
   - 修复前后回撤差异是否可解释
   - 返回 S4b 重验是否通过
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

@@ -49,6 +49,7 @@ pytest tests/unit/trading/test_risk_guard_contract.py -q
   - 阻断项是否全部消除
   - 修复前后执行偏差是否可解释
   - 返回 S4 重验是否通过
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

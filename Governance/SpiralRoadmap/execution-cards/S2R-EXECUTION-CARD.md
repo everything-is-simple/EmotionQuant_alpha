@@ -48,6 +48,7 @@ pytest tests/unit/integration/test_quality_gate_contract.py -q
 - `artifacts/spiral-s2r/{trade_date}/s2r_patch_note.md`
 - `artifacts/spiral-s2r/{trade_date}/s2r_delta_report.md`
 - `artifacts/spiral-s2r/{trade_date}/quality_gate_report.md`
+- `artifacts/spiral-s2r/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验修复后产物与 `integration-data-models.md` 一致性）
 
 ---
 
@@ -59,6 +60,7 @@ pytest tests/unit/integration/test_quality_gate_contract.py -q
   - `quality_gate_report.status` 是否恢复到 `PASS/WARN`
   - 修复后 `integration_mode` 与桥接链路是否仍可审计
   - 是否满足回到 S2b 重验条件
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

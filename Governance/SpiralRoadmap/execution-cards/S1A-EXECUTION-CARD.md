@@ -55,6 +55,7 @@ pytest tests/unit/algorithms/mss/test_mss_full_semantics_contract.py -q
 - `artifacts/spiral-s1a/{trade_date}/mss_factor_trace.md`
 - `artifacts/spiral-s1a/{trade_date}/mss_factor_intermediate_sample.parquet`
 - `artifacts/spiral-s1a/{trade_date}/error_manifest_sample.json`
+- `artifacts/spiral-s1a/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `mss_panorama` 与 `mss-data-models.md` 一致性）
 
 ---
 
@@ -77,6 +78,7 @@ pytest tests/unit/algorithms/mss/test_mss_full_semantics_contract.py -q
   - `mss_panorama` 当日记录是否 `> 0`
   - 核心字段（含 `mss_rank/mss_percentile/mss_trend_quality`）是否齐全
   - 因子轨迹与中间因子是否可复核
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

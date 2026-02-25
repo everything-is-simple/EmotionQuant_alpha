@@ -57,6 +57,7 @@ pytest tests/unit/algorithms/mss/test_mss_probe_return_series_contract.py -q
   - adaptive 阈值与冷启动回退是否按设计生效
   - 趋势抗抖是否替代旧三点单调口径
   - probe 是否已基于真实收益序列
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

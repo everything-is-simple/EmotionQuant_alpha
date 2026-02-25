@@ -52,6 +52,7 @@ pytest tests/unit/pipeline/test_scheduler_run_history_contract.py -q
   - 调度安装与状态查询是否稳定可用
   - 交易日判定与幂等去重是否符合预期
   - 失败重试与运行历史证据是否可追溯
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

@@ -1,7 +1,8 @@
 # S3r 执行卡（v0.2）
 
-**状态**: Planned（条件触发待执行，命令已落地）  
-**更新时间**: 2026-02-21  
+**状态**: Implemented（工程完成，业务待重验）  
+**重验口径**: 本卡"工程完成"不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
+**更新时间**: 2026-02-25  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3r（回测修复子圈）
 
@@ -53,6 +54,7 @@ pytest tests/unit/backtest/test_backtest_reproducibility.py -q
   - 阻断根因是否定位清楚并修复
   - 修复前后关键指标差异是否可解释
   - 返回 S3 重验是否通过
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

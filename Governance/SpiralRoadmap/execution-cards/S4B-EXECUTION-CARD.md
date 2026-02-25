@@ -52,6 +52,7 @@ pytest tests/unit/trading/test_deleveraging_policy_contract.py -q
   - 压力场景下防御链路是否稳定触发并可重放
   - 次日重试与仓位封顶逻辑是否符合预期
   - 参数来源是否可追溯到 S3b 归因结论
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

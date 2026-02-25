@@ -67,6 +67,7 @@ pytest tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py -q
   - SW31 行业映射是否完整可复核
   - 是否仍存在 `industry_code=ALL` 主流程输入
   - IRS 配置建议是否实现 31 行业全覆盖
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

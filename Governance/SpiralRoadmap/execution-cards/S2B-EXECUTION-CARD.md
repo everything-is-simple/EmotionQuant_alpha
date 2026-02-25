@@ -53,6 +53,7 @@ pytest tests/unit/pipeline/test_cli_entrypoint.py -q
 - `artifacts/spiral-s2b/{trade_date}/quality_gate_report.md`
 - `artifacts/spiral-s2b/{trade_date}/s2_go_nogo_decision.md`
 - `artifacts/spiral-s2b/{trade_date}/error_manifest_sample.json`
+- `artifacts/spiral-s2b/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `integrated_recommendation` 与 `integration-data-models.md` 一致性）
 
 ---
 
@@ -65,6 +66,7 @@ pytest tests/unit/pipeline/test_cli_entrypoint.py -q
   - 推荐数量约束是否生效（每日<=20、单行业<=5）
   - `quality_gate_report.status` 是否为 `PASS/WARN`
   - A 股可追溯字段是否齐备：`t1_restriction_hit`、`limit_guard_result`、`session_guard_result`
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

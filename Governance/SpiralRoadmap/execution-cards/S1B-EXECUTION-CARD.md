@@ -55,6 +55,7 @@ pytest tests/unit/integration/test_mss_integration_contract.py -q
 - `artifacts/spiral-s1b/{start}_{end}/mss_only_probe_report.md`
 - `artifacts/spiral-s1b/{start}_{end}/mss_consumption_case.md`
 - `artifacts/spiral-s1b/{start}_{end}/error_manifest_sample.json`
+- `artifacts/spiral-s1b/{start}_{end}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 MSS 消费字段与 `mss-data-models.md` 一致性）
 
 ---
 
@@ -79,6 +80,7 @@ pytest tests/unit/integration/test_mss_integration_contract.py -q
   - `mss_only_probe_report` 是否生成
   - 是否包含 `top_bottom_spread_5d`
   - MSS 输出是否被下游消费并形成结论
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

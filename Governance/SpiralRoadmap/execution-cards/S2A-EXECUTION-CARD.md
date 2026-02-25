@@ -50,6 +50,7 @@ pytest tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py -q
 - `artifacts/spiral-s2a/{trade_date}/stock_pas_daily_sample.parquet`
 - `artifacts/spiral-s2a/{trade_date}/validation_gate_decision_sample.parquet`
 - `artifacts/spiral-s2a/{trade_date}/error_manifest_sample.json`
+- `artifacts/spiral-s2a/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `irs_industry_daily/stock_pas_daily/validation_gate_decision` 与对应 `*-data-models.md` 一致性）
 
 ---
 
@@ -61,6 +62,7 @@ pytest tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py -q
   - `validation_gate_decision.contract_version` 是否为 `nc-v1`
   - `selected_weight_plan/fallback_plan/position_cap_ratio/tradability_pass_ratio/impact_cost_bps/candidate_exec_pass` 是否齐全
   - FAIL 场景是否包含 `validation_prescription`
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

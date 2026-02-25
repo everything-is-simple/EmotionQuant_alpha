@@ -50,6 +50,7 @@ pytest tests/unit/scripts/test_design_freeze_guard.py -q
   - 同窗口重跑一致性是否满足阈值
   - 关键链路差异是否可解释并完成记录
   - 债务清偿与延期记录是否完整
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

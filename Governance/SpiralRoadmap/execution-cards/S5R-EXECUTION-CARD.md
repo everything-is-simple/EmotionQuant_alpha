@@ -48,6 +48,7 @@ pytest tests/unit/analysis/test_daily_report_export_contract.py -q
   - 展示闭环阻断项是否全部消除
   - 修复前后展示与导出差异是否可解释
   - 返回 S5 重验是否通过
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

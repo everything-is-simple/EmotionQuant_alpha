@@ -85,6 +85,7 @@ pytest tests/unit/integration/test_integration_contract.py -q
 - `artifacts/spiral-s2c/{trade_date}/s2c_semantics_traceability_matrix.md`
 - `artifacts/spiral-s2c/{trade_date}/s2c_algorithm_closeout.md`
 - `artifacts/spiral-s2c/{trade_date}/error_manifest_sample.json`
+- `artifacts/spiral-s2c/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 MSS/IRS/PAS/Validation/Integration 核心产物表与对应 `*-data-models.md` 一致性）
 - `artifacts/spiral-s2c-debug/{trade_date}/*`（调试/演练证据，不作为正式收口来源）
 
 ---
@@ -97,6 +98,7 @@ pytest tests/unit/integration/test_integration_contract.py -q
 - 必填结论：IC/RankIC/ICIR 与 Walk-Forward 结果是否支持当日权重选择
 - 必填结论：MSS/IRS/PAS 是否完成“设计条目 -> 实现 -> 测试 -> 产物”追踪矩阵
 - 必填结论：`contract_version=nc-v1` 与 `risk_reward_ratio>=1.0` 执行边界是否一致
+- 必填结论：gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

@@ -52,6 +52,7 @@ pytest tests/unit/config/test_env_docs_alignment.py -q
 - `artifacts/spiral-s0a/{trade_date}/test.log`
 - `artifacts/spiral-s0a/{trade_date}/cli_contract.md`
 - `artifacts/spiral-s0a/{trade_date}/config_effective_values.json`
+- `artifacts/spiral-s0a/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `system_config` 与 `data-layer-data-models.md` 一致性）
 
 ---
 
@@ -64,6 +65,7 @@ pytest tests/unit/config/test_env_docs_alignment.py -q
   - 门禁关键配置是否可见（`flat_threshold/min_coverage_ratio/stale_hard_limit_days`）
   - `recommend` 子命令参数契约是否包含 `--integration-mode` 与 `--repair`
   - 是否存在硬编码路径
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

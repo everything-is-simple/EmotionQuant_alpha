@@ -48,6 +48,7 @@ pytest tests/unit/scripts/test_design_freeze_guard.py -q
   - 稳定化阻断项是否全部清除
   - 修复前后重跑差异是否可解释
   - 返回 S6 重验是否通过
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

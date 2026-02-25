@@ -1,9 +1,10 @@
-# EmotionQuant 大阶段模板（v0.2）
+# EmotionQuant 大阶段模板（v0.3）
 
 **状态**: Active  
-**更新时间**: 2026-02-16  
+**更新时间**: 2026-02-25  
 **用途**: 定义 `阶段A/B/C` 的统一执行模板，约束每个大阶段的目标、门禁、产物与失败回退。  
 **角色**: 阶段级执行合同（配合微圈执行，不替代 `Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`）。
+**螺旋映射**: 阶段A ≈ 螺旋1 Canary / 阶段B ≈ 螺旋2 Full / 阶段C ≈ 螺旋3 Production（+ 螺旋3.5 Pre-Live）。
 
 ---
 
@@ -14,6 +15,8 @@
 3. 任一阶段未达 `退出门禁`，只允许在本阶段内开修复子圈，不允许跳阶段推进。
 4. 全阶段统一门禁：`python -m scripts.quality.local_quality_check --contracts --governance`。
 5. 阶段 DoD 与核心算法完成 DoD 分离：阶段推进遵循本模板；核心算法完成仅以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 第 9 节为准。
+6. 每个阶段收口必须给出 `GO/NO_GO` 结论并更新 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`。
+7. 每圈 `gate_report.md` 必须包含 `§Design-Alignment-Fields` 小节（格式见本文 §6）。
 
 ---
 
@@ -37,13 +40,15 @@
 - `validation_weight_plan` 桥接硬门禁通过：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id`。
 - 圈级五件套完整：`run/test/artifact/review/sync`。
 - 若 S2b 或 S2c 门禁 FAIL，必须先完成 S2r 修复并重验通过。
+- **阶段收口 GO/NO_GO**：canary 数据覆盖 >=99%、端到端可复现、归因可解释后，给出 `GO`；否则 `NO_GO`，更新 `PLANA-BUSINESS-SCOREBOARD.md` 螺旋1 字段。
 
 ### 2.4 必交付产物
 
 - `quality_gate_report.md`
-- `s2_go_nogo_decision.md`
+- `s2_go_nogo_decision.md`（含 `GO/NO_GO` 结论）
 - L1/L2/L3 样本快照（可复核）
-- 阶段收口结论：`stage-a-closeout.md`
+- 阶段收口结论：`stage-a-closeout.md`（含设计对齐结论：`core-algorithms` + `core-infrastructure` + `enhancements`）
+- `PLANA-BUSINESS-SCOREBOARD.md` 螺旋1 全部字段更新
 
 ### 2.5 失败回退
 
@@ -73,6 +78,7 @@
 - `live-backtest` 偏差分解齐备：`signal/execution/cost`。
 - 压力场景回放通过，极端防御策略可执行可重放。
 - 阶段内五件套完整，治理同步完成。
+- **阶段收口 GO/NO_GO**：多窗口回测稳定、归因结论可复核、极端防御可重放后，给出 `GO`；否则 `NO_GO`，更新 `PLANA-BUSINESS-SCOREBOARD.md` 螺旋2 字段。
 
 ### 3.4 必交付产物
 
@@ -81,7 +87,8 @@
 - `ab_benchmark_report.md`
 - `live_backtest_deviation_report.md`
 - `extreme_defense_report.md`
-- 阶段收口结论：`stage-b-closeout.md`
+- 阶段收口结论：`stage-b-closeout.md`（含设计对齐结论与 `GO/NO_GO`）
+- `PLANA-BUSINESS-SCOREBOARD.md` 螺旋2 全部字段更新
 
 ### 3.5 失败回退
 
@@ -110,6 +117,8 @@
 - 调度行为可审计：状态、历史、失败重试可追踪。
 - 非交易日自动跳过与重复任务去重有效。
 - 阶段内五件套完整，治理同步完成。
+- **阶段收口 GO/NO_GO**：重跑一致性通过、调度可观测可恢复后，给出 `GO`；否则 `NO_GO`，更新 `PLANA-BUSINESS-SCOREBOARD.md` 螺旋3 字段。
+- **螺旋3.5 Pre-Live 门禁**：连续 20 个交易日零真实下单预演通过、至少 1 次故障恢复演练完成后，给出最终生产就绪 `GO`。
 
 ### 4.4 必交付产物
 
@@ -118,7 +127,9 @@
 - `scheduler_status.json`
 - `scheduler_run_history.md`
 - `scheduler_bootstrap_checklist.md`
-- 阶段收口结论：`stage-c-closeout.md`
+- 阶段收口结论：`stage-c-closeout.md`（含设计对齐结论与 `GO/NO_GO`）
+- `PLANA-BUSINESS-SCOREBOARD.md` 螺旋3 全部字段更新
+- 螺旋3.5：`preview_deviation_summary.json` + `fault_recovery_drill_report.md` + 最终生产就绪评审 `GO/NO_GO`
 
 ### 4.5 失败回退
 
@@ -144,19 +155,54 @@
 
 ---
 
-## 6. 与现有文档关系
+## 6. §Design-Alignment-Fields（§DAF）样例模板
+
+每圈 `gate_report.md` 必须包含以下格式的 `§Design-Alignment-Fields` 小节，逐字段校验核心产物表与 `docs/design/**/data-models.md` 一致性。
+
+**示例（S1a 圈 gate_report 中的 §DAF）**：
+
+```
+§Design-Alignment-Fields
+设计源: docs/design/core-algorithms/mss/mss-data-models.md v3.2.0
+产物表: mss_panorama
+
+| 字段 | 设计类型 | 实际类型 | 设计枚举/范围 | 实际枚举/范围 | 一致 |
+|------|---------|---------|-------------|-------------|-----|
+| trade_date | str(YYYYMMDD) | VARCHAR(8) | — | — | ✅ |
+| temperature | float(0-100) | DOUBLE | 0-100 | 0-100 | ✅ |
+| cycle | str(MssCycle) | VARCHAR | emergence/fermentation/.../unknown | emergence/fermentation/.../unknown | ✅ |
+| trend | str(MssTrend) | VARCHAR | up/down/sideways | up/down/sideways | ✅ |
+| position_advice | str | VARCHAR | "80%-100%"~"0%-20%" | "80%-100%"~"0%-20%" | ✅ |
+| neutrality | float(0-1) | DOUBLE | 0-1 | 0-1 | ✅ |
+
+结论: 6/6 字段一致，0 偏差。
+```
+
+**填写规则**：
+1. `设计源`：标注对应 `data-models.md` 路径与版本。
+2. `产物表`：该圈核心输出的 DuckDB/Parquet 表名。
+3. 逐字段列出设计类型与实际类型、设计枚举范围与实际枚举范围。
+4. `一致` 列：✅ 或 ❌。出现 ❌ 必须在 `review.md` 登记原因与修复计划。
+5. `结论`：汇总一致/偏差数量。全部 ✅ 方可通过。
+
+---
+
+## 7. 与现有文档关系
 
 - 全局看板：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+- 业务价值看板：`Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`
 - 依赖图：`Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
 - 执行路线：`Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
 - S0-S2c 微圈合同：`Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md`
 - 上位 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+- Plan B 总览：`Governance/SpiralRoadmap/planB/planB-REBORN-SPIRAL-OVERVIEW.md`
 
 ---
 
-## 7. 变更记录
+## 8. 变更记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v0.3 | 2026-02-25 | 对齐 Reborn 三螺旋口径：补 GO/NO_GO 结论语言、PLANA-BUSINESS-SCOREBOARD 联动要求、§DAF 样例模板、螺旋3.5 Pre-Live 门禁、Plan B 文档关系 |
 | v0.2 | 2026-02-16 | 阶段A口径从 S0-S2 升级为 S0-S2c；新增 `validation_weight_plan` 桥接硬门禁（阶段A出口 + 阶段B入口）；明确阶段 DoD 与核心算法 DoD 分离 |
 | v0.1 | 2026-02-15 | 首版：定义阶段A/B/C统一模板（目标、入口门禁、退出门禁、必交付产物、失败回退）并对齐现有 Spiral 圈序 |
