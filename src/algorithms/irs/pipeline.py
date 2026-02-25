@@ -9,6 +9,7 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+from src.config.exceptions import DataNotReadyError
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/irs/irs-algorithm.md (3 六因子, 5 轮动状态, 6 配置建议)
@@ -215,16 +216,25 @@ def _rotation_status(score_hist: list[float]) -> tuple[str, float, float]:
     return ("HOLD", slope, band)
 
 
-def _rotation_detail(status: str, slope: float, band: float) -> str:
+def _rotation_detail(
+    status: str,
+    slope: float,
+    band: float,
+    *,
+    style_changed: bool = False,
+) -> str:
+    """轮动详情（中文枚举，与 irs-data-models.md §3.3 对齐）。"""
+    if style_changed:
+        return "风格转换"
     if status == "IN" and abs(slope) >= max(2.0 * band, 2.0):
-        return "rotation_accelerating"
+        return "轮动加速"
     if status == "IN":
-        return "strong_leading"
+        return "强势领涨"
     if status == "OUT":
-        return "trend_reversal"
+        return "趋势反转"
     if slope > 0.0:
-        return "hotspot_diffusion"
-    return "high_level_consolidation"
+        return "热点扩散"
+    return "高位整固"
 
 
 def _concentration_level(scores: pd.Series) -> str:
@@ -395,6 +405,16 @@ def run_irs_daily(
     if source.empty:
         raise ValueError("industry_snapshot_empty_for_trade_date")
 
+    # 数据新鲜度阻断：任一行业 stale_days 超过阈值时拒绝计算。
+    if "stale_days" in source.columns:
+        max_stale = int(pd.to_numeric(source["stale_days"], errors="coerce").fillna(0).max())
+        if max_stale > config.stale_hard_limit_days:
+            raise DataNotReadyError(
+                f"industry_snapshot max stale_days={max_stale} "
+                f"exceeds hard limit={config.stale_hard_limit_days}",
+                stale_days=max_stale,
+            )
+
     target_artifacts_dir = artifacts_dir or (
         Path("artifacts") / ("spiral-s3c" if require_sw31 else "spiral-s2c") / trade_date
     )
@@ -505,6 +525,11 @@ def run_irs_daily(
             baseline_map=baseline_map,
             baseline_key="irs_capital_flow_relative_volume",
         )
+        capital_flow_raw_series = (
+            0.5 * net_inflow_10d + 0.3 * flow_share + 0.2 * relative_volume
+        )
+        cf_mean, cf_std = _series_mean_std(capital_flow_raw_series.tail(120))
+
         crowding_penalty = 6.0 * max(float(crowding_ratio.iloc[-1]) - 1.2, 0.0)
         capital_flow_score = _clip(
             0.5 * net_inflow_score + 0.3 * flow_share_score + 0.2 * relative_volume_score - crowding_penalty,
@@ -618,6 +643,8 @@ def run_irs_daily(
                 "relative_strength_std": round(rs_std, 6),
                 "continuity_factor_mean": round(cont_mean, 6),
                 "continuity_factor_std": round(cont_std, 6),
+                "capital_flow_mean": round(cf_mean, 6),
+                "capital_flow_std": round(cf_std, 6),
                 "valuation_mean": round(valuation_mean, 6),
                 "valuation_std": round(valuation_std, 6),
                 "leader_score_mean": round(leader_mean, 6),

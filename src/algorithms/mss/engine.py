@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Mapping, Sequence
 
+from src.config.exceptions import DataNotReadyError
+
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§3 因子公式, §4 温度公式, §5 周期状态机)
 # - Governance/SpiralRoadmap/execution-cards/S1A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
@@ -29,8 +31,6 @@ VALID_CYCLES = {
     "unknown",
 }
 
-Z_SCORE_CENTER = 50.0
-Z_SCORE_SCALE = 15.0
 ADAPTIVE_LOOKBACK = 252
 ADAPTIVE_MIN_SAMPLES = 120
 DEFAULT_CYCLE_THRESHOLDS = {"t30": 30.0, "t45": 45.0, "t60": 60.0, "t75": 75.0}
@@ -78,14 +78,18 @@ def _to_float(value: object) -> float:
 
 
 def _zscore_normalize(raw_value: float, mean: float, std: float) -> float:
+    """Z-Score 归一化：映射 [-3σ, +3σ] → [0, 100]。
+
+    与 docs/design/core-algorithms/mss/mss-algorithm.md §7 对齐。
+    """
     if not math.isfinite(raw_value):
-        return Z_SCORE_CENTER
+        return 50.0
     if not math.isfinite(mean):
-        return Z_SCORE_CENTER
+        return 50.0
     if not math.isfinite(std) or std <= 0:
-        return Z_SCORE_CENTER
+        return 50.0
     z_value = (raw_value - mean) / std
-    score = Z_SCORE_CENTER + Z_SCORE_SCALE * z_value
+    score = (z_value + 3.0) / 6.0 * 100.0
     return float(round(_clamp(score, 0.0, 100.0), 4))
 
 
@@ -174,6 +178,8 @@ class MssInputSnapshot:
     low_open_high_close_count: int
     pct_chg_std: float
     amount_volatility: float
+    fall_count: int = 0
+    flat_count: int = 0
     data_quality: str = "normal"
     stale_days: int = 0
     source_trade_date: str = ""
@@ -210,6 +216,8 @@ class MssInputSnapshot:
             ),
             pct_chg_std=_to_float(record.get("pct_chg_std", 0.0)),
             amount_volatility=_to_float(record.get("amount_volatility", 0.0)),
+            fall_count=_to_int(record.get("fall_count", 0)),
+            flat_count=_to_int(record.get("flat_count", 0)),
             data_quality=str(record.get("data_quality", "normal") or "normal"),
             stale_days=_to_int(record.get("stale_days", 0)),
             source_trade_date=str(record.get("source_trade_date", "") or trade_date),
@@ -436,17 +444,26 @@ def calculate_mss_score(
     *,
     temperature_history: Sequence[float] | None = None,
     threshold_mode: str = "adaptive",
+    stale_hard_limit_days: int = 3,
 ) -> MssScoreResult:
+    # 数据新鲜度阻断：stale_days 超过阈值时拒绝计算。
+    if snapshot.stale_days > stale_hard_limit_days:
+        raise DataNotReadyError(
+            f"market_snapshot stale_days={snapshot.stale_days} "
+            f"exceeds hard limit={stale_hard_limit_days}",
+            stale_days=snapshot.stale_days,
+        )
+
     total_stocks = max(snapshot.total_stocks, 1)
 
     if snapshot.total_stocks <= 0:
         # 输入基线缺失时回退到中性分，避免伪方向性。
-        market_coefficient = Z_SCORE_CENTER
-        profit_effect = Z_SCORE_CENTER
-        loss_effect = Z_SCORE_CENTER
-        continuity_factor = Z_SCORE_CENTER
-        extreme_factor = Z_SCORE_CENTER
-        volatility_factor = Z_SCORE_CENTER
+        market_coefficient = 50.0
+        profit_effect = 50.0
+        loss_effect = 50.0
+        continuity_factor = 50.0
+        extreme_factor = 50.0
+        volatility_factor = 50.0
         extreme_direction_bias = 0.0
     else:
         market_coefficient_raw = _safe_ratio(snapshot.rise_count, total_stocks)

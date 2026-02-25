@@ -160,6 +160,25 @@ def _coalesce_float(value: float | int | None, fallback: float) -> float:
     return number
 
 
+def _limit_up_pct(stock_code: str, name: str = "") -> float:
+    """按板块返回涨跌停幅度（铁律#5）。
+
+    主板 10% / 创业板·科创板 20% / ST 5%。
+    """
+    # ST 优先判定（ST/*ST 在名称中标识）
+    if name and ("ST" in name.upper()):
+        return 0.05
+    prefix = stock_code[:3] if len(stock_code) >= 3 else ""
+    # 创业板 300/301
+    if prefix in ("300", "301"):
+        return 0.20
+    # 科创板 688/689
+    if prefix in ("688", "689"):
+        return 0.20
+    # 主板及其他
+    return 0.10
+
+
 def run_pas_daily(
     *,
     trade_date: str,
@@ -203,6 +222,10 @@ def run_pas_daily(
         item = row.to_dict()
         stock_code = str(item.get("stock_code", "")).strip()
         ts_code = str(item.get("ts_code", "")).strip()
+        stock_name = str(item.get("name", "")).strip()
+        board_limit = _limit_up_pct(stock_code, stock_name)
+        # 涨停判定阈值：留 0.5% 容差（如 10% → 0.095）
+        board_limit_threshold = board_limit - 0.005
 
         stock_hist = history[
             (history["stock_code"].astype(str) == stock_code)
@@ -263,7 +286,7 @@ def run_pas_daily(
         else:
             direction = "neutral"
 
-        limit_up_ratio_series = (pct_chg_series >= 0.095).astype(float).rolling(
+        limit_up_ratio_series = (pct_chg_series >= board_limit_threshold).astype(float).rolling(
             window=120, min_periods=1
         ).mean()
         rolling_high_60 = close_series.rolling(window=60, min_periods=1).max()
@@ -352,8 +375,8 @@ def run_pas_daily(
         reward = max(target - entry, 0.0)
         risk_reward_ratio = max(reward / risk, 1.0)
 
-        is_limit_up = bool(pct_today >= 0.095)
-        is_touched_limit_up = bool(high >= entry * 1.095 and close < high)
+        is_limit_up = bool(pct_today >= board_limit_threshold)
+        is_touched_limit_up = bool(high >= entry * (1.0 + board_limit_threshold) and close < high)
         liquidity_discount = _clip(volume_quality, 0.50, 1.00)
         tradability_discount = 0.60 if is_limit_up else (0.80 if is_touched_limit_up else 1.00)
         effective_risk_reward_ratio = max(

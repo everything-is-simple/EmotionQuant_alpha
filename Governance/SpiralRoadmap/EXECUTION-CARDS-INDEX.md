@@ -53,6 +53,10 @@
    - `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`
    为准。
 
+## 跨圈位行动卡
+
+- `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`（设计-代码对齐修订，P0×2 / P1×6 / P2×8）
+
 ## Revalidation 清单
 
 - `Governance/SpiralRoadmap/planA/PLAN-A-REVALIDATION-CHECKLIST.md`

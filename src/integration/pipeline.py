@@ -18,6 +18,7 @@ DESIGN_TRACE = {
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"
 BASELINE_WEIGHT = round(1.0 / 3.0, 4)
+MAX_MODULE_WEIGHT = 0.60
 BASELINE_PLAN_ALIASES = {"baseline", "vp_balanced_v1"}
 SUPPORTED_INTEGRATION_MODES = {"top_down", "bottom_up", "dual_verify", "complementary"}
 MAX_RECOMMENDATIONS_PER_DAY = 20
@@ -539,6 +540,10 @@ def _resolve_weight_plan(
     weight_sum = w_mss + w_irs + w_pas
     if min(w_mss, w_irs, w_pas) <= 0.0 or abs(weight_sum - 1.0) > 0.05:
         return ("", BASELINE_WEIGHT, BASELINE_WEIGHT, BASELINE_WEIGHT, "weight_plan_sum_invalid")
+
+    # 单模块权重上限校验（与 Validation 权重门一致）。
+    if max(w_mss, w_irs, w_pas) > MAX_MODULE_WEIGHT:
+        return ("", BASELINE_WEIGHT, BASELINE_WEIGHT, BASELINE_WEIGHT, "weight_plan_max_exceeded")
 
     plan_id = str(record.get("plan_id", "")).strip()
     if not plan_id:

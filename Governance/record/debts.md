@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
-**最后更新**: 2026-02-23  
-**版本**: v1.41  
+**最后更新**: 2026-02-25  
+**版本**: v1.44  
 **范围**: S0-S6
 
 ---
@@ -26,6 +26,14 @@
 | TD-S2C-019 | `recommend --with-validation-bridge` 在 `mss_factor_intermediate` 仅 Parquet 单日覆盖场景会报 `source_missing`，即便 integrated 已产出也返回 failed | P1 | 影响桥接证据一致性与命令退出码稳定性，干扰自动化编排 | S2c-S3b | ?? 处理中 |
 | TD-S3A-015 | AKShare/BaoStock 最后底牌适配未实装（当前仅双 TuShare 主备） | P2 | 极端情况下对 TuShare 双通道仍存在单生态依赖 | S3ar-next | ? 待处理 |
 | TD-GOV-012 | `DESIGN_TRACE` 已扩展到 S3 Backtest 与 S4 Trading 核心模块，但仍未覆盖全仓核心代码 | P2 | 仍可能存在“实现无设计溯源标记”的盲区 | S3-S4 | ?? 处理中 |
+| TD-DA-001 | Calculator/Repository 类不存在（设计定义各模块 Calculator/Repository，但实现为函数式 API） | P2 | 可测试性/可替换性下降 | S6 | ? 待处理 |
+| TD-DA-002 | Enum 类不存在（设计枚举未落地，使用字符串集合） | P2 | 类型安全缺失，容易拼写漂移 | S6 | ? 待处理 |
+| TD-DA-003 | 输出模型命名偏差（设计 `MssPanorama` vs 代码 `MssScoreResult`） | P2 | 跨模块接口理解成本 | S6 | ? 待处理 |
+| TD-DA-004 | DuckDB 工具函数重复（`_table_exists`/`_persist`/`_duckdb_type` 多处复制） | P2 | 维护成本高 | S6 | ? 待处理 |
+| TD-DA-005 | PAS discount 字段未持久化（`liquidity_discount`/`tradability_discount` 计算后丢弃） | P2 | 诊断/回测解释力不足 | S6 | ? 待处理 |
+| TD-DA-006 | Validation 丰富 API 未实现（设计 12 接口 vs 仅 `run_validation_gate()`） | P2 | 高级验证能力缺失 | S6 | ? 待处理 |
+| TD-DA-007 | Integration 模式文档缺失（`dual_verify`/`complementary` 代码已实现但设计未定义） | P2 | 文档-代码不一致 | S6 | ? 待处理 |
+| TD-DA-008 | MSS `mss_score` 冗余字段（`mss_score=temperature` 别名，设计无此字段） | P2 | 语义冗余/迁移成本 | S6 | ? 待处理 |
 
 ---
 
@@ -72,6 +80,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-25 | v1.44 | 设计-代码对齐审计：新增 8 项 P2 结构性债务（TD-DA-001~008），来源 `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`；P0+P1 项已修复 | 
 | 2026-02-23 | v1.43 | S5 启动同步：无新增 P0/P1 债务；当前仅进入 GUI 最小闭环实现阶段，生产健康相关风险继续沿用阶段B WARN 预算 |
 | 2026-02-23 | v1.42 | S3b 收口一致性同步：无新增 P0/P1 债务；S3b 从“口径不一致阻塞”切换为 `completed`，后续焦点转向 S5 实现缺口 |
 | 2026-02-23 | v1.41 | S4r/S4br 收口复核：无新增 P0/P1 债务；完成 legacy `trade_records` 旧 schema 写入阻断修复并补齐回归测试 |
