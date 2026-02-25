@@ -58,6 +58,26 @@ REQUIRED_TRACE_MARKERS: dict[str, list[str]] = {
         "DESIGN_TRACE",
         "docs/design/core-infrastructure/trading/trading-algorithm.md",
     ],
+    "src/data/fetcher.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/data-layer/data-layer-api.md",
+    ],
+    "src/data/l1_pipeline.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/data-layer/data-layer-algorithm.md",
+    ],
+    "src/data/l2_pipeline.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/data-layer/data-layer-algorithm.md",
+    ],
+    "src/gui/app.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/gui/gui-algorithm.md",
+    ],
+    "src/gui/dashboard.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/gui/gui-algorithm.md",
+    ],
 }
 
 

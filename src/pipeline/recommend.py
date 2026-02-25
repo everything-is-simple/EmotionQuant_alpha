@@ -145,12 +145,14 @@ def _materialize_s2c_bridge_samples(
     validation_frame.to_parquet(validation_sample_path, index=False)
 
     violations: list[str] = []
-    if not has_mss_table and mss_frame.empty:
+    mss_parquet_exists = (parquet_root / "mss_factor_intermediate.parquet").exists()
+    if not has_mss_table and not mss_parquet_exists and mss_frame.empty:
         violations.append("mss_factor_intermediate_source_missing")
     elif mss_frame.empty:
         violations.append("mss_factor_intermediate_empty_for_trade_date")
 
-    if not has_validation_table and validation_frame.empty:
+    validation_parquet_exists = (parquet_root / "validation_gate_decision.parquet").exists()
+    if not has_validation_table and not validation_parquet_exists and validation_frame.empty:
         violations.append("validation_gate_decision_source_missing")
     elif validation_frame.empty:
         violations.append("validation_gate_decision_empty_for_trade_date")

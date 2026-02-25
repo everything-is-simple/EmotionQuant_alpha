@@ -1,24 +1,19 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-23  
-**当前版本**: v4.48（S4r/S4br 修复子圈收口）  
+**最后更新**: 2026-02-25  
+**当前版本**: v4.53（Plan A SoT 对齐 + 债务清偿同步）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
 
-## 当前阶段
+## 当前阶段（以 Plan A SoT 为准）
 
-**S3/S3b/S3c/S3d/S3e 与 S4/S3ar/S4b 已收口完成：当前聚焦 S5 监控层实装准备**
+当前状态以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 为唯一 SoT：
 
-- S0a（统一入口与配置注入）: 已完成并补齐 6A 证据链。
-- S0b（L1 采集入库闭环）: 已完成并补齐 6A 证据链。
-- S0c（L2 快照与失败链路）: 已完成并补齐 6A 证据链。
-- S1a（MSS 最小评分可跑）: 已完成并补齐 6A 证据链。
-- S1b（MSS 消费验证闭环）: 已完成并补齐 6A 证据链。
-- S2a（IRS + PAS + Validation 最小闭环）: 已完成并补齐 6A 证据链。
-- S2b（MSS+IRS+PAS 集成推荐闭环）: 已完成并补齐 6A 证据链。
-- S2c（核心算法深化闭环）: 已完成并收口（含证据冲突清障、release/debug 分流、closeout 文档补齐与同步）。
-- S2r（质量门失败修复子圈）: 规格与修复产物合同已归档，可在 FAIL 场景下直接触发。
+- 螺旋1 Canary: `in_progress`
+- S0a-S0c / S1a-S1b / S2a-S2c: `implemented + revalidate_required`
+- S3 / S3b: `in_progress + partial`
+- S5/S6/S7a: `planned`（螺旋2出口前不得宣称完成）
 
 ---
 
@@ -606,7 +601,9 @@
 
 ---
 
-## Spiral 进度看板
+## Spiral 历史执行看板（非当前 SoT）
+
+说明：本节用于保留工程执行轨迹；当前状态判定以 Plan A SoT 为准。
 
 | Spiral | 目标 | 状态 | 备注 |
 |---|---|---|---|
@@ -637,11 +634,11 @@
 
 ---
 
-## 下一步（S5/S6/S7a）
+## 下一步（按 Plan A Rebaseline）
 
-1. 启动 S5：补齐 `eq gui` 最小展示闭环与日报导出契约测试。
-2. 启动 S6：补齐 `eq run-all` 一致性重跑链路与差异报告。
-3. 启动 S7a：补齐 `eq scheduler run-once` 自动调度与运行历史审计产物。
+1. 完成 canary-5y（最低 2020-2024）数据窗口覆盖与 S0-S2 重验。
+2. 推进 S3 最小回测与 S3b 最小归因，形成可解释的三分解证据。
+3. 在螺旋2出口前，维持 S5/S6/S7a 为 planned，不提前宣告完成。
 
 ---
 
@@ -658,6 +655,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-25 | v4.53 | SoT 对齐同步：当前状态口径切换至 Plan A Rebaseline；新增 TD-S2C-019 清偿与桥接回归测试同步 |
 | 2026-02-23 | v4.52 | 启动 S5：新增 `eq gui` 与 `daily-report` 导出最小闭环实现，补齐 S5 三条目标测试与 `spiral-s5` specs 三件套，状态切换为 `in_progress` |
 | 2026-02-23 | v4.51 | 同步 S3A-S4B 路线图收口：更新路线图状态与 2026-02-23 完成态复核；新增 WARN 准入预算与 S5 并行补强三项（S3e/S3b/S3d） |
 | 2026-02-23 | v4.50 | 完成 P0 状态对齐：执行卡 `S3/S3B/S3C/S3D/S3E/S4/S4B/S4R/S4BR` 统一切换 `Completed`；同步 `SPIRAL-CP-OVERVIEW` 与进度看板中 `S3/S3c/S3d/S3e` 为已完成 |

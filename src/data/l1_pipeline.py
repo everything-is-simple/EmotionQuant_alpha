@@ -36,6 +36,14 @@ from src.data.quality_store import (
     persist_quality_outputs,
 )
 
+# DESIGN_TRACE:
+# - docs/design/core-infrastructure/data-layer/data-layer-algorithm.md (§2 L1 采集流程, §4 质量门禁)
+# - Governance/SpiralRoadmap/execution-cards/S0B-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+DESIGN_TRACE = {
+    "data_layer_algorithm": "docs/design/core-infrastructure/data-layer/data-layer-algorithm.md",
+    "s0b_execution_card": "Governance/SpiralRoadmap/execution-cards/S0B-EXECUTION-CARD.md",
+}
+
 
 @dataclass(frozen=True)
 class L1RunResult:

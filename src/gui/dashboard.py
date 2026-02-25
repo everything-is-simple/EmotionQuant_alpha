@@ -12,6 +12,14 @@ import streamlit as st
 from src.db.helpers import table_exists as _table_exists
 from src.gui.app import _read_daily_metrics
 
+# DESIGN_TRACE:
+# - docs/design/core-infrastructure/gui/gui-algorithm.md (§3 仪表盘只读展示, §5 消费约束)
+# - Governance/SpiralRoadmap/execution-cards/S5-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+DESIGN_TRACE = {
+    "gui_algorithm": "docs/design/core-infrastructure/gui/gui-algorithm.md",
+    "s5_execution_card": "Governance/SpiralRoadmap/execution-cards/S5-EXECUTION-CARD.md",
+}
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(add_help=False)

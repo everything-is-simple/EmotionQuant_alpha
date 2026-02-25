@@ -14,6 +14,14 @@ import duckdb
 from src.config.config import Config
 from src.db.helpers import table_exists as _table_exists
 
+# DESIGN_TRACE:
+# - docs/design/core-infrastructure/gui/gui-algorithm.md (§2 每日导出流程, §4 质量门禁)
+# - Governance/SpiralRoadmap/execution-cards/S5-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+DESIGN_TRACE = {
+    "gui_algorithm": "docs/design/core-infrastructure/gui/gui-algorithm.md",
+    "s5_execution_card": "Governance/SpiralRoadmap/execution-cards/S5-EXECUTION-CARD.md",
+}
+
 SUPPORTED_EXPORT_MODE = {"", "daily-report"}
 
 

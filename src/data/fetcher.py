@@ -16,6 +16,14 @@ from typing import Any, Callable, Protocol
 
 from src.config.config import Config
 
+# DESIGN_TRACE:
+# - docs/design/core-infrastructure/data-layer/data-layer-api.md (§2 数据采集 API, §3 适配器与重试)
+# - Governance/SpiralRoadmap/execution-cards/S0A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+DESIGN_TRACE = {
+    "data_layer_api": "docs/design/core-infrastructure/data-layer/data-layer-api.md",
+    "s0a_execution_card": "Governance/SpiralRoadmap/execution-cards/S0A-EXECUTION-CARD.md",
+}
+
 
 class FetchClient(Protocol):
     def call(self, api_name: str, params: dict[str, Any]) -> Any:

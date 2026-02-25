@@ -199,3 +199,133 @@ def test_integrated_bridge_validation_defaults_to_s3e_modes(
     assert captured["validation_wfa_mode"] == "dual-window"
     assert captured["validation_export_run_manifest"] is True
 
+
+def test_materialize_s2c_bridge_samples_accepts_parquet_only_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trade_date = "20260213"
+    parquet_root = tmp_path / "l3"
+    artifacts_dir = tmp_path / "artifacts"
+    parquet_root.mkdir(parents=True, exist_ok=True)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    pd.DataFrame.from_records([{"trade_date": trade_date, "stock_code": "000001"}]).to_parquet(
+        parquet_root / "mss_factor_intermediate.parquet",
+        index=False,
+    )
+    pd.DataFrame.from_records([{"trade_date": trade_date, "final_gate": "WARN"}]).to_parquet(
+        parquet_root / "validation_gate_decision.parquet",
+        index=False,
+    )
+
+    def _fake_load_trade_date_table(**_: object) -> tuple[pd.DataFrame, bool]:
+        return (pd.DataFrame.from_records([]), False)
+
+    monkeypatch.setattr(recommend_module, "_load_trade_date_table", _fake_load_trade_date_table)
+
+    validation_count, violations = recommend_module._materialize_s2c_bridge_samples(
+        database_path=tmp_path / "missing.duckdb",
+        parquet_root=parquet_root,
+        trade_date=trade_date,
+        artifacts_dir=artifacts_dir,
+    )
+
+    assert validation_count == 1
+    assert violations == []
+    assert (artifacts_dir / "mss_factor_intermediate_sample.parquet").exists()
+    assert (artifacts_dir / "validation_gate_decision_sample.parquet").exists()
+
+
+def test_integrated_bridge_parquet_only_source_does_not_mark_run_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _build_config(tmp_path)
+    trade_date = "20260213"
+    parquet_root = Path(config.parquet_path) / "l3"
+    parquet_root.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame.from_records([{"trade_date": trade_date, "stock_code": "000001"}]).to_parquet(
+        parquet_root / "mss_factor_intermediate.parquet",
+        index=False,
+    )
+    pd.DataFrame.from_records([{"trade_date": trade_date, "final_gate": "WARN"}]).to_parquet(
+        parquet_root / "validation_gate_decision.parquet",
+        index=False,
+    )
+
+    def _fake_load_trade_date_table(**_: object) -> tuple[pd.DataFrame, bool]:
+        return (pd.DataFrame.from_records([]), False)
+
+    def _fake_run_s2a(**kwargs: object) -> recommend_module.RecommendRunResult:
+        _ = kwargs
+        artifacts_dir = tmp_path / "artifacts" / "spiral-s2c" / trade_date
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        empty = pd.DataFrame.from_records([])
+        sample = artifacts_dir / "sample.parquet"
+        empty.to_parquet(sample, index=False)
+        gate = artifacts_dir / "quality_gate_report.md"
+        gate.write_text("# gate\n", encoding="utf-8")
+        nogo = artifacts_dir / "s2_go_nogo_decision.md"
+        nogo.write_text("# nogo\n", encoding="utf-8")
+        err = artifacts_dir / "error_manifest_sample.json"
+        err.write_text("{}", encoding="utf-8")
+        return recommend_module.RecommendRunResult(
+            trade_date=trade_date,
+            mode="mss_irs_pas",
+            integration_mode="top_down",
+            evidence_lane="release",
+            artifacts_dir=artifacts_dir,
+            irs_count=31,
+            pas_count=5474,
+            validation_count=1,
+            final_gate="WARN",
+            integrated_count=0,
+            quality_gate_status="WARN",
+            go_nogo="GO",
+            has_error=False,
+            error_manifest_path=err,
+            irs_sample_path=sample,
+            pas_sample_path=sample,
+            validation_sample_path=sample,
+            integrated_sample_path=sample,
+            quality_gate_report_path=gate,
+            go_nogo_decision_path=nogo,
+        )
+
+    def _fake_run_integrated_daily(**kwargs: object):  # type: ignore[no-untyped-def]
+        _ = kwargs
+        frame = pd.DataFrame.from_records(
+            [{"trade_date": trade_date, "stock_code": "000001", "contract_version": "nc-v1"}]
+        )
+        quality = pd.DataFrame.from_records(
+            [{"trade_date": trade_date, "status": "WARN", "go_nogo": "GO"}]
+        )
+        return type(
+            "IntegratedResult",
+            (),
+            {
+                "integration_mode": "top_down",
+                "count": 1,
+                "validation_gate": "WARN",
+                "quality_status": "WARN",
+                "go_nogo": "GO",
+                "frame": frame,
+                "quality_frame": quality,
+                "rr_filtered_count": 0,
+                "quality_message": "ok",
+            },
+        )()
+
+    monkeypatch.setattr(recommend_module, "_load_trade_date_table", _fake_load_trade_date_table)
+    monkeypatch.setattr(recommend_module, "_run_s2a", _fake_run_s2a)
+    monkeypatch.setattr(recommend_module, "run_integrated_daily", _fake_run_integrated_daily)
+
+    result = run_recommendation(
+        trade_date=trade_date,
+        mode="integrated",
+        with_validation=True,
+        with_validation_bridge=True,
+        config=config,
+    )
+
+    assert result.has_error is False
+

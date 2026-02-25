@@ -74,6 +74,34 @@ class ValidationGateResult:
     oos_calibration_report_path: Path
 
 
+@dataclass(frozen=True)
+class FactorValidationResult:
+    trade_date: str
+    factor_name: str
+    count: int
+    frame: pd.DataFrame
+    final_gate: str
+    threshold_mode: str
+    wfa_mode: str
+    factor_report_sample_path: Path
+    run_manifest_sample_path: Path
+
+
+@dataclass(frozen=True)
+class CandidateEvaluationResult:
+    trade_date: str
+    plan_id: str
+    count: int
+    frame: pd.DataFrame
+    gate: str
+    selected_weight_plan: str
+    threshold_mode: str
+    wfa_mode: str
+    weight_report_sample_path: Path
+    weight_plan_sample_path: Path
+    run_manifest_sample_path: Path
+
+
 
 
 def _normalize_gate(score: float, pass_threshold: float, warn_threshold: float) -> str:
@@ -227,6 +255,145 @@ def _regime_adjusted_config(base: ValidationConfig, regime: str) -> ValidationCo
             max_drawdown_warn=min(base.max_drawdown_warn + 0.03, 0.35),
         )
     return base
+
+
+def _resolve_validation_inputs(*, database_path: Path, trade_date: str) -> tuple[int, int, bool]:
+    if not database_path.exists():
+        raise FileNotFoundError("duckdb_not_found")
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        irs_count = (
+            int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM irs_industry_daily WHERE trade_date = ?",
+                    [trade_date],
+                ).fetchone()[0]
+            )
+            if _table_exists(connection, "irs_industry_daily")
+            else 0
+        )
+        pas_count = (
+            int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM stock_pas_daily WHERE trade_date = ?",
+                    [trade_date],
+                ).fetchone()[0]
+            )
+            if _table_exists(connection, "stock_pas_daily")
+            else 0
+        )
+        mss_exists = (
+            int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM mss_panorama WHERE trade_date = ?",
+                    [trade_date],
+                ).fetchone()[0]
+            )
+            > 0
+            if _table_exists(connection, "mss_panorama")
+            else False
+        )
+    return irs_count, pas_count, bool(mss_exists)
+
+
+def validate_factor(
+    *,
+    trade_date: str,
+    config: Config,
+    factor_name: str = "",
+    artifacts_dir: Path | None = None,
+    threshold_mode: str = "fixed",
+    wfa_mode: str = "single-window",
+    export_run_manifest: bool = False,
+) -> FactorValidationResult:
+    """独立执行因子验证并返回因子级报告。"""
+    database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    irs_count, pas_count, mss_exists = _resolve_validation_inputs(
+        database_path=database_path,
+        trade_date=trade_date,
+    )
+    gate_result = run_validation_gate(
+        trade_date=trade_date,
+        config=config,
+        irs_count=irs_count,
+        pas_count=pas_count,
+        mss_exists=mss_exists,
+        artifacts_dir=artifacts_dir,
+        threshold_mode=threshold_mode,
+        wfa_mode=wfa_mode,
+        export_run_manifest=export_run_manifest,
+    )
+    normalized_factor_name = str(factor_name or "").strip()
+    factor_frame = gate_result.factor_report_frame.copy()
+    if normalized_factor_name:
+        factor_frame = factor_frame[
+            factor_frame["factor_name"].astype(str) == normalized_factor_name
+        ].reset_index(drop=True)
+        if factor_frame.empty:
+            raise ValueError(f"factor_name_not_found: {normalized_factor_name}")
+    factor_gate = _aggregate_gate(factor_frame["gate"].astype(str).tolist()) if not factor_frame.empty else "FAIL"
+    return FactorValidationResult(
+        trade_date=trade_date,
+        factor_name=normalized_factor_name or "all",
+        count=int(len(factor_frame)),
+        frame=factor_frame,
+        final_gate=factor_gate,
+        threshold_mode=gate_result.threshold_mode,
+        wfa_mode=gate_result.wfa_mode,
+        factor_report_sample_path=gate_result.factor_report_sample_path,
+        run_manifest_sample_path=gate_result.run_manifest_sample_path,
+    )
+
+
+def evaluate_candidate(
+    *,
+    trade_date: str,
+    config: Config,
+    plan_id: str = CANDIDATE_WEIGHT_PLAN_ID,
+    artifacts_dir: Path | None = None,
+    threshold_mode: str = "fixed",
+    wfa_mode: str = "single-window",
+    export_run_manifest: bool = False,
+) -> CandidateEvaluationResult:
+    """独立评估候选权重方案并返回候选级报告。"""
+    database_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    irs_count, pas_count, mss_exists = _resolve_validation_inputs(
+        database_path=database_path,
+        trade_date=trade_date,
+    )
+    gate_result = run_validation_gate(
+        trade_date=trade_date,
+        config=config,
+        irs_count=irs_count,
+        pas_count=pas_count,
+        mss_exists=mss_exists,
+        artifacts_dir=artifacts_dir,
+        threshold_mode=threshold_mode,
+        wfa_mode=wfa_mode,
+        export_run_manifest=export_run_manifest,
+    )
+    normalized_plan_id = str(plan_id or CANDIDATE_WEIGHT_PLAN_ID).strip() or CANDIDATE_WEIGHT_PLAN_ID
+    candidate_frame = gate_result.weight_report_frame.copy()
+    if "plan_id" not in candidate_frame.columns:
+        raise ValueError("plan_id_column_missing")
+    candidate_frame = candidate_frame[
+        candidate_frame["plan_id"].astype(str) == normalized_plan_id
+    ].reset_index(drop=True)
+    if candidate_frame.empty:
+        raise ValueError(f"plan_id_not_found: {normalized_plan_id}")
+    candidate_gate = _aggregate_gate(candidate_frame["gate"].astype(str).tolist())
+    return CandidateEvaluationResult(
+        trade_date=trade_date,
+        plan_id=normalized_plan_id,
+        count=int(len(candidate_frame)),
+        frame=candidate_frame,
+        gate=candidate_gate,
+        selected_weight_plan=gate_result.selected_weight_plan,
+        threshold_mode=gate_result.threshold_mode,
+        wfa_mode=gate_result.wfa_mode,
+        weight_report_sample_path=gate_result.weight_report_sample_path,
+        weight_plan_sample_path=gate_result.weight_plan_sample_path,
+        run_manifest_sample_path=gate_result.run_manifest_sample_path,
+    )
 
 
 def run_validation_gate(

@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
 **最后更新**: 2026-02-25  
-**版本**: v1.45  
+**版本**: v1.47  
 **范围**: S0-S6
 
 ---
@@ -23,16 +23,16 @@
 |---|---|---|---|---|---|
 | TD-S0-002 | Validation 虽已补齐因子/权重验证语义，但生产级真实收益口径与统计校准仍待完成 | P2 | 影响 S3 回测与实盘前解释力一致性 | S3e | ? 待处理 |
 | TD-S0-005 | 仓库内仍有部分 `Phase` 历史措辞（设计参考文档） | P2 | 容易带回线性心智 | S0-S2 | ? 待处理 |
-| TD-S2C-019 | `recommend --with-validation-bridge` 在 `mss_factor_intermediate` 仅 Parquet 单日覆盖场景会报 `source_missing`，即便 integrated 已产出也返回 failed | P1 | 影响桥接证据一致性与命令退出码稳定性，干扰自动化编排 | S2c-S3b | ?? 处理中 |
+| TD-S2C-019 | ~~`recommend --with-validation-bridge` 在 `mss_factor_intermediate` 仅 Parquet 单日覆盖场景会报 `source_missing`，即便 integrated 已产出也返回 failed~~ | P1 | 影响桥接证据一致性与命令退出码稳定性，干扰自动化编排 | S2c-S3b | ✅ 已清償 |
 | TD-S3A-015 | AKShare/BaoStock 最后底牌适配未实装（当前仅双 TuShare 主备） | P2 | 极端情况下对 TuShare 双通道仍存在单生态依赖 | S3ar-next | ? 待处理 |
-| TD-GOV-012 | `DESIGN_TRACE` 已扩展到 S3 Backtest 与 S4 Trading 核心模块，但仍未覆盖全仓核心代码 | P2 | 仍可能存在“实现无设计溯源标记”的盲区 | S3-S4 | ?? 处理中 |
-| TD-DA-001 | Calculator/Repository 类不存在（设计定义各模块 Calculator/Repository，但实现为函数式 API） | P2 | 可测试性/可替换性下降 | S6 | ? 待处理 |
+| TD-GOV-012 | ~~`DESIGN_TRACE` 已扩展到 S3 Backtest 与 S4 Trading 核心模块，但仍未覆盖全仓核心代码~~ | P2 | 仍可能存在“实现无设计溯源标记”的盲区 | S3-S4 | ✅ 已清償 |
+| TD-DA-001 | ~~Calculator/Repository 类不存在（设计定义各模块 Calculator/Repository，但实现为函数式 API）~~ | P2 | 可测试性/可替换性下降 | S6 | ✅ 已清償 |
 | TD-DA-002 | ~~Enum 类不存在~~ | P2 | 类型安全缺失 | S6 | ✅ 已清償 |
 | TD-DA-003 | ~~输出模型命名偏差~~ | P2 | 跨模块接口理解成本 | S6 | ✅ 已清償 |
 | TD-DA-004 | ~~DuckDB 工具函数重复~~ | P2 | 维护成本高 | S6 | ✅ 已清償 |
-| TD-DA-005 | PAS discount 字段未持久化（`liquidity_discount`/`tradability_discount` 计算后丢弃） | P2 | 诊断/回测解释力不足 | S6 | ? 待处理 |
-| TD-DA-006 | Validation 丰富 API 未实现（设计 12 接口 vs 仅 `run_validation_gate()`） | P2 | 高级验证能力缺失 | S6 | ? 待处理 |
-| TD-DA-007 | Integration 模式文档缺失（`dual_verify`/`complementary` 代码已实现但设计未定义） | P2 | 文档-代码不一致 | S6 | ? 待处理 |
+| TD-DA-005 | ~~PAS discount 字段未持久化（`liquidity_discount`/`tradability_discount` 计算后丢弃）~~ | P2 | 诊断/回测解释力不足 | S6 | ✅ 已清償 |
+| TD-DA-006 | ~~Validation 丰富 API 未实现（设计 12 接口 vs 仅 `run_validation_gate()`）~~ | P2 | 高级验证能力缺失 | S6 | ✅ 已清償 |
+| TD-DA-007 | ~~Integration 模式文档缺失（`dual_verify`/`complementary` 代码已实现但设计未定义）~~ | P2 | 文档-代码不一致 | S6 | ✅ 已清償 |
 | TD-DA-008 | ~~MSS `mss_score` 冗余字段~~ | P2 | 语义冗余/迁移成本 | S6 | ✅ 已清償 |
 
 ---
@@ -56,10 +56,16 @@
 | TD-S3A-011 | ENH-10 已完成最小实现，但真实远端采集链路吞吐与异常恢复证据尚未补齐 | 2026-02-17 | S3a 已收口：真实 TuShare 客户端接入、实测吞吐报告落地、失败批次真实重跑恢复；全量测试与治理门禁通过 |
 | TD-S3A-014 | S3ar 锁恢复实现已落地（重试/PID/等待时长/幂等写入），但真实窗口压测与实网证据归档未完成 | 2026-02-20 | S3ar 已收口：主/兜底 token check、独立限速压测与窗口采集产物已归档，状态由 `in_progress` 切换为 `completed` |
 | TD-S3A-021 | `SimulatedTuShareClient.trade_cal` 离线分支默认开市导致节假日误判 | 2026-02-22 | 已修复为“周末+法定闭市日”判定，并补齐闭市日契约测试，`20260218/20260219` 不再返回开市 |
+| TD-S2C-019 | `recommend --with-validation-bridge` 在 Parquet 单日覆盖场景误报 `source_missing` | 2026-02-25 | 已修复桥接样例源判断：DuckDB 无表但 L3 Parquet 源存在时不再误报；新增 `test_materialize_s2c_bridge_samples_accepts_parquet_only_sources` 与 `test_integrated_bridge_parquet_only_source_does_not_mark_run_failed` 回归测试 |
 | TD-DA-002 | Enum 类不存在（设计枚举未落地） | 2026-02-25 | 卡 A：新建 `src/models/enums.py`（7 个 StrEnum），已接入 MSS/IRS 核心模块 |
 | TD-DA-003 | 输出模型命名偏差（MssScoreResult） | 2026-02-25 | 卡 A：重命名为 `MssPanorama`，`MssScoreResult` 保留为类型别名 |
 | TD-DA-004 | DuckDB 工具函数重复（16 处） | 2026-02-25 | 卡 A：统一到 `src/db/helpers.py`，16 文件改为 import |
+| TD-DA-005 | PAS discount 字段未持久化（`liquidity_discount`/`tradability_discount` 计算后丢弃） | 2026-02-25 | 已在 `stock_pas_daily` 持久化 `liquidity_discount`/`tradability_discount` 字段，并由 PAS full semantics 契约测试覆盖 |
+| TD-DA-007 | Integration 模式文档缺失（`dual_verify`/`complementary` 代码已实现但设计未定义） | 2026-02-25 | `integration-algorithm.md` v3.6.0 已补齐 `dual_verify`/`complementary` 正式定义与验收口径 |
 | TD-DA-008 | MSS `mss_score` 冗余字段 | 2026-02-25 | 卡 A：字段保留 + deprecation 注释，新消费方指向 `mss_temperature` |
+| TD-DA-001 | Calculator/Repository 类不存在（设计定义各模块 Calculator/Repository，但实现为函数式 API） | 2026-02-25 | 卡 B：完成 MSS+IRS 试点，落地 `MssCalculator/MssRepository` 与 `IrsCalculator/IrsRepository`，并补齐 IRS calculator/repository 契约测试 |
+| TD-DA-006 | Validation 丰富 API 未实现（设计 12 接口 vs 仅 `run_validation_gate()`） | 2026-02-25 | 卡 C：新增 `validate_factor()` 与 `evaluate_candidate()` 独立入口，补齐 `test_validation_api_contract.py` |
+| TD-GOV-012 | DESIGN_TRACE 未覆盖全仓核心代码 | 2026-02-25 | 已扩展到 Data/GUI 核心文件（`fetcher/l1/l2/gui app/dashboard`），`local_quality_check` 输出 `[traceability] pass (16 files)` |
 | TD-S4-013 | S4 当前为单日 paper trade 最小闭环，尚未形成跨日持仓卖出与跌停不可卖的连续回放 | 2026-02-18 | S4 收口已完成跨日回放验证：复现“跌停不可卖 -> 次日重试卖出”并固化证据于 `artifacts/spiral-s4/20260222/*` |
 | TD-GOV-008 | contracts/governance 检查未进入任务模板门禁 | 2026-02-14 | 已在 `SPIRAL-TASK-TEMPLATE.md` 增加 S2+/契约变更场景检查项 |
 | TD-GOV-013 | S2c 同日 PASS/FAIL 证据冲突（正式证据与调试证据混写） | 2026-02-17 | 已引入 `evidence_lane`（release/debug）隔离并新增 `scripts/quality/sync_s2c_release_artifacts.py` 前置校验，正式证据统一为 release |
@@ -84,6 +90,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-25 | v1.47 | 清償 TD-DA-001/TD-DA-006/TD-GOV-012：完成 MSS+IRS Calculator/Repository 试点、Validation 独立 API（`validate_factor`/`evaluate_candidate`）与 DESIGN_TRACE 扩展（16 files pass） |
+| 2026-02-25 | v1.46 | 清償 TD-S2C-019/TD-DA-005/TD-DA-007：桥接 Parquet 单日覆盖不再误报 `source_missing`，并补齐回归测试与契约口径同步 |
 | 2026-02-25 | v1.45 | 清償 TD-DA-002/003/004/008（卡 A 完成）：DuckDB helpers 统一、Enum 7 类、MssPanorama 重命名、mss_score 废弃标记；193 tests pass |
 | 2026-02-25 | v1.44 | 设计-代码对齐审计：新增 8 项 P2 结构性债务（TD-DA-001~008），来源 `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`；P0+P1 项已修复 | 
 | 2026-02-23 | v1.43 | S5 启动同步：无新增 P0/P1 债务；当前仅进入 GUI 最小闭环实现阶段，生产健康相关风险继续沿用阶段B WARN 预算 |

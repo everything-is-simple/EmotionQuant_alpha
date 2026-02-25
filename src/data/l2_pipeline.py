@@ -28,6 +28,14 @@ from src.data.quality_store import (
     persist_quality_outputs,
 )
 
+# DESIGN_TRACE:
+# - docs/design/core-infrastructure/data-layer/data-layer-algorithm.md (§3 L2 快照计算, §4 质量门禁)
+# - Governance/SpiralRoadmap/execution-cards/S0C-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+DESIGN_TRACE = {
+    "data_layer_algorithm": "docs/design/core-infrastructure/data-layer/data-layer-algorithm.md",
+    "s0c_execution_card": "Governance/SpiralRoadmap/execution-cards/S0C-EXECUTION-CARD.md",
+}
+
 SW31_EXPECTED_COUNT = 31
 SW31_SOURCE = "SW2021"
 SW31_LEVEL = "L1"
