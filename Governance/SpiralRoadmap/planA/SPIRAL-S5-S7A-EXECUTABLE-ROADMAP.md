@@ -178,6 +178,10 @@ flowchart LR
   - GUI 启动成功，且不在页面层执行算法计算。
   - `daily_report` 导出成功，且可追溯到 L1/L2/L3 输入与参数。
   - 展示口径与阶段B归因/防御参数一致，不得出现手工覆盖。
+  - **FreshnessMeta 验证**（对齐 `gui-data-models.md` v3.2.0）：`DashboardData.freshness` 徽标可渲染，`FreshnessLevel`（`fresh/stale_soon/stale`）三态可触发。
+  - **FilterConfig 来源追溯**：`FilterConfig.source` 可审计（`env_default/user_override/session_override`），Dashboard 显示 `active_filter_badges`。
+  - **A 股红涨绿跌**：`pnl_color` 验证 >0 红 / <0 绿 / =0 灰，与 `gui-data-models.md` §5.2 一致。
+  - **字段级设计对齐**：`gate_report.md` 必须包含 §Design-Alignment-Fields 小节，逐字段校验 GUI 核心 dataclass 与 `gui-data-models.md` 一致性。
   - `status in (PASS, WARN)`。
 - 产物：`gui_snapshot.png`, `daily_report_sample.md`, `gui_export_manifest.json`
 - 消费：S6 记录“稳定化重跑基于 S5 统一展示口径”。

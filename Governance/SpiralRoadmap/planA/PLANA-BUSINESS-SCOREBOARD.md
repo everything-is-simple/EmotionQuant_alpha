@@ -29,6 +29,8 @@
 | MSS vs 随机基准超额收益 | >5% | pending | blocked |
 | MSS vs 技术基线超额收益 | >3% | pending | blocked |
 | 风险收益基线 | 夏普>1.0 / 最大回撤<20% / 胜率>50% | pending | blocked |
+| 归因质量 | dominant_component≠'none'比例 >=50%（S3b 扩窗后） | pending | blocked |
+| 归因方法合理性 | attribution_method 小样本自动 fallback 到 mean_fallback_small_sample | pending | blocked |
 | 螺旋结论 | GO/NO_GO | pending | blocked |
 
 ---
@@ -43,6 +45,8 @@
 | S3c/S3d/S3e MVP门禁 | 无 FAIL 且 WARN 可解释 | pending | planned |
 | S3c/S3d/S3e FULL门禁 | 生产口径完整校准 | pending | planned |
 | 行业与算法校准 | SW31 + MSS adaptive + Validation 生产校准 | pending | planned |
+| factor_gate_raw 健康度 | FAIL比例 <=50%（扩窗后）；FULL口径不得FAIL | pending | planned |
+| backtest-test-cases 覆盖 | >=19条核心用例通过 | pending | planned |
 | 螺旋结论 | GO/NO_GO | pending | planned |
 
 ---
@@ -83,7 +87,7 @@
 | core-infrastructure/backtest | 回测口径与主线引擎一致 | pending |
 | core-infrastructure/trading | A股规则与风控口径一致 | pending |
 | core-infrastructure/analysis | 归因链路与偏差分解一致 | pending |
-| core-infrastructure/gui | 只读展示口径一致 | pending |
+| core-infrastructure/gui | 只读展示口径一致 + FreshnessMeta/FilterConfig 验证 | pending |
 
 ---
 
@@ -100,5 +104,6 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.2 | 2026-02-25 | 堵缺口：螺旋1新增归因质量/方法合理性指标，螺旋2新增 factor_gate_raw 健康度/backtest-test-cases 覆盖，GUI 设计对齐检查补充 FreshnessMeta |
 | v1.1 | 2026-02-24 | 增加 `docs/design` 设计对齐检查，提升与 Plan B 同精度门禁口径 |
 | v1.0 | 2026-02-23 | 首版看板：三螺旋+Pre-Live 评分卡 |

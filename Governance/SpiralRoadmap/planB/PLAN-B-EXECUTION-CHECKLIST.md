@@ -1,106 +1,146 @@
-# Plan B 执行清单（设计绑定版）
+# Plan B 执行清单（微圈体系版）
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-24  
+**更新时间**: 2026-02-25  
 **状态**: Active  
-**用途**: Plan B 切换后的唯一执行清单（按螺旋闭环执行）
+**用途**: Plan B 切换后的唯一执行清单（按 PB-1.1~PB-3.4 微圈执行）
 
 ---
 
 ## 1. 总规则
 
 1. 只做闭环重建，不做文档式推进。
-2. 每圈必须有：`run/test/artifact/review/sync`。
+2. 每微圈必须有：`run/test/artifact/gate_report/consumption/review/sync`。
 3. 每螺旋必须有：`GO/NO_GO`，且同步业务看板。
 4. 所有动作必须可映射到 `docs/design/**`。
+5. `gate_report.md` 必须包含 §Design-Alignment-Fields（字段级设计对齐）。
 
 ---
 
 ## 2. 螺旋1（Canary）执行项
 
-### 2.1 数据闭环（S0-S2 输入）
+### PB-1.1 数据闭环（对应 Plan A S0a-S0c）
 
-- [ ] `eq fetch-batch --start 20200101 --end 20241231 --batch-size 365 --workers 3`
-- [ ] `eq fetch-retry`
-- [ ] `eq data-quality-check --comprehensive`
-- [ ] 本地窗口覆盖率 `>=99%`（理想扩到 `2019-01-01 ~ 2026-02-13`）
-- [ ] `data_readiness_gate` 可审计
+- [ ] `eq run --date {trade_date} --source tushare`
+- [ ] 本地窗口覆盖率 >=99%（2020-2024，理想 2019-01-01~2026-02-13）
+- [ ] `raw_daily` 字段与 DDL 一一对应
+- [ ] `Config.from_env()` 无硬编码
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 2.2 算法与集成闭环（S1/S2）
+### PB-1.2 算法闭环（对应 Plan A S1a-S2c）
 
 - [ ] `eq run --date {trade_date} --full-pipeline --validate-each-step`
-- [ ] MSS/IRS/PAS/Validation/Integration 产物齐备并符合契约
+- [ ] MSS/IRS/PAS/Validation/Integration 产物齐备且符合契约
 - [ ] `validation_weight_plan` 桥接链可追溯
+- [ ] 集成 4模式可审计 + 硬约束硬运行
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 2.3 回测与归因闭环（S3(min)/S3b(min)）
+### PB-1.3 最小回测闭环（对应 Plan A S3(min)）
 
-- [ ] `eq backtest --start {start} --end {end} --engine local`
+- [ ] `eq backtest --engine {engine} --start {start} --end {end}`
+- [ ] T+1/涨跌停/费用模型与 backtest-test-cases 一致
+- [ ] A/B/C 对照指标摘要可产出
+- [ ] gate_report + §Design-Alignment-Fields
+
+### PB-1.4 最小归因闭环（对应 Plan A S3b(min)）
+
 - [ ] `eq analysis --start {start} --end {end} --ab-benchmark`
-- [ ] 最小归因：`signal/execution/cost`
-- [ ] 对比归因：`MSS vs 随机`、`MSS vs 技术基线`
-- [ ] 输出“去掉 MSS 后收益/风险变化”结论
+- [ ] 三分解：`signal/execution/cost`
+- [ ] 双对比：MSS 超额 >5%（vs随机）、>3%（vs技术基线）
+- [ ] 夏普 >1.0 / 回撤 <20% / 胜率 >50%
+- [ ] `dominant_component≠'none'` 比例 >=50%
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 2.4 螺旋1收口
+### 螺旋1收口
 
-- [ ] 更新 `PLAN-B-READINESS-SCOREBOARD.md` 螺旋1字段
+- [ ] 更新 `PLAN-B-READINESS-SCOREBOARD.md` 螺旋1
 - [ ] 输出 `GO/NO_GO`
-- [ ] `NO_GO` 时仅允许在螺旋1内修复
 
 ---
 
 ## 3. 螺旋2（Full）执行项
 
-### 3.1 数据与采集增强（S3a/S3ar）
+### PB-2.1 采集扩窗（对应 Plan A S3a/S3ar）
 
-- [ ] 16年落库：`2008-01-01 ~ 2024-12-31`
-- [ ] 采集增强/稳定性证据齐全（断点续传、重试、锁恢复）
-- [ ] 全市场质量报告可复核
+- [ ] 16年落库（2008-2024）覆盖率 >=99%
+- [ ] 采集稳定性证据（断点续传、重试、锁恢复、幂等写入）
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 3.2 完整回测与归因（S3/S4/S3b）
+### PB-2.2 完整回测与归因（对应 Plan A S3/S4/S3b）
 
-- [ ] 多窗口回测：`1y/3y/5y + 典型牛熊段`
-- [ ] A/B/C 对照完成
-- [ ] 完整归因完成并可回答收益来源
+- [ ] 多窗口回测（1y/3y/5y + 牛熊段）
+- [ ] backtest-test-cases >=19条核心用例通过
+- [ ] A/B/C 对照 + 完整归因
+- [ ] RejectReason 4核心路径 + TradingState 4值覆盖
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 3.3 校准与极端防御（S3c/S3d/S3e/S4b）
+### PB-2.3 行业校准（对应 Plan A S3c）
 
-- [ ] `S3c/S3d/S3e` 达到 `MVP`
-- [ ] `S3c/S3d/S3e` 达到 `FULL`
-- [ ] 准备可并行、收口宣告必须串行
-- [ ] `S4b` 参数来源可追溯（`S3b + S3e`）
+- [ ] SW31 全行业覆盖（MVP + FULL）
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 3.4 螺旋2收口
+### PB-2.4 MSS/Validation 校准（对应 Plan A S3d/S3e）
 
-- [ ] 更新 `PLAN-B-READINESS-SCOREBOARD.md` 螺旋2字段
+- [ ] MSS adaptive 可运行 + probe 可复跑（MVP + FULL）
+- [ ] Validation 双窗口 WFA + factor_gate_raw 健康度检查
+- [ ] factor_gate_raw=FAIL 升级策略已执行
+- [ ] gate_report + §Design-Alignment-Fields
+
+### PB-2.5 极端防御（对应 Plan A S4b）
+
+- [ ] 防御参数可追溯到 S3b+S3e
+- [ ] 压力场景可回放
+- [ ] gate_report + §Design-Alignment-Fields
+
+### 螺旋2收口
+
+- [ ] 更新 `PLAN-B-READINESS-SCOREBOARD.md` 螺旋2
 - [ ] 输出 `GO/NO_GO`
-- [ ] 螺旋2未 `GO` 时，螺旋3仅允许开发，不得宣称生产就绪
 
 ---
 
 ## 4. 螺旋3（Production）执行项
 
-### 4.1 S5-S7a
+### PB-3.1 展示闭环（对应 Plan A S5）
 
-- [ ] GUI 仅消费真实产物（只读，不二次计算）
+- [ ] GUI 只读消费 + FreshnessMeta/FilterConfig 验证
+- [ ] 日报导出可追溯 + A股红涨绿跌
+- [ ] gate_report + §Design-Alignment-Fields
+
+### PB-3.2 稳定化闭环（对应 Plan A S6）
+
 - [ ] 全链路重跑一致性通过
+- [ ] 债务清偿记录完成
+- [ ] gate_report + §Design-Alignment-Fields
+
+### PB-3.3 调度闭环（对应 Plan A S7a）
+
 - [ ] 调度安装/状态/历史/重试可审计
+- [ ] 幂等去重可验证
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 4.2 螺旋3.5（Pre-Live）
+### PB-3.4 Pre-Live 预演（对应 Plan A 螺旋3.5）
 
-- [ ] 连续20交易日零真实下单预演
-- [ ] 每日偏差复盘（signal/execution/cost）
-- [ ] 至少1次故障恢复演练通过
-- [ ] 预演期间 0 个 P0 事故
+- [ ] 连续 >=20 交易日零下单预演
+- [ ] 每日偏差复盘 + 故障恢复演练
+- [ ] 预演期 P0=0，偏差均值 <5%
+- [ ] gate_report + §Design-Alignment-Fields
 
-### 4.3 螺旋3收口
+### 螺旋3收口
 
-- [ ] 更新 `PLAN-B-READINESS-SCOREBOARD.md` 螺旋3与3.5字段
+- [ ] 更新 `PLAN-B-READINESS-SCOREBOARD.md` 螺旋3+3.5
 - [ ] 输出 `GO/NO_GO`
-- [ ] 未 `GO` 禁止进入真实资金
+- [ ] 未 GO 禁止真实资金
 
 ---
 
-## 5. 每圈同步清单
+## 5. 每微圈同步清单
+
+- [ ] `gate_report.md`（含 §Design-Alignment-Fields）
+- [ ] `consumption.md`
+- [ ] `review.md`
+
+每螺旋收口额外同步：
 
 - [ ] `Governance/specs/spiral-{spiral_id}/final.md`
 - [ ] `Governance/record/development-status.md`
@@ -114,5 +154,6 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v2.1 | 2026-02-24 | 改为设计绑定执行清单：按螺旋闭环组织，不再按理想化模块罗列 |
+| v3.0 | 2026-02-25 | 堵最大缺口：按 PB-1.1~PB-3.4 微圈重构；增加字段级设计对齐、量化阈值、微圈同步清单 |
+| v2.1 | 2026-02-24 | 改为设计绑定执行清单 |
 | v2.0 | 2026-02-23 | 实事求是版 |

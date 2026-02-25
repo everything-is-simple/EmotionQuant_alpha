@@ -243,6 +243,8 @@ flowchart LR
   - 核心算法全量消费可审计：`mss_score/irs_score/pas_score` 不得缺失，且窗口内 `mss_panorama/irs_industry_daily/stock_pas_daily` 覆盖计数 `> 0`。
   - `validation_weight_plan` 桥接可追溯：`selected_weight_plan -> validation_weight_plan.plan_id -> integrated_recommendation.weight_plan_id`。
   - 产出 A/B/C 对照指标摘要并形成基线结论。
+  - **backtest-test-cases 核心覆盖**（`docs/design/core-infrastructure/backtest/backtest-test-cases.md`）：至少覆盖 §1（T+1 规则 3 条）、§2（涨跌停 4 条）、§4（费用模型 4 条）、§9（集成模式覆盖 3 条）、§10（质量门禁 5 条）共 19 条核心用例，未覆盖用例登记到 `Governance/record/debts.md`。
+  - **字段级设计对齐**：`gate_report.md` 必须包含 §Design-Alignment-Fields 小节，逐字段校验 `backtest_results/backtest_trade_records` 与 `backtest-data-models.md` 的字段名、类型、枚举值范围一致性。
   - 质量门结论 `status in (PASS, WARN)`。
 - 产物：`backtest_results.parquet`, `backtest_trade_records.parquet`, `ab_metric_summary.md`
 - 消费：S4 记录“纸上交易参数来源于 S3 回测结论”。
@@ -272,8 +274,11 @@ flowchart LR
   - `trade_records`、`positions`、`risk_events` 当日均可追溯。
   - A 股规则字段可追溯：`t1_restriction_hit`、`limit_guard_result`、`session_guard_result`。
   - 执行层统一门槛：`risk_reward_ratio >= 1.0`（`<1.0` 必须被过滤）。
+  - **RejectReason 核心路径覆盖**（对齐 `trading-data-models.md` §6.5）：至少覆盖 `REJECT_LIMIT_UP`、`REJECT_T1_FROZEN`、`REJECT_MAX_POSITION`、`REJECT_NO_CASH` 四条核心拒单路径，每条至少 1 个测试用例命中。
+  - **TradingState 全覆盖**：`normal/warn_data_fallback/blocked_gate_fail/blocked_untradable` 四种状态至少各出现 1 次（可通过构造场景或回放历史数据触发）。
+  - **字段级设计对齐**：`gate_report.md` 必须包含 §Design-Alignment-Fields 小节，逐字段校验 `trade_records/positions/t1_frozen` 与 `trading-data-models.md` 的字段名、类型一致性。
   - 交易回放链路可复核（按订单到持仓变更可重放）。
-- 产物：`trade_records_sample.parquet`, `positions_sample.parquet`, `risk_events_sample.parquet`, `paper_trade_replay.md`
+- 产物：`trade_records_sample.parquet`
 - 消费：S3b 记录“归因基于纸上交易真实执行结果”。
 
 ### S4r（条件触发）
@@ -349,8 +354,13 @@ flowchart LR
   - 因子验证必须满足 `factor_series` 与 `future_returns` 按 `trade_date, stock_code` 对齐，禁止未来函数。
   - 权重验证必须包含双窗口投票与 `oos_return/max_drawdown/sharpe/turnover/impact_cost_bps/tradability_pass_ratio` 指标。
   - `selected_weight_plan` 必须由投票结果可审计地产生，不得以启发式硬替代。
-- 产物：`validation_factor_report_sample.parquet`, `validation_weight_report_sample.parquet`, `validation_run_manifest_sample.json`, `validation_oos_calibration_report.md`
-- 消费：S4b 记录“极端防御参数来自 S3b 归因 + S3e 生产校准的联合证据”。
+  - **factor_gate_raw=FAIL 升级策略**（堵最大设计对齐缺口）：
+    - 若扩窗后 `factor_gate_raw=FAIL` 比例仍 >50%：必须回到 S3d 重新检查 MSS adaptive 参数，**不得直接进入 S4b**。
+    - 若连续 ≥2 个窗口 `factor_gate_raw=FAIL` 但 `neutral_regime` 软化通过：必须产出「neutral_regime 依赖审计报告」作为额外证据，说明软化条件的合理性与生产环境适用性。
+    - 若 FULL 口径要求 `factor_gate_raw` 不得 FAIL 但当前全 FAIL：螺旋2不得宣称生产就绪，S3e 状态锁定为 `WARN_PENDING_RESOLUTION`。
+  - **字段级设计对齐**：`gate_report.md` 必须包含 §Design-Alignment-Fields 小节，逐字段校验 `validation_gate_decision/validation_weight_plan` 与 `validation-data-models.md` 的字段名、类型、枚举值一致性。
+- 产物：`validation_factor_report_sample.parquet`, `validation_weight_report_sample.parquet`, `validation_run_manifest_sample.json`, `validation_oos_calibration_report.md`, `neutral_regime_audit_report.md`（条件产出）
+- 消费：S4b 记录"极端防御参数来自 S3b 归因 + S3e 生产校准的联合证据"。
 
 ### S4b
 
