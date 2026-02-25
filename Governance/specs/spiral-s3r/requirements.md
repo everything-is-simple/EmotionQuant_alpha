@@ -15,7 +15,7 @@
 
 ## A2 Architect
 
-- 关联执行卡: `Governance/SpiralRoadmap/planA/execution-cards/S3R-EXECUTION-CARD.md`
+- 关联执行卡: `Governance/SpiralRoadmap/execution-cards/S3R-EXECUTION-CARD.md`
 - 目标测试:
   - `tests/unit/backtest/test_backtest_contract.py`
   - `tests/unit/backtest/test_backtest_reproducibility.py`

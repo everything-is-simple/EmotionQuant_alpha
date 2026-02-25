@@ -198,7 +198,7 @@ flowchart LR
 ### S3a
 
 - 主目标：在不改变数据语义前提下交付分批下载、断点续传、多线程。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S3A-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_dependency_manifest.py -q`
 - `target command`：
   - `eq fetch-batch --start {start} --end {end} --batch-size 365 --workers 3`
@@ -232,7 +232,7 @@ flowchart LR
 ### S3
 
 - 主目标：回测闭环（Qlib 主线 + 本地口径可对照）。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S3-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S3-EXECUTION-CARD.md`
 - 设计基线：`docs/design/core-algorithms/`（MSS/IRS/PAS/Validation/Integration）
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_quality_gate_contract.py -q`
 - `target command`：`eq backtest --engine {engine} --start {start} --end {end}`
@@ -253,7 +253,7 @@ flowchart LR
 
 - 触发：S3 `gate = FAIL`
 - 主目标：只修不扩，恢复回测门禁可通过。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S3R-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S3R-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/backtest -q`
 - `target command`：`eq backtest --engine {engine} --start {start} --end {end} --repair s3r`
 - `target test`（本圈必须补齐并执行）：`tests/unit/backtest/test_backtest_contract.py tests/unit/backtest/test_backtest_reproducibility.py`
@@ -266,7 +266,7 @@ flowchart LR
 ### S4
 
 - 主目标：纸上交易闭环（信号 -> 订单 -> 持仓 -> 风控日志可重放）。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S4-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S4-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_integration_contract.py -q`
 - `target command`：`eq trade --mode paper --date {trade_date}`
 - `target test`（本圈必须补齐并执行）：`tests/unit/trading/test_order_pipeline_contract.py tests/unit/trading/test_position_lifecycle_contract.py tests/unit/trading/test_risk_guard_contract.py`
@@ -285,7 +285,7 @@ flowchart LR
 
 - 触发：S4 `gate = FAIL`
 - 主目标：修复交易闭环阻断项并重验。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S4R-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S4R-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/trading -q`
 - `target command`：`eq trade --mode paper --date {trade_date} --repair s4r`
 - `target test`（本圈必须补齐并执行）：`tests/unit/trading/test_order_pipeline_contract.py tests/unit/trading/test_risk_guard_contract.py`
@@ -298,7 +298,7 @@ flowchart LR
 ### S3b
 
 - 主目标：收益归因验证闭环（A/B/C + 实盘-回测偏差三分解）。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S3B-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S3B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：
   - `eq analysis --start {start} --end {end} --ab-benchmark`
@@ -365,7 +365,7 @@ flowchart LR
 ### S4b
 
 - 主目标：极端防御专项闭环（连续跌停、流动性枯竭）。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S4B-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S4B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_quality_gate_contract.py -q`
 - `target command`：
   - `eq stress --scenario limit_down_chain --date {trade_date}`
@@ -383,7 +383,7 @@ flowchart LR
 
 - 触发：S4b `gate = FAIL`
 - 主目标：只修不扩，恢复极端防御门禁通过。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S4BR-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S4BR-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/trading -q`
 - `target command`：`eq stress --scenario all --date {trade_date} --repair s4br`
 - `target test`（本圈必须补齐并执行）：`tests/unit/trading/test_stress_limit_down_chain.py tests/unit/trading/test_stress_liquidity_dryup.py`

@@ -15,7 +15,7 @@
 
 ## A2 Architect
 
-- 关联执行卡: `Governance/SpiralRoadmap/planA/execution-cards/S3D-EXECUTION-CARD.md`
+- 关联执行卡: `Governance/SpiralRoadmap/execution-cards/S3D-EXECUTION-CARD.md`
 - 目标测试:
   - `tests/unit/algorithms/mss/test_mss_adaptive_threshold_contract.py`（已新增并通过）
   - `tests/unit/algorithms/mss/test_mss_probe_return_series_contract.py`（已新增并通过）

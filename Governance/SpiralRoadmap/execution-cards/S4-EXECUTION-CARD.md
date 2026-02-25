@@ -1,8 +1,8 @@
-# S4 执行卡（v0.2）
+# S4 执行卡（v0.3）
 
 **状态**: Implemented（工程完成，业务待重验）  
 **重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
-**更新时间**: 2026-02-18  
+**更新时间**: 2026-02-25  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S4（纸上交易闭环）
 
@@ -32,6 +32,12 @@ pytest tests/unit/trading/test_position_lifecycle_contract.py -q
 pytest tests/unit/trading/test_risk_guard_contract.py -q
 ```
 
+**RejectReason 核心路径覆盖**（对齐 `trading-data-models.md` §6.5）：
+至少覆盖 `REJECT_LIMIT_UP`、`REJECT_T1_FROZEN`、`REJECT_MAX_POSITION`、`REJECT_NO_CASH` 四条核心拒单路径，每条至少 1 个测试用例命中。
+
+**TradingState 全覆盖**：
+`normal/warn_data_fallback/blocked_gate_fail/blocked_untradable` 四种状态至少各出现 1 次。
+
 ---
 
 ## 4. artifact
@@ -41,7 +47,7 @@ pytest tests/unit/trading/test_risk_guard_contract.py -q
 - `artifacts/spiral-s4/{trade_date}/risk_events_sample.parquet`
 - `artifacts/spiral-s4/{trade_date}/paper_trade_replay.md`
 - `artifacts/spiral-s4/{trade_date}/consumption.md`
-- `artifacts/spiral-s4/{trade_date}/gate_report.md`
+- `artifacts/spiral-s4/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `trade_records/positions/t1_frozen` 与 `trading-data-models.md` 一致性）
 
 ---
 
@@ -52,6 +58,9 @@ pytest tests/unit/trading/test_risk_guard_contract.py -q
   - 订单到持仓变更链路是否可完整回放
   - 跌停不可卖、次日重试等关键边界是否可验证
   - S3 输入消费证据是否完整且可审计
+  - RejectReason 4 核心拒单路径是否全覆盖
+  - TradingState 4 值是否全覆盖
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

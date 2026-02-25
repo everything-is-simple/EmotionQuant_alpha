@@ -167,7 +167,7 @@ flowchart LR
 
 ### S5
 
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S5-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S5-EXECUTION-CARD.md`
 - 主目标：GUI 可启动、只读展示、日报可导出。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_integration_contract.py -q`
 - `target command`：
@@ -188,7 +188,7 @@ flowchart LR
 
 ### S5r（条件触发）
 
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S5R-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S5R-EXECUTION-CARD.md`
 - 触发：S5 `gate = FAIL`
 - 主目标：修复展示闭环阻断项并重验。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/gui tests/unit/analysis -q`
@@ -202,7 +202,7 @@ flowchart LR
 
 ### S6
 
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S6-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S6-EXECUTION-CARD.md`
 - 主目标：全链路重跑一致性通过，并完成阶段债务清偿记录。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration -q`
 - `target command`：`eq run-all --start {start} --end {end}`
@@ -217,7 +217,7 @@ flowchart LR
 
 ### S6r（条件触发）
 
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S6R-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S6R-EXECUTION-CARD.md`
 - 触发：S6 `gate = FAIL`
 - 主目标：只修不扩，恢复稳定化门禁通过。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration tests/unit/scripts -q`
@@ -231,7 +231,7 @@ flowchart LR
 
 ### S7a
 
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S7A-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S7A-EXECUTION-CARD.md`
 - 主目标：每日自动调度可安装、可观测、可去重。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：
@@ -250,7 +250,7 @@ flowchart LR
 
 ### S7ar（条件触发）
 
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S7AR-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S7AR-EXECUTION-CARD.md`
 - 触发：S7a `gate = FAIL`
 - 主目标：修复调度阻断项并重验。
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/pipeline -q`

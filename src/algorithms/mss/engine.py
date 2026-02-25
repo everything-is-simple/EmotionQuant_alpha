@@ -7,12 +7,12 @@ from typing import Mapping, Sequence
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§3 因子公式, §4 温度公式, §5 周期状态机)
-# - Governance/SpiralRoadmap/planA/execution-cards/S1A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
-# - Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md (§3 MSS)
+# - Governance/SpiralRoadmap/execution-cards/S1A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+# - Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md (§3 MSS)
 DESIGN_TRACE = {
     "mss_algorithm": "docs/design/core-algorithms/mss/mss-algorithm.md",
-    "s1a_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S1A-EXECUTION-CARD.md",
-    "s2c_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md",
+    "s1a_execution_card": "Governance/SpiralRoadmap/execution-cards/S1A-EXECUTION-CARD.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md",
 }
 
 VALID_TRENDS = {"up", "down", "sideways"}

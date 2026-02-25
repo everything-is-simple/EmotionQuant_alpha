@@ -32,7 +32,7 @@ REQUIRED_TRACE_MARKERS: dict[str, list[str]] = {
     ],
     "src/algorithms/mss/probe.py": [
         "DESIGN_TRACE",
-        "Governance/SpiralRoadmap/planA/execution-cards/S1B-EXECUTION-CARD.md",
+        "Governance/SpiralRoadmap/execution-cards/S1B-EXECUTION-CARD.md",
     ],
     "src/algorithms/validation/pipeline.py": [
         "DESIGN_TRACE",
@@ -44,7 +44,7 @@ REQUIRED_TRACE_MARKERS: dict[str, list[str]] = {
     ],
     "src/pipeline/recommend.py": [
         "DESIGN_TRACE",
-        "Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md",
+        "Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md",
     ],
     "src/pipeline/main.py": [
         "DESIGN_TRACE",

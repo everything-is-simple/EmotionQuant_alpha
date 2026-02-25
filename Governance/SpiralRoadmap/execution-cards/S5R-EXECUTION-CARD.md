@@ -36,7 +36,7 @@ pytest tests/unit/analysis/test_daily_report_export_contract.py -q
 
 - `artifacts/spiral-s5r/{trade_date}/s5r_patch_note.md`
 - `artifacts/spiral-s5r/{trade_date}/s5r_delta_report.md`
-- `artifacts/spiral-s5r/{trade_date}/gate_report.md`
+- `artifacts/spiral-s5r/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 - `artifacts/spiral-s5r/{trade_date}/consumption.md`
 
 ---

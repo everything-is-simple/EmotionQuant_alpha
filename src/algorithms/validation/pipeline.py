@@ -13,13 +13,13 @@ from src.config.config import Config
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md (§3 阈值, §4 输出与表结构, §5 Gate 语义)
 # - docs/design/core-algorithms/validation/factor-weight-validation-data-models.md (§3 ValidationConfig, §4 输出模型)
-# - Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md (§3 Validation, §6 artifact)
-# - Governance/SpiralRoadmap/planA/execution-cards/S3E-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+# - Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md (§3 Validation, §6 artifact)
+# - Governance/SpiralRoadmap/execution-cards/S3E-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 DESIGN_TRACE = {
     "validation_algorithm": "docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md",
     "validation_data_models": "docs/design/core-algorithms/validation/factor-weight-validation-data-models.md",
-    "s2c_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md",
-    "s3e_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3E-EXECUTION-CARD.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md",
+    "s3e_execution_card": "Governance/SpiralRoadmap/execution-cards/S3E-EXECUTION-CARD.md",
 }
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"

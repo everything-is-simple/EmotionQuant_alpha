@@ -40,7 +40,7 @@ pytest tests/unit/pipeline/test_scheduler_run_history_contract.py -q
 - `artifacts/spiral-s7a/{trade_date}/scheduler_status.json`
 - `artifacts/spiral-s7a/{trade_date}/scheduler_run_history.md`
 - `artifacts/spiral-s7a/{trade_date}/scheduler_bootstrap_checklist.md`
-- `artifacts/spiral-s7a/{trade_date}/gate_report.md`
+- `artifacts/spiral-s7a/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 - `artifacts/spiral-s7a/{trade_date}/consumption.md`
 
 ---

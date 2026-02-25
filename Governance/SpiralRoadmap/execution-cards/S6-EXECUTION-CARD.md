@@ -38,7 +38,7 @@ pytest tests/unit/scripts/test_design_freeze_guard.py -q
 - `artifacts/spiral-s6/{trade_date}/consistency_replay_report.md`
 - `artifacts/spiral-s6/{trade_date}/run_all_diff_report.md`
 - `artifacts/spiral-s6/{trade_date}/debt_settlement_log.md`
-- `artifacts/spiral-s6/{trade_date}/gate_report.md`
+- `artifacts/spiral-s6/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 - `artifacts/spiral-s6/{trade_date}/consumption.md`
 
 ---

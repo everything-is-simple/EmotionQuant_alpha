@@ -40,7 +40,7 @@ pytest tests/unit/algorithms/irs/test_irs_sw31_coverage_contract.py -q
 - `artifacts/spiral-s3c/{trade_date}/irs_allocation_coverage_report.md`
 - `artifacts/spiral-s3c/{trade_date}/sw_mapping_audit.md`
 - `artifacts/spiral-s3c/{trade_date}/consumption.md`
-- `artifacts/spiral-s3c/{trade_date}/gate_report.md`
+- `artifacts/spiral-s3c/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 
 ---
 

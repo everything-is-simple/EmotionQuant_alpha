@@ -1,8 +1,8 @@
-# S3b 执行卡（v0.3）
+# S3b 执行卡（v0.4）
 
 **状态**: Implemented（工程完成，业务待重验）  
 **重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
-**更新时间**: 2026-02-21  
+**更新时间**: 2026-02-25  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3b（收益归因验证闭环）
 
@@ -50,7 +50,7 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
 - `artifacts/spiral-s3b/{trade_date}/live_backtest_deviation_report.md`
 - `artifacts/spiral-s3b/{trade_date}/attribution_summary.json`
 - `artifacts/spiral-s3b/{trade_date}/consumption.md`
-- `artifacts/spiral-s3b/{trade_date}/gate_report.md`
+- `artifacts/spiral-s3b/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `ab_benchmark_report/attribution_summary` 与 `analysis-data-models.md` 一致性）
 
 ---
 
@@ -61,6 +61,8 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
   - A/B/C 对照是否齐备并可复核
   - 三分解是否完整且口径一致
   - 收益来源结论是否可用于 S4b 参数校准
+  - `dominant_component≠'none'` 比例是否 >=50%（归因质量底线）
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

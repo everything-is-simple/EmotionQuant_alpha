@@ -17,7 +17,7 @@
 
 ## A2 Architect
 
-- 关联执行卡: `Governance/SpiralRoadmap/planA/execution-cards/S4B-EXECUTION-CARD.md`
+- 关联执行卡: `Governance/SpiralRoadmap/execution-cards/S4B-EXECUTION-CARD.md`
 - 依赖输入:
   - `trade_records` / `positions`（S4 纸上交易）
   - `live_backtest_deviation`（S3b 偏差分解输入）

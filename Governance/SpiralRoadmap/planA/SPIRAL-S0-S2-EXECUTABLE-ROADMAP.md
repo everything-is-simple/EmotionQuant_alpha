@@ -164,7 +164,7 @@ $env:PYTEST_ADDOPTS="--basetemp ./.tmp/pytest"
 ### 4.1 S1 阶段任务边界（新增）
 
 - S1 阶段完整任务仅包含两圈：`S1a`（MSS 评分产出）+ `S1b`（MSS 消费验证）。
-- `Governance/SpiralRoadmap/planA/execution-cards/S1A-EXECUTION-CARD.md` 与 `Governance/SpiralRoadmap/planA/execution-cards/S1B-EXECUTION-CARD.md` 是 S1 阶段的完整执行卡，不包含 S0 任务。
+- `Governance/SpiralRoadmap/execution-cards/S1A-EXECUTION-CARD.md` 与 `Governance/SpiralRoadmap/execution-cards/S1B-EXECUTION-CARD.md` 是 S1 阶段的完整执行卡，不包含 S0 任务。
 - S1 的责任边界是“可消费的 MSS 产出与消费证据”，不是实盘交易闭环；实盘责任由 S2+（Integration/Backtest/Trading）承担。
 
 ### 4.2 ENH 显式映射（新增）
@@ -210,7 +210,7 @@ flowchart LR
 ### S0a
 
 - 主目标：统一入口与配置注入可运行。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S0A-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S0A-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_config_defaults.py tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：
   - `python -m src.pipeline.main --help`（临时入口）
@@ -226,7 +226,7 @@ flowchart LR
 ### S0b
 
 - 主目标：L1 原始数据采集、入库与就绪门禁闭环。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S0B-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S0B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_model_contract_alignment.py -q`
 - `target command`：`eq run --date {trade_date} --source tushare --l1-only`
 - `target test`（本圈必须补齐并执行）：`tests/unit/data/test_fetcher_contract.py tests/unit/data/test_l1_repository_contract.py tests/unit/data/test_data_readiness_persistence_contract.py`
@@ -241,7 +241,7 @@ flowchart LR
 ### S0c
 
 - 主目标：L2 快照、SW31 语义与错误分级闭环。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S0C-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S0C-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_snapshots.py -q`
 - `target command`：`eq run --date {trade_date} --source tushare --to-l2 --strict-sw31`
 - `target test`（本圈必须补齐并执行）：`tests/unit/data/test_snapshot_contract.py tests/unit/data/test_s0_canary.py tests/unit/data/test_industry_snapshot_sw31_contract.py tests/unit/data/test_data_readiness_persistence_contract.py tests/unit/data/test_flat_threshold_config_contract.py`
@@ -258,7 +258,7 @@ flowchart LR
 ### S1a
 
 - 主目标：MSS 最小评分可跑。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S1A-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S1A-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/data/models/test_snapshots.py -q`
 - `target command`：`eq mss --date {trade_date}`
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/mss/test_mss_contract.py tests/unit/algorithms/mss/test_mss_engine.py`
@@ -271,7 +271,7 @@ flowchart LR
 ### S1b
 
 - 主目标：MSS 消费验证闭环（非只算分）。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S1B-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S1B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_config_defaults.py -q`
 - `target command`：`eq mss-probe --start {start} --end {end}`
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/mss/test_mss_probe_contract.py tests/unit/integration/test_mss_integration_contract.py`
@@ -284,7 +284,7 @@ flowchart LR
 ### S2a
 
 - 主目标：IRS + PAS + Validation 最小闭环。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S2A-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S2A-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_dependency_manifest.py -q`
 - `target command`：`eq recommend --date {trade_date} --mode mss_irs_pas --with-validation`
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/irs/test_irs_contract.py tests/unit/algorithms/pas/test_pas_contract.py tests/unit/integration/test_validation_gate_contract.py`
@@ -300,7 +300,7 @@ flowchart LR
 ### S2b
 
 - 主目标：MSS+IRS+PAS 集成推荐闭环。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S2B-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S2B-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_env_docs_alignment.py -q`
 - `target command`：
   - `eq recommend --date {trade_date} --mode integrated --integration-mode top_down`
@@ -323,7 +323,7 @@ flowchart LR
 ### S2c
 
 - 主目标：核心算法深化闭环，完成 `validation_weight_plan` 桥接并收口算法语义。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/integration/test_validation_gate_contract.py tests/unit/integration/test_integration_contract.py -q`
 - `target command`：`eq recommend --date {trade_date} --mode integrated --with-validation-bridge`
 - `target test`（本圈必须补齐并执行）：`tests/unit/algorithms/validation/test_weight_plan_bridge_contract.py tests/unit/integration/test_validation_weight_plan_bridge.py tests/unit/integration/test_algorithm_semantics_regression.py`
@@ -342,7 +342,7 @@ flowchart LR
 
 - 触发：S2b 或 S2c `gate = FAIL`
 - 主目标：只修不扩，恢复可通过质量门。
-- 执行卡：`Governance/SpiralRoadmap/planA/execution-cards/S2R-EXECUTION-CARD.md`
+- 执行卡：`Governance/SpiralRoadmap/execution-cards/S2R-EXECUTION-CARD.md`
 - `baseline test`：`.\.venv\Scripts\pytest.exe tests/unit/config/test_dependency_manifest.py -q`
 - `target command`：`eq recommend --date {trade_date} --mode integrated --repair s2r`
 - `target test`（本圈必须补齐并执行）：`tests/unit/integration/test_validation_gate_contract.py tests/unit/integration/test_quality_gate_contract.py`
@@ -424,7 +424,7 @@ flowchart LR
 | v1.0 | 2026-02-17 | 增补“ENH 显式映射”与 mermaid 追踪图，明确 S0-S2c 阶段 ENH-01/02/03/04/05/08 的落位与可追溯关系 |
 | v0.9 | 2026-02-16 | 新增 S2c（S2b->S3a）核心算法深化圈；把 `validation_weight_plan` 桥接升级为 S2 出口硬门禁；同步阶段A推进规则 |
 | v0.8 | 2026-02-15 | 执行卡体系补齐：新增 S0b/S0c/S1a/S1b/S2a/S2b/S2r 一页执行卡并在各圈合同挂接引用 |
-| v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`Governance/SpiralRoadmap/planA/execution-cards/S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |
+| v0.7 | 2026-02-15 | S0a 执行合同补充一页执行卡引用（`Governance/SpiralRoadmap/execution-cards/S0A-EXECUTION-CARD.md`），用于当天 run/test/artifact/review/sync 快速收口 |
 | v0.6 | 2026-02-15 | SoT 优先级补充阶段模板文档引用（`SPIRAL-STAGE-TEMPLATES.md`），明确阶段门禁与微圈合同联动 |
 | v0.5 | 2026-02-15 | 新增“防跑偏硬门禁”小节：将行为回归与治理一致性测试设为每圈收口强制条件，失败时只允许进入修复子圈 |
 | v0.4 | 2026-02-14 | 基线快照升级到“契约门禁已落地”口径：补充 contracts/governance 本地检查与 CI 门禁；S2a/S2b 门禁补充 `contract_version=nc-v1` 与 RR 执行边界；推进规则新增 contracts 阻断条件 |

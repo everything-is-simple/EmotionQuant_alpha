@@ -19,7 +19,7 @@
 ## 2. A2 Architect
 
 - CP Slice: `CP-07 + CP-09`（修复子圈，1 Slice）
-- 关联执行卡: `Governance/SpiralRoadmap/planA/execution-cards/S4R-EXECUTION-CARD.md`
+- 关联执行卡: `Governance/SpiralRoadmap/execution-cards/S4R-EXECUTION-CARD.md`
 - 跨模块契约:
   - 输入:
     - `backtest_results`

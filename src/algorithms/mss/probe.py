@@ -16,12 +16,12 @@ from src.integration.mss_consumer import load_mss_panorama_for_integration
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§5 周期与消费语义)
 # - docs/design/core-algorithms/integration/integration-algorithm.md (§2 输入规范, §4 方向一致性)
 # - Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md (§5 S1b)
-# - Governance/SpiralRoadmap/planA/execution-cards/S1B-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+# - Governance/SpiralRoadmap/execution-cards/S1B-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 DESIGN_TRACE = {
     "mss_algorithm": "docs/design/core-algorithms/mss/mss-algorithm.md",
     "integration_algorithm": "docs/design/core-algorithms/integration/integration-algorithm.md",
     "s0_s2_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S0-S2-EXECUTABLE-ROADMAP.md",
-    "s1b_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S1B-EXECUTION-CARD.md",
+    "s1b_execution_card": "Governance/SpiralRoadmap/execution-cards/S1B-EXECUTION-CARD.md",
 }
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"

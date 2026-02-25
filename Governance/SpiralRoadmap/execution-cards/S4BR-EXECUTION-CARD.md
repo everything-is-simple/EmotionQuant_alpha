@@ -37,7 +37,7 @@ pytest tests/unit/trading/test_stress_liquidity_dryup.py -q
 
 - `artifacts/spiral-s4br/{trade_date}/s4br_patch_note.md`
 - `artifacts/spiral-s4br/{trade_date}/s4br_delta_report.md`
-- `artifacts/spiral-s4br/{trade_date}/gate_report.md`
+- `artifacts/spiral-s4br/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 - `artifacts/spiral-s4br/{trade_date}/consumption.md`
 
 ---

@@ -23,10 +23,10 @@ from src.data.l1_pipeline import run_l1_collection
 
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3a)
-# - Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
+# - Governance/SpiralRoadmap/execution-cards/S3A-EXECUTION-CARD.md (§2 run, §3 test, §4 artifact)
 DESIGN_TRACE = {
     "s3a_s4b_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
-    "s3a_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md",
+    "s3a_execution_card": "Governance/SpiralRoadmap/execution-cards/S3A-EXECUTION-CARD.md",
 }
 
 

@@ -36,7 +36,7 @@ pytest tests/unit/scripts/test_design_freeze_guard.py -q
 
 - `artifacts/spiral-s6r/{trade_date}/s6r_patch_note.md`
 - `artifacts/spiral-s6r/{trade_date}/s6r_delta_report.md`
-- `artifacts/spiral-s6r/{trade_date}/gate_report.md`
+- `artifacts/spiral-s6r/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 - `artifacts/spiral-s6r/{trade_date}/consumption.md`
 
 ---

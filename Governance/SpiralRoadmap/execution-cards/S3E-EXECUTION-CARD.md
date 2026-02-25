@@ -1,8 +1,8 @@
-# S3e 执行卡（v0.2）
+# S3e 执行卡（v0.3）
 
 **状态**: Implemented（工程完成，业务待重验）  
 **重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
-**更新时间**: 2026-02-21  
+**更新时间**: 2026-02-25  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3e（Validation 生产校准闭环）
 
@@ -49,7 +49,8 @@ pytest tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py 
 - `artifacts/spiral-s3e/{trade_date}/validation_run_manifest_sample.json`
 - `artifacts/spiral-s3e/{trade_date}/validation_oos_calibration_report.md`
 - `artifacts/spiral-s3e/{trade_date}/consumption.md`
-- `artifacts/spiral-s3e/{trade_date}/gate_report.md`
+- `artifacts/spiral-s3e/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `validation_gate_decision/validation_weight_plan` 与 `validation-data-models.md` 一致性）
+- `artifacts/spiral-s3e/{trade_date}/neutral_regime_audit_report.md`（条件产出：连续 ≥2 窗口 FAIL 且 neutral_regime 软化通过时必须产出）
 
 ---
 
@@ -60,6 +61,8 @@ pytest tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py 
   - future_returns 对齐与防未来函数约束是否成立
   - 双窗口投票与 OOS/成本/可成交性指标是否齐备
   - `selected_weight_plan` 是否可追溯到投票证据
+  - `factor_gate_raw` 健康度是否检查（FAIL 比例是否在可接受范围内）
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 
@@ -77,6 +80,10 @@ pytest tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py 
 
 - 若 Validation 生产口径门禁未通过：状态置 `blocked`，留在 S3e 修复，不推进 S4b。
 - 若定位到 MSS 口径不一致：回退 S3d 修复后重验。
+- **factor_gate_raw=FAIL 升级策略**（3 路径）：
+  1. 扩窗后 FAIL 比例仍 >50%：必须回到 S3d 重检 MSS adaptive 参数，不得直接进入 S4b。
+  2. 连续 ≥2 窗口 FAIL 但 neutral_regime 软化通过：必须产出 `neutral_regime_audit_report.md`，说明软化合理性。
+  3. FULL 口径要求 factor_gate_raw 不得 FAIL 但当前全 FAIL：S3e 锁定为 `WARN_PENDING_RESOLUTION`，螺旋2 不得宣称生产就绪。
 
 ---
 

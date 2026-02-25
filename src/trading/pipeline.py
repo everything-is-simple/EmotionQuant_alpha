@@ -13,11 +13,11 @@ from src.config.config import Config
 
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S4)
-# - Governance/SpiralRoadmap/planA/execution-cards/S4R-EXECUTION-CARD.md (§2 run, §4 artifact)
+# - Governance/SpiralRoadmap/execution-cards/S4R-EXECUTION-CARD.md (§2 run, §4 artifact)
 # - docs/design/core-infrastructure/trading/trading-algorithm.md (§2 信号生成, §3 风控, §5 执行)
 DESIGN_TRACE = {
     "s3a_s4b_roadmap": "Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md",
-    "s4r_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S4R-EXECUTION-CARD.md",
+    "s4r_execution_card": "Governance/SpiralRoadmap/execution-cards/S4R-EXECUTION-CARD.md",
     "trading_algorithm_design": "docs/design/core-infrastructure/trading/trading-algorithm.md",
 }
 

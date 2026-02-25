@@ -13,11 +13,11 @@ from src.config.config import Config
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/irs/irs-algorithm.md (3 六因子, 5 轮动状态, 6 配置建议)
 # - docs/design/core-algorithms/irs/irs-data-models.md (3 输出模型, 4 中间表)
-# - Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md (3 IRS, 6 artifact)
+# - Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md (3 IRS, 6 artifact)
 DESIGN_TRACE = {
     "irs_algorithm": "docs/design/core-algorithms/irs/irs-algorithm.md",
     "irs_data_models": "docs/design/core-algorithms/irs/irs-data-models.md",
-    "s2c_execution_card": "Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md",
+    "s2c_execution_card": "Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md",
 }
 
 SUPPORTED_CONTRACT_VERSION = "nc-v1"

@@ -1,8 +1,8 @@
-# S3 执行卡（v0.3）
+# S3 执行卡（v0.4）
 
 **状态**: Implemented（工程完成，业务待重验）  
 **重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
-**更新时间**: 2026-02-21  
+**更新时间**: 2026-02-25  
 **阶段**: 阶段B（S3a-S4b）  
 **微圈**: S3（回测闭环）
 
@@ -42,6 +42,9 @@ pytest tests/unit/backtest/test_backtest_reproducibility.py -q
 pytest tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py -q
 ```
 
+**backtest-test-cases 核心覆盖**（对齐 `docs/design/core-infrastructure/backtest/backtest-test-cases.md`）：
+至少覆盖 §1（T+1 规则 3 条）、§2（涨跌停 4 条）、§4（费用模型 4 条）、§9（集成模式覆盖 3 条）、§10（质量门禁 5 条）共 19 条核心用例，未覆盖用例登记到 `Governance/record/debts.md`。
+
 ---
 
 ## 4. artifact
@@ -50,7 +53,7 @@ pytest tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py -q
 - `artifacts/spiral-s3/{trade_date}/backtest_trade_records.parquet`
 - `artifacts/spiral-s3/{trade_date}/ab_metric_summary.md`
 - `artifacts/spiral-s3/{trade_date}/consumption.md`
-- `artifacts/spiral-s3/{trade_date}/gate_report.md`
+- `artifacts/spiral-s3/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `backtest_results/backtest_trade_records` 与 `backtest-data-models.md` 一致性）
 
 ---
 
@@ -61,6 +64,8 @@ pytest tests/unit/backtest/test_backtest_core_algorithm_coverage_gate.py -q
   - `validation_weight_plan` 桥接链路是否可追溯
   - A/B/C 对照是否形成稳定基线结论
   - 回测结果是否可稳定复现（同窗口重复执行差异在可接受范围内）
+  - backtest-test-cases 19 条核心用例是否覆盖（未覆盖须登记债务）
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

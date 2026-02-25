@@ -68,19 +68,19 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v2.7 | 2026-02-23 | 清理兼容入口：删除 `PLAN-A-ENHANCEMENT.md`，统一保留 `planA/planA-ENHANCEMENT.md` |
-| v2.6 | 2026-02-23 | 执行卡物理迁移：全部 `*-EXECUTION-CARD.md` 迁入 `planA/execution-cards/`，新增 `planA/EXECUTION-CARDS-INDEX.md` 并完成全仓引用改写 |
+| v2.6 | 2026-02-23 | 执行卡物理迁移：全部 `*-EXECUTION-CARD.md` 迁入 `execution-cards/`，新增 `planA/EXECUTION-CARDS-INDEX.md` 并完成全仓引用改写 |
 | v2.5 | 2026-02-23 | PlanA 完全物理迁移：`SPIRAL-S0-S2/S3A-S4B/S5-S7A`、`VORTEX`、`DEPENDENCY`、`SPIRAL-PRODUCTION-ROUTES` 迁入 `planA/`，并完成全仓引用改写 |
 | v2.4 | 2026-02-23 | 新增 PlanA/PlanB 集中入口：`planA/planA-OVERVIEW.md`；`PLAN-A-ENHANCEMENT.md` 转为兼容跳转入口 |
 | v2.3 | 2026-02-20 | 按 6A 工作流补齐阶段C执行卡索引：新增 `S5/S5R/S6/S6R/S7A/S7AR-EXECUTION-CARD.md` |
 | v2.2 | 2026-02-20 | 阶段B执行卡索引新增 `S3C/S3D/S3E-EXECUTION-CARD.md`，与主控路线新增的核心实现深度圈保持一致 |
 | v2.1 | 2026-02-19 | 新增 `S3AR-S3B-EXECUTABLE-TASKLIST.md` 入口，用于 S3ar/S3b 四列表执行拆解（文件/命令/测试/产物） |
 | v2.0 | 2026-02-18 | 按 6A 工作流补齐阶段B全子圈执行卡索引：新增 `S3/S3R/S4/S4R/S3B/S4B/S4BR-EXECUTION-CARD.md` |
-| v1.9 | 2026-02-16 | 同步 S2c 算法深化圈：S0-S2 口径升级为 S0-S2c，并纳入 `Governance/SpiralRoadmap/planA/execution-cards/S2C-EXECUTION-CARD.md` 索引 |
+| v1.9 | 2026-02-16 | 同步 S2c 算法深化圈：S0-S2 口径升级为 S0-S2c，并纳入 `Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md` 索引 |
 | v1.8 | 2026-02-16 | 新增 `Governance/SpiralRoadmap/planA/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md` 入口，补齐阶段C（S5-S7a）可执行合同索引 |
 | v1.7 | 2026-02-16 | 新增 `Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md` 入口，补齐阶段B（S3a-S4b）可执行合同索引 |
-| v1.6 | 2026-02-16 | 新增 `Governance/SpiralRoadmap/planA/execution-cards/S3A-EXECUTION-CARD.md` 入口，并将下一阶段执行卡扩展到 S3a（ENH-10） |
+| v1.6 | 2026-02-16 | 新增 `Governance/SpiralRoadmap/execution-cards/S3A-EXECUTION-CARD.md` 入口，并将下一阶段执行卡扩展到 S3a（ENH-10） |
 | v1.5 | 2026-02-15 | 扩展执行卡索引：从单张 `S0A` 补齐到 `S0A~S2R` 全微圈执行卡 |
-| v1.4 | 2026-02-15 | 新增 `Governance/SpiralRoadmap/planA/execution-cards/S0A-EXECUTION-CARD.md` 入口，作为 S0a 微圈一页执行卡 |
+| v1.4 | 2026-02-15 | 新增 `Governance/SpiralRoadmap/execution-cards/S0A-EXECUTION-CARD.md` 入口，作为 S0a 微圈一页执行卡 |
 | v1.3 | 2026-02-15 | 新增 `SPIRAL-STAGE-TEMPLATES.md` 入口，统一阶段级执行模板引用 |
 | v1.2 | 2026-02-15 | 目录说明同步新增 S3b/S4b 专项圈位口径（收益归因与极端防御） |
 | v1.1 | 2026-02-14 | 增加目录元信息；执行环境改为环境变量口径；新增统一门禁入口（local quality + CI） |

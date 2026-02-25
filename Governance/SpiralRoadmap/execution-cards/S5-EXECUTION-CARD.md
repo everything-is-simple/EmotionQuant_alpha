@@ -1,7 +1,7 @@
-# S5 执行卡（v0.2）
+# S5 执行卡（v0.3）
 
 **状态**: Active  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-25  
 **阶段**: 阶段C（S5-S7a）  
 **微圈**: S5（展示闭环）
 
@@ -35,7 +35,14 @@ eq gui --date {trade_date} --export daily-report
 pytest tests/unit/gui/test_gui_launch_contract.py -q
 pytest tests/unit/gui/test_gui_readonly_contract.py -q
 pytest tests/unit/analysis/test_daily_report_export_contract.py -q
+pytest tests/unit/gui/test_freshness_meta_contract.py -q
+pytest tests/unit/gui/test_filter_config_contract.py -q
+pytest tests/unit/gui/test_pnl_color_contract.py -q
 ```
+
+**FreshnessMeta 验证**（对齐 `gui-data-models.md` v3.2.0）：`DashboardData.freshness` 徽标可渲染，`FreshnessLevel`（`fresh/stale_soon/stale`）三态可触发。
+**FilterConfig 来源追溯**：`FilterConfig.source` 可审计（`env_default/user_override/session_override`），Dashboard 显示 `active_filter_badges`。
+**A 股红涨绿跌**：`pnl_color` 验证 >0 红 / <0 绿 / =0 灰，与 `gui-data-models.md` §5.2 一致。
 
 ---
 
@@ -44,7 +51,7 @@ pytest tests/unit/analysis/test_daily_report_export_contract.py -q
 - `artifacts/spiral-s5/{trade_date}/gui_snapshot.png`
 - `artifacts/spiral-s5/{trade_date}/daily_report_sample.md`
 - `artifacts/spiral-s5/{trade_date}/gui_export_manifest.json`
-- `artifacts/spiral-s5/{trade_date}/gate_report.md`
+- `artifacts/spiral-s5/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 GUI 核心 dataclass 与 `gui-data-models.md` 一致性）
 - `artifacts/spiral-s5/{trade_date}/consumption.md`
 
 ---
@@ -56,6 +63,10 @@ pytest tests/unit/analysis/test_daily_report_export_contract.py -q
   - GUI 启动与只读约束是否稳定成立
   - `daily_report` 导出链路是否完整可追溯
   - 展示参数是否与 S4b 防御基线一致且无手工覆盖
+  - FreshnessMeta 三态是否可触发
+  - FilterConfig 来源追溯是否可审计
+  - pnl_color 红涨绿跌是否与 gui-data-models §5.2 一致
+  - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
 

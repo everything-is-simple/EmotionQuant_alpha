@@ -41,7 +41,7 @@ pytest tests/unit/trading/test_deleveraging_policy_contract.py -q
 - `artifacts/spiral-s4b/{trade_date}/deleveraging_policy_snapshot.json`
 - `artifacts/spiral-s4b/{trade_date}/stress_trade_replay.csv`
 - `artifacts/spiral-s4b/{trade_date}/consumption.md`
-- `artifacts/spiral-s4b/{trade_date}/gate_report.md`
+- `artifacts/spiral-s4b/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 
 ---
 

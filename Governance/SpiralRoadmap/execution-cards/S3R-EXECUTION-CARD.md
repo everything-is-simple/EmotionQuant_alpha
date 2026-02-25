@@ -41,7 +41,7 @@ pytest tests/unit/backtest/test_backtest_reproducibility.py -q
 
 - `artifacts/spiral-s3r/{trade_date}/s3r_patch_note.md`
 - `artifacts/spiral-s3r/{trade_date}/s3r_delta_report.md`
-- `artifacts/spiral-s3r/{trade_date}/gate_report.md`
+- `artifacts/spiral-s3r/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 - `artifacts/spiral-s3r/{trade_date}/consumption.md`
 
 ---

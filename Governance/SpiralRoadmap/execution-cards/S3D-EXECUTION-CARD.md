@@ -46,7 +46,7 @@ pytest tests/unit/algorithms/mss/test_mss_probe_return_series_contract.py -q
 - `artifacts/spiral-s3d/{trade_date}/mss_probe_return_series_report.md`
 - `artifacts/spiral-s3d/{trade_date}/mss_adaptive_regression.md`
 - `artifacts/spiral-s3d/{trade_date}/consumption.md`
-- `artifacts/spiral-s3d/{trade_date}/gate_report.md`
+- `artifacts/spiral-s3d/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields）
 
 ---
 
