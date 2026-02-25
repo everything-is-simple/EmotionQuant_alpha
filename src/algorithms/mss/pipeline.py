@@ -10,11 +10,15 @@ import pandas as pd
 
 from src.algorithms.mss.engine import (
     MssInputSnapshot,
-    MssScoreResult,
+    MssPanorama,
     calculate_mss_score,
     resolve_cycle_thresholds,
 )
+
+# 向后兼容别名
+MssScoreResult = MssPanorama
 from src.config.config import Config
+from src.db.helpers import column_exists as _column_exists, table_exists as _table_exists
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§3, §4, §5)
@@ -54,24 +58,6 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     )
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
-
-
-def _column_exists(
-    connection: duckdb.DuckDBPyConnection,
-    table_name: str,
-    column_name: str,
-) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
-        [table_name, column_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _duckdb_type_from_series(series: pd.Series) -> str:

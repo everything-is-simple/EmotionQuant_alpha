@@ -10,6 +10,7 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+from src.db.helpers import table_exists as _table_exists
 from src.integration.mss_consumer import load_mss_panorama_for_integration
 
 # DESIGN_TRACE:
@@ -86,12 +87,6 @@ def _compute_top_bottom_spread_5d(frame: pd.DataFrame) -> tuple[float, str, int,
     return spread, conclusion, len(valid), len(top_bucket), len(bottom_bucket)
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _load_future_returns_5d(

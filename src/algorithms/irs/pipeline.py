@@ -10,6 +10,14 @@ import pandas as pd
 
 from src.config.config import Config
 from src.config.exceptions import DataNotReadyError
+from src.db.helpers import (
+    column_exists as _column_exists,
+    duckdb_type as _duckdb_type,
+    ensure_columns as _ensure_columns,
+    persist_by_trade_date as _persist,
+    table_exists as _table_exists,
+)
+from src.models.enums import RecommendationGrade, RotationDetail, RotationStatus
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/irs/irs-algorithm.md (3 六因子, 5 轮动状态, 6 配置建议)
@@ -51,73 +59,6 @@ class IrsRunResult:
     coverage_report_path: Path
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
-
-
-def _duckdb_type(series: pd.Series) -> str:
-    if pd.api.types.is_bool_dtype(series):
-        return "BOOLEAN"
-    if pd.api.types.is_integer_dtype(series):
-        return "BIGINT"
-    if pd.api.types.is_float_dtype(series):
-        return "DOUBLE"
-    if pd.api.types.is_datetime64_any_dtype(series):
-        return "TIMESTAMP"
-    return "VARCHAR"
-
-
-def _ensure_columns(
-    connection: duckdb.DuckDBPyConnection,
-    table_name: str,
-    frame: pd.DataFrame,
-) -> list[str]:
-    if not _table_exists(connection, table_name):
-        connection.register("schema_df", frame)
-        connection.execute(
-            f"CREATE TABLE {table_name} AS SELECT * FROM schema_df WHERE 1=0"
-        )
-        connection.unregister("schema_df")
-    else:
-        existing = {
-            str(row[1])
-            for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
-        }
-        for column in frame.columns:
-            if column in existing:
-                continue
-            connection.execute(
-                f"ALTER TABLE {table_name} ADD COLUMN {column} {_duckdb_type(frame[column])}"
-            )
-
-    return [
-        str(row[1]) for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
-    ]
-
-
-def _persist(
-    *,
-    database_path: Path,
-    table_name: str,
-    frame: pd.DataFrame,
-    trade_date: str,
-) -> int:
-    with duckdb.connect(str(database_path)) as connection:
-        table_columns = _ensure_columns(connection, table_name, frame)
-        aligned = frame.copy()
-        for column in table_columns:
-            if column not in aligned.columns:
-                aligned[column] = pd.NA
-        aligned = aligned[table_columns]
-        connection.register("incoming_df", aligned)
-        connection.execute(f"DELETE FROM {table_name} WHERE trade_date = ?", [trade_date])
-        connection.execute(f"INSERT INTO {table_name} SELECT * FROM incoming_df")
-        connection.unregister("incoming_df")
-    return int(len(aligned))
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float:
@@ -130,14 +71,14 @@ def _clip(value: float, low: float, high: float) -> float:
 
 def _to_recommendation(score: float) -> str:
     if score >= 75.0:
-        return "STRONG_BUY"
+        return RecommendationGrade.STRONG_BUY.value
     if score >= 70.0:
-        return "BUY"
+        return RecommendationGrade.BUY.value
     if score >= 50.0:
-        return "HOLD"
+        return RecommendationGrade.HOLD.value
     if score >= 30.0:
-        return "SELL"
-    return "AVOID"
+        return RecommendationGrade.SELL.value
+    return RecommendationGrade.AVOID.value
 
 
 def _zscore_to_score(value: float, mean: float, std: float) -> float:
@@ -202,18 +143,18 @@ def _mad(values: list[float]) -> float:
 def _rotation_status(score_hist: list[float]) -> tuple[str, float, float]:
     if len(score_hist) < 5:
         if len(score_hist) >= 3 and score_hist[-3] < score_hist[-2] < score_hist[-1]:
-            return ("IN", 0.0, 0.0)
+            return (RotationStatus.IN.value, 0.0, 0.0)
         if len(score_hist) >= 3 and score_hist[-3] > score_hist[-2] > score_hist[-1]:
-            return ("OUT", 0.0, 0.0)
-        return ("HOLD", 0.0, 0.0)
+            return (RotationStatus.OUT.value, 0.0, 0.0)
+        return (RotationStatus.HOLD.value, 0.0, 0.0)
 
     slope = _robust_slope(score_hist[-5:])
     band = max(1.5, 0.25 * _mad(score_hist[-20:]))
     if slope >= band:
-        return ("IN", slope, band)
+        return (RotationStatus.IN.value, slope, band)
     if slope <= -band:
-        return ("OUT", slope, band)
-    return ("HOLD", slope, band)
+        return (RotationStatus.OUT.value, slope, band)
+    return (RotationStatus.HOLD.value, slope, band)
 
 
 def _rotation_detail(
@@ -225,16 +166,16 @@ def _rotation_detail(
 ) -> str:
     """轮动详情（中文枚举，与 irs-data-models.md §3.3 对齐）。"""
     if style_changed:
-        return "风格转换"
-    if status == "IN" and abs(slope) >= max(2.0 * band, 2.0):
-        return "轮动加速"
-    if status == "IN":
-        return "强势领涨"
-    if status == "OUT":
-        return "趋势反转"
+        return RotationDetail.STYLE_SWITCH.value
+    if status == RotationStatus.IN.value and abs(slope) >= max(2.0 * band, 2.0):
+        return RotationDetail.ACCELERATION.value
+    if status == RotationStatus.IN.value:
+        return RotationDetail.STRONG_LEAD.value
+    if status == RotationStatus.OUT.value:
+        return RotationDetail.TREND_REVERSAL.value
     if slope > 0.0:
-        return "热点扩散"
-    return "高位整固"
+        return RotationDetail.HOTSPOT_SPREAD.value
+    return RotationDetail.HIGH_CONSOLIDATION.value
 
 
 def _concentration_level(scores: pd.Series) -> str:

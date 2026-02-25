@@ -10,6 +10,7 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+from src.db.helpers import column_exists as _table_has_column, table_exists as _table_exists
 
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S3b)
@@ -105,22 +106,6 @@ def _trim_by_quantile(values: list[float], quantile: float) -> list[float]:
     return [float(v) for v in trimmed.tolist()]
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
-
-
-def _table_has_column(
-    connection: duckdb.DuckDBPyConnection, table_name: str, column_name: str
-) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
-        [table_name, column_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _persist_trade_date_table(

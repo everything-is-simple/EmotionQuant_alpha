@@ -9,6 +9,7 @@ import duckdb
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.db.helpers import table_exists as _table_exists
 from src.gui.app import _read_daily_metrics
 
 
@@ -20,12 +21,6 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _load_recommendation_sample(*, database_path: Path, trade_date: str, limit: int = 20) -> list[dict[str, Any]]:

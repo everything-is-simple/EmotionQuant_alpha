@@ -12,6 +12,7 @@ from typing import Any
 import duckdb
 
 from src.config.config import Config
+from src.db.helpers import table_exists as _table_exists
 
 SUPPORTED_EXPORT_MODE = {"", "daily-report"}
 
@@ -42,12 +43,6 @@ def _validate_trade_date(value: str) -> None:
         raise ValueError(f"invalid trade date: {value}; expected YYYYMMDD") from exc
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _read_daily_metrics(*, database_path: Path, trade_date: str) -> tuple[dict[str, Any], list[str]]:

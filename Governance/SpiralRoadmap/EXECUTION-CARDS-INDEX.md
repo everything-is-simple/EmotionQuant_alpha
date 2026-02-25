@@ -1,7 +1,7 @@
 # Plan A 执行卡索引
 
 **状态**: Active  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-25  
 **定位**: Plan A 执行卡集中入口（run/test/artifact/review/sync）
 
 ---
@@ -55,7 +55,13 @@
 
 ## 跨圈位行动卡
 
-- `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`（设计-代码对齐修订，P0×2 / P1×6 / P2×8）
+- `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`（设计-代码对齐修订，Completed）
+
+## 债务清理卡
+
+- `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md`（代码骨架整固：DuckDB helpers + Enum + 命名 + 冗余字段，Active）
+- `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-B-CONTRACT.md`（契约补齐：PAS discount + Calculator/Repository + Integration 文档，Planned）
+- `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-C-BACKLOG.md`（滞留债务清理：bridge 修复 + Validation API + DESIGN_TRACE + legacy + AKShare，Planned）
 
 ## Revalidation 清单
 

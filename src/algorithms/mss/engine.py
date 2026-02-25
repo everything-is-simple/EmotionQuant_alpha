@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Mapping, Sequence
 
 from src.config.exceptions import DataNotReadyError
+from src.models.enums import MssCycle, Trend
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/mss/mss-algorithm.md (§3 因子公式, §4 温度公式, §5 周期状态机)
@@ -17,19 +18,10 @@ DESIGN_TRACE = {
     "s2c_execution_card": "Governance/SpiralRoadmap/execution-cards/S2C-EXECUTION-CARD.md",
 }
 
-VALID_TRENDS = {"up", "down", "sideways"}
+VALID_TRENDS: set[str] = {item.value for item in Trend}
 VALID_TREND_QUALITIES = {"normal", "cold_start", "degraded"}
 VALID_THRESHOLD_MODES = {"fixed", "adaptive"}
-VALID_CYCLES = {
-    "emergence",
-    "fermentation",
-    "acceleration",
-    "divergence",
-    "climax",
-    "diffusion",
-    "recession",
-    "unknown",
-}
+VALID_CYCLES: set[str] = {item.value for item in MssCycle}
 
 ADAPTIVE_LOOKBACK = 252
 ADAPTIVE_MIN_SAMPLES = 120
@@ -225,9 +217,15 @@ class MssInputSnapshot:
 
 
 @dataclass(frozen=True)
-class MssScoreResult:
+class MssPanorama:
+    """MSS 全景输出。
+
+    .. deprecated:: nc-v1
+        ``mss_score`` 字段保留以兼容旧存储，语义已由 ``mss_temperature`` 替代。
+        新代码请使用 ``mss_temperature``。
+    """
     trade_date: str
-    mss_score: float
+    mss_score: float  # deprecated: 使用 mss_temperature
     mss_temperature: float
     mss_cycle: str
     trend: str
@@ -253,7 +251,7 @@ class MssScoreResult:
         timestamp = self.created_at or datetime.utcnow().isoformat()
         return {
             "trade_date": self.trade_date,
-            "mss_score": self.mss_score,
+            "mss_score": self.mss_score,  # deprecated: 保留兼容，新消费方用 mss_temperature
             "mss_temperature": self.mss_temperature,
             "mss_cycle": self.mss_cycle,
             "mss_trend": self.trend,
@@ -570,7 +568,7 @@ def calculate_mss_score(
         temperature_history=history,
     )
 
-    return MssScoreResult(
+    return MssPanorama(
         trade_date=snapshot.trade_date,
         mss_score=temperature,
         mss_temperature=temperature,

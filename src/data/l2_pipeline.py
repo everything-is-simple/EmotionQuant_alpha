@@ -19,6 +19,7 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+from src.db.helpers import table_exists as _table_exists
 from src.data.models.snapshots import IndustrySnapshot, MarketSnapshot
 from src.data.quality_gate import STATUS_BLOCKED, evaluate_data_quality_gate
 from src.data.quality_store import (
@@ -52,12 +53,6 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     )
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _normalize_stock_code(row: pd.Series) -> str:

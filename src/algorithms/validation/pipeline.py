@@ -9,6 +9,12 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+from src.db.helpers import (
+    duckdb_type as _duckdb_type,
+    ensure_columns as _ensure_columns,
+    persist_by_trade_date as _persist,
+    table_exists as _table_exists,
+)
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/validation/factor-weight-validation-algorithm.md (§3 阈值, §4 输出与表结构, §5 Gate 语义)
@@ -68,73 +74,6 @@ class ValidationGateResult:
     oos_calibration_report_path: Path
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
-
-
-def _duckdb_type(series: pd.Series) -> str:
-    if pd.api.types.is_bool_dtype(series):
-        return "BOOLEAN"
-    if pd.api.types.is_integer_dtype(series):
-        return "BIGINT"
-    if pd.api.types.is_float_dtype(series):
-        return "DOUBLE"
-    if pd.api.types.is_datetime64_any_dtype(series):
-        return "TIMESTAMP"
-    return "VARCHAR"
-
-
-def _ensure_columns(
-    connection: duckdb.DuckDBPyConnection,
-    table_name: str,
-    frame: pd.DataFrame,
-) -> list[str]:
-    if not _table_exists(connection, table_name):
-        connection.register("schema_df", frame)
-        connection.execute(
-            f"CREATE TABLE {table_name} AS SELECT * FROM schema_df WHERE 1=0"
-        )
-        connection.unregister("schema_df")
-    else:
-        existing = {
-            str(row[1])
-            for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
-        }
-        for column in frame.columns:
-            if column in existing:
-                continue
-            connection.execute(
-                f"ALTER TABLE {table_name} ADD COLUMN {column} {_duckdb_type(frame[column])}"
-            )
-
-    return [
-        str(row[1]) for row in connection.execute(f"PRAGMA table_info('{table_name}')").fetchall()
-    ]
-
-
-def _persist(
-    *,
-    database_path: Path,
-    table_name: str,
-    frame: pd.DataFrame,
-    trade_date: str,
-) -> int:
-    with duckdb.connect(str(database_path)) as connection:
-        table_columns = _ensure_columns(connection, table_name, frame)
-        aligned = frame.copy()
-        for column in table_columns:
-            if column not in aligned.columns:
-                aligned[column] = pd.NA
-        aligned = aligned[table_columns]
-        connection.register("incoming_df", aligned)
-        connection.execute(f"DELETE FROM {table_name} WHERE trade_date = ?", [trade_date])
-        connection.execute(f"INSERT INTO {table_name} SELECT * FROM incoming_df")
-        connection.unregister("incoming_df")
-    return int(len(aligned))
 
 
 def _normalize_gate(score: float, pass_threshold: float, warn_threshold: float) -> str:

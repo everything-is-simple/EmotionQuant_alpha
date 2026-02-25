@@ -19,6 +19,7 @@ from src.algorithms.mss.probe import run_mss_probe
 from src.algorithms.pas.pipeline import run_pas_daily
 from src.algorithms.validation.pipeline import run_validation_gate
 from src.config.config import Config
+from src.db.helpers import table_exists as _table_exists
 from src.data.fetch_batch_pipeline import (
     FetchBatchProgressEvent,
     read_fetch_status,
@@ -389,12 +390,6 @@ def _config_snapshot(config: Config) -> dict[str, object]:
     }
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _count_trade_date_rows(

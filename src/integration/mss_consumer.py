@@ -5,6 +5,8 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
+from src.db.helpers import table_exists as _table_exists
+
 REQUIRED_MSS_FIELDS = {
     "trade_date",
     "mss_score",
@@ -15,12 +17,6 @@ REQUIRED_MSS_FIELDS = {
 }
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def load_mss_panorama_for_integration(

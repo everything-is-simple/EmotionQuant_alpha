@@ -13,6 +13,7 @@ from src.algorithms.irs.pipeline import run_irs_daily
 from src.algorithms.pas.pipeline import run_pas_daily
 from src.algorithms.validation.pipeline import run_validation_gate
 from src.config.config import Config
+from src.db.helpers import column_exists as _column_exists, table_exists as _table_exists
 from src.integration.pipeline import run_integrated_daily
 
 # DESIGN_TRACE:
@@ -66,22 +67,6 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     )
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
-
-
-def _column_exists(
-    connection: duckdb.DuckDBPyConnection, table_name: str, column_name: str
-) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
-        [table_name, column_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _has_mss_for_trade_date(database_path: Path, trade_date: str) -> bool:

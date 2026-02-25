@@ -11,6 +11,7 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+from src.db.helpers import table_exists as _table_exists
 
 # DESIGN_TRACE:
 # - Governance/SpiralRoadmap/planA/SPIRAL-S3A-S4B-EXECUTABLE-ROADMAP.md (§5 S4b)
@@ -98,12 +99,6 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     )
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _load_latest_positions(connection: duckdb.DuckDBPyConnection, trade_date: str) -> tuple[str, pd.DataFrame]:

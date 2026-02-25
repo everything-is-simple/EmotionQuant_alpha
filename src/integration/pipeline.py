@@ -7,6 +7,7 @@ import duckdb
 import pandas as pd
 
 from src.config.config import Config
+from src.db.helpers import column_exists as _column_exists, table_exists as _table_exists
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/integration/integration-algorithm.md (§3 集成公式, §4 Gate 与桥接阻断)
@@ -141,22 +142,6 @@ class IntegrationRunResult:
     quality_message: str
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
-
-
-def _column_exists(
-    connection: duckdb.DuckDBPyConnection, table_name: str, column_name: str
-) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
-        [table_name, column_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _persist(

@@ -18,6 +18,7 @@ from typing import Any
 import duckdb
 
 from src.config.config import Config
+from src.db.helpers import column_exists as _table_has_column, table_exists as _table_exists
 from src.data.fetcher import FetchAttempt, TuShareFetcher
 from src.data.repositories.daily_basic import DailyBasicRepository
 from src.data.repositories.daily import DailyRepository
@@ -124,24 +125,6 @@ def _half_year_anchor(trade_date: str) -> str:
     return f"{year}0101" if month <= 6 else f"{year}0701"
 
 
-def _table_exists(connection: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-        [table_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
-
-
-def _table_has_column(
-    connection: duckdb.DuckDBPyConnection,
-    table_name: str,
-    column_name: str,
-) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
-        [table_name, column_name],
-    ).fetchone()
-    return bool(row and int(row[0]) > 0)
 
 
 def _has_snapshot_for_period(
