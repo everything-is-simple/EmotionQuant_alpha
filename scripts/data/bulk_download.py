@@ -356,24 +356,31 @@ class PersistentDuckDBWriter:
 
         conn.register("incoming_df", df)
         try:
-            # 建表（首次）
-            if table_name not in self._known_tables:
+            # 用事务包裹删分区 + 插入，避免中途失败导致数据不一致。
+            conn.execute("BEGIN TRANSACTION")
+            try:
+                # 建表（首次）
+                if table_name not in self._known_tables:
+                    conn.execute(
+                        f"CREATE TABLE IF NOT EXISTS {table_name} "
+                        "AS SELECT * FROM incoming_df WHERE 1=0"
+                    )
+                    self._known_tables.add(table_name)
+
+                # 同步 schema：自动添加缺失列
+                self._sync_schema(table_name)
+
+                # 按 trade_date 分区去重
+                self._replace_partition(table_name)
+
+                # 插入数据
                 conn.execute(
-                    f"CREATE TABLE IF NOT EXISTS {table_name} "
-                    "AS SELECT * FROM incoming_df WHERE 1=0"
+                    f"INSERT INTO {table_name} BY NAME SELECT * FROM incoming_df"
                 )
-                self._known_tables.add(table_name)
-
-            # 同步 schema：自动添加缺失列
-            self._sync_schema(table_name)
-
-            # 按 trade_date 分区去重
-            self._replace_partition(table_name)
-
-            # 插入数据
-            conn.execute(
-                f"INSERT INTO {table_name} BY NAME SELECT * FROM incoming_df"
-            )
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
         finally:
             conn.unregister("incoming_df")
 
@@ -450,7 +457,7 @@ def write_parquet(
     """写入 Parquet 文件（追加模式，按表名分文件）。"""
     if not records:
         return
-    output_path = parquet_root / "l1" / f"{table_name}.parquet"
+    output_path = parquet_root / f"{table_name}.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame.from_records(records)
     # 追加模式：如果文件已存在则合并
@@ -464,6 +471,17 @@ def write_parquet(
                 keep="last",
             )
     df.to_parquet(output_path, index=False)
+
+
+def resolve_l1_parquet_root(parquet_path: Path) -> Path:
+    """解析 L1 Parquet 根目录，兼容两种配置口径。
+
+    - 若 PARQUET_PATH 已指向 .../l1，则直接使用
+    - 若 PARQUET_PATH 指向 .../parquet，则自动拼接 /l1
+    """
+    if parquet_path.name.lower() == "l1":
+        return parquet_path
+    return parquet_path / "l1"
 
 
 # --------------------------------------------------------------------------- #
@@ -640,7 +658,7 @@ def run_bulk_download(
 
     # 初始化 DuckDB 写入器
     db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
-    parquet_root = Path(config.parquet_path)
+    parquet_root = resolve_l1_parquet_root(Path(config.parquet_path))
     print(f"DuckDB: {db_path}")
     print(f"Parquet: {parquet_root}")
     print(f"日期范围: {start_date} ~ {end_date}")

@@ -1,20 +1,47 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$Start,
     [Parameter(Mandatory = $true)]
     [string]$End,
-    [int]$Workers = 3,
-    [int]$RetryMax = 3,
+    [int]$BatchSize = 10,
+    [int]$RetryMax = 2,
     [double]$MaxMonthMinutes = 20,
     [int]$StatusPollSeconds = 10,
+    [string]$Tables = "",
+    [string]$EnvFile = ".env",
+    [string]$PythonExe = "",
+    [switch]$SkipExisting,
     [switch]$NoProgress,
     [switch]$UseEq,
-    [string]$PythonExe = "",
     [bool]$KillConcurrentFetchProcesses = $true
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ($StatusPollSeconds -le 0) {
+    throw "StatusPollSeconds must be > 0."
+}
+if ($MaxMonthMinutes -le 0) {
+    throw "MaxMonthMinutes must be > 0."
+}
+if ($UseEq) {
+    Write-Host "[warn] -UseEq is deprecated for bulk_download and will be ignored." -ForegroundColor Yellow
+}
+if ($NoProgress) {
+    Write-Host "[warn] -NoProgress is deprecated for bulk_download and will be ignored." -ForegroundColor Yellow
+}
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Resolve-Path (Join-Path $scriptDir "..\..")
+Set-Location $repoRoot
+$runScriptPath = Join-Path $scriptDir "run_l1_fetch.ps1"
+$stateDir = Join-Path $repoRoot "artifacts\spiral-s3a\_state"
+$progressPath = Join-Path $repoRoot "artifacts\bulk_download_progress.json"
+
+if (-not (Test-Path $runScriptPath)) {
+    throw "run_l1_fetch.ps1 not found: $runScriptPath"
+}
 
 function Parse-TradeDate {
     param([string]$Value)
@@ -26,39 +53,21 @@ function Get-MonthEnd {
     return (Get-Date -Year $Value.Year -Month $Value.Month -Day 1).AddMonths(1).AddDays(-1)
 }
 
-function Get-Runner {
-    $resolvedPythonExe = $PythonExe
-    if ($UseEq) {
-        if (-not (Get-Command eq -ErrorAction SilentlyContinue)) {
-            throw "eq command not found. Remove -UseEq or install eq in current environment."
-        }
-        return @{ Exe = "eq"; Prefix = @(); Mode = "eq" }
-    }
-    if (-not $resolvedPythonExe) {
-        $venvPython = Join-Path (Get-Location).Path ".venv\Scripts\python.exe"
-        if (Test-Path $venvPython) {
-            $resolvedPythonExe = $venvPython
-        } else {
-            $resolvedPythonExe = "python"
-        }
-    }
-    return @{ Exe = $resolvedPythonExe; Prefix = @("-m", "src.pipeline.main"); Mode = "python" }
-}
-
-function Get-ActiveFetchPipelineProcesses {
+function Get-ActiveBulkDownloadProcesses {
     return @(Get-CimInstance Win32_Process | Where-Object {
         $_.Name -match "^python(\.exe)?$" -and
-        $_.CommandLine -match "src\.pipeline\.main\s+fetch-(batch|retry)"
+        $_.CommandLine -match "scripts[\\/]data[\\/]bulk_download\.py"
     })
 }
 
-function Assert-NoConcurrentFetchPipelineProcess {
-    $active = @(Get-ActiveFetchPipelineProcesses)
+function Assert-NoConcurrentBulkDownloadProcess {
+    $active = @(Get-ActiveBulkDownloadProcesses)
     if ($active.Count -le 0) {
         return
     }
+
     if ($KillConcurrentFetchProcesses) {
-        Write-Host ("[cleanup] detected {0} concurrent fetch process(es), stopping..." -f $active.Count) -ForegroundColor Yellow
+        Write-Host ("[cleanup] detected {0} concurrent bulk_download process(es), stopping..." -f $active.Count) -ForegroundColor Yellow
         foreach ($proc in $active) {
             try {
                 Write-Host ("[cleanup] stop pid={0}" -f $proc.ProcessId) -ForegroundColor Yellow
@@ -67,12 +76,13 @@ function Assert-NoConcurrentFetchPipelineProcess {
             }
         }
         Start-Sleep -Seconds 2
-        $active = @(Get-ActiveFetchPipelineProcesses)
+        $active = @(Get-ActiveBulkDownloadProcesses)
         if ($active.Count -le 0) {
-            Write-Host "[cleanup] concurrent fetch processes cleared." -ForegroundColor Green
+            Write-Host "[cleanup] concurrent bulk_download processes cleared." -ForegroundColor Green
             return
         }
     }
+
     $lines = @()
     foreach ($proc in $active) {
         $cmd = [string]$proc.CommandLine
@@ -81,153 +91,110 @@ function Assert-NoConcurrentFetchPipelineProcess {
         }
         $lines += ("pid={0} name={1} cmd={2}" -f $proc.ProcessId, $proc.Name, $cmd)
     }
-    throw ("concurrent_fetch_process_detected`n{0}" -f ($lines -join "`n"))
+    throw ("concurrent_bulk_download_process_detected`n{0}" -f ($lines -join "`n"))
 }
 
-function Invoke-Runner {
+function Read-BulkProgress {
+    if (-not (Test-Path $progressPath)) {
+        return $null
+    }
+
+    try {
+        return (Get-Content -Path $progressPath -Raw | ConvertFrom-Json)
+    } catch {
+        return $null
+    }
+}
+
+function Invoke-MonthRun {
     param(
-        [hashtable]$Runner,
-        [string[]]$CommandArgs
-    )
-    if ($Runner.Mode -eq "python") {
-        $allArgs = @()
-        $allArgs += @($Runner.Prefix)
-        $allArgs += @($CommandArgs)
-        $raw = & $Runner.Exe @allArgs
-    } else {
-        $raw = & $Runner.Exe @CommandArgs
-    }
-    $code = [int]$LASTEXITCODE
-    if ($null -ne $raw) {
-        $raw | ForEach-Object { Write-Host $_ }
-    }
-    return @{ ExitCode = $code; Output = $raw }
-}
-
-function Read-Status {
-    param([hashtable]$Runner)
-    $result = Invoke-Runner -Runner $Runner -CommandArgs @("fetch-status")
-    if ($result.ExitCode -ne 0) {
-        throw "fetch-status failed with exit code $($result.ExitCode)"
-    }
-    $jsonLine = ($result.Output | Select-Object -Last 1)
-    if (-not $jsonLine) {
-        throw "fetch-status returned empty output."
-    }
-    return ($jsonLine | ConvertFrom-Json)
-}
-
-function Test-FatalRuntimeSignal {
-    param(
-        [string]$StdoutLog,
-        [string]$StderrLog
-    )
-
-    $patterns = @(
-        "Fatal Python error",
-        "PyEval_SaveThread",
-        "Python runtime state:"
-    )
-    foreach ($path in @($StdoutLog, $StderrLog)) {
-        if (-not (Test-Path $path)) {
-            continue
-        }
-        $content = Get-Content -Path $path -Raw -ErrorAction SilentlyContinue
-        if (-not $content) {
-            continue
-        }
-        foreach ($pattern in $patterns) {
-            if ($content -like ("*" + $pattern + "*")) {
-                return $true
-            }
-        }
-    }
-    return $false
-}
-
-function Invoke-FetchBatchProcess {
-    param(
-        [hashtable]$Runner,
-        [string[]]$FetchArgs,
         [string]$MonthStartText,
         [string]$MonthEndText,
-        [double]$MaxMonthMinutes,
-        [int]$StatusPollSeconds,
         [int]$AttemptIndex
     )
 
-    $watch = [System.Diagnostics.Stopwatch]::StartNew()
-    $timeoutSeconds = [int][math]::Ceiling($MaxMonthMinutes * 60)
-    if ($timeoutSeconds -le 0) {
-        throw "MaxMonthMinutes must be > 0."
-    }
-
-    $stateDir = Join-Path "artifacts/spiral-s3a" "_state"
     New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
-    $suffix = ""
-    if ($AttemptIndex -gt 0) {
-        $suffix = ".attempt$AttemptIndex"
-    }
-    $stdoutLog = Join-Path $stateDir ("monthly-{0}-{1}{2}.stdout.log" -f $MonthStartText, $MonthEndText, $suffix)
-    $stderrLog = Join-Path $stateDir ("monthly-{0}-{1}{2}.stderr.log" -f $MonthStartText, $MonthEndText, $suffix)
 
-    if ($Runner.Mode -eq "python") {
-        $processArgs = @()
-        $processArgs += @($Runner.Prefix)
-        $processArgs += @($FetchArgs)
-    } else {
-        $processArgs = @($FetchArgs)
+    $suffix = if ($AttemptIndex -gt 0) { ".attempt$AttemptIndex" } else { "" }
+    $stdoutLog = Join-Path $stateDir ("monthly-bulk-{0}-{1}{2}.stdout.log" -f $MonthStartText, $MonthEndText, $suffix)
+    $stderrLog = Join-Path $stateDir ("monthly-bulk-{0}-{1}{2}.stderr.log" -f $MonthStartText, $MonthEndText, $suffix)
+
+    $args = @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", $runScriptPath,
+        "-Start", $MonthStartText,
+        "-End", $MonthEndText,
+        "-BatchSize", $BatchSize.ToString(),
+        "-RetryMax", "0",
+        "-SkipExisting"
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Tables)) {
+        $args += @("-Tables", $Tables)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($EnvFile)) {
+        $args += @("-EnvFile", $EnvFile)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($PythonExe)) {
+        $args += @("-PythonExe", $PythonExe)
+    }
+
+    # 月度脚本统一启用断点续传，降低中断重跑成本。
+    if ($SkipExisting) {
+        $args += "-SkipExisting"
+    }
+
+    $powershellExe = (Get-Command powershell -ErrorAction SilentlyContinue).Source
+    if (-not $powershellExe) {
+        $powershellExe = Join-Path $PSHOME "powershell.exe"
     }
 
     $proc = Start-Process `
-        -FilePath $Runner.Exe `
-        -ArgumentList $processArgs `
-        -WorkingDirectory (Get-Location).Path `
+        -FilePath $powershellExe `
+        -ArgumentList $args `
+        -WorkingDirectory $repoRoot `
         -RedirectStandardOutput $stdoutLog `
         -RedirectStandardError $stderrLog `
         -PassThru
 
+    $timeoutSeconds = [int][math]::Ceiling($MaxMonthMinutes * 60)
     $deadline = (Get-Date).AddSeconds($timeoutSeconds)
     $nextPoll = (Get-Date).AddSeconds($StatusPollSeconds)
+
     while (-not $proc.HasExited) {
         Start-Sleep -Seconds 1
+
         if ((Get-Date) -ge $deadline) {
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-            throw ("month {0}->{1} exceeded hard timeout {2} minutes; process killed." -f $MonthStartText, $MonthEndText, $MaxMonthMinutes)
+            return @{
+                ExitCode = 124
+                TimedOut = $true
+                StdOutLog = $stdoutLog
+                StdErrLog = $stderrLog
+            }
         }
+
         if ((Get-Date) -ge $nextPoll) {
-            try {
-                $heartbeat = Read-Status -Runner $Runner
-                $tradeDateText = "-"
-                if ($heartbeat.PSObject.Properties.Name -contains "current_trade_date" -and $heartbeat.current_trade_date) {
-                    $tradeDateText = [string]$heartbeat.current_trade_date
-                }
-                $tradeIndex = 0
-                if ($heartbeat.PSObject.Properties.Name -contains "current_trade_index" -and $null -ne $heartbeat.current_trade_index) {
-                    $tradeIndex = [int]$heartbeat.current_trade_index
-                }
-                $tradeTotal = 0
-                if ($heartbeat.PSObject.Properties.Name -contains "current_trade_total" -and $null -ne $heartbeat.current_trade_total) {
-                    $tradeTotal = [int]$heartbeat.current_trade_total
-                }
+            $progress = Read-BulkProgress
+            if ($progress) {
                 Write-Host (
-                    "[heartbeat] status={0} batch={1}/{2} trade={3} {4}/{5}" -f `
-                        $heartbeat.status, `
-                        $heartbeat.completed_batches, `
-                        $heartbeat.total_batches, `
-                        $tradeDateText, `
-                        $tradeIndex, `
-                        $tradeTotal
+                    "[heartbeat] month={0}->{1} done={2}/{3} failed={4} rows={5} elapsed={6}s" -f `
+                        $MonthStartText, `
+                        $MonthEndText, `
+                        $progress.completed_days, `
+                        $progress.total_open_days, `
+                        $progress.failed_days, `
+                        $progress.total_rows, `
+                        $progress.elapsed_seconds
                 )
-            } catch {
-                Write-Host ("[heartbeat] fetch-status unavailable: {0}" -f $_.Exception.Message)
+            } else {
+                Write-Host "[heartbeat] progress file not ready yet."
             }
             $nextPoll = (Get-Date).AddSeconds($StatusPollSeconds)
         }
     }
 
-    $fetchExitCode = [int]$proc.ExitCode
-    $watch.Stop()
     if (Test-Path $stdoutLog) {
         Get-Content $stdoutLog | ForEach-Object { Write-Host $_ }
     }
@@ -235,20 +202,11 @@ function Invoke-FetchBatchProcess {
         Get-Content $stderrLog | ForEach-Object { Write-Host $_ }
     }
 
-    $elapsedMinutes = [math]::Round($watch.Elapsed.TotalMinutes, 2)
-    Write-Host ("[month-run] elapsed_minutes={0} exit_code={1}" -f $elapsedMinutes, $fetchExitCode)
-
-    $fatalDetected = Test-FatalRuntimeSignal -StdoutLog $stdoutLog -StderrLog $stderrLog
-    if ($fatalDetected) {
-        Write-Host ("[warn] fatal runtime signature detected in logs: {0} | {1}" -f $stdoutLog, $stderrLog)
-    }
-
     return @{
-        ExitCode = $fetchExitCode
-        ElapsedMinutes = $elapsedMinutes
-        StdoutLog = $stdoutLog
-        StderrLog = $stderrLog
-        FatalDetected = $fatalDetected
+        ExitCode = [int]$proc.ExitCode
+        TimedOut = $false
+        StdOutLog = $stdoutLog
+        StdErrLog = $stderrLog
     }
 }
 
@@ -257,14 +215,8 @@ $endDate = Parse-TradeDate -Value $End
 if ($endDate -lt $startDate) {
     throw "End must be >= Start"
 }
-if ($StatusPollSeconds -le 0) {
-    throw "StatusPollSeconds must be > 0."
-}
 
-$runner = Get-Runner
-Write-Host ("[runner] exe={0}" -f $runner.Exe)
 $cursor = $startDate
-
 while ($cursor -le $endDate) {
     $monthEnd = Get-MonthEnd -Value $cursor
     if ($monthEnd -gt $endDate) {
@@ -275,77 +227,40 @@ while ($cursor -le $endDate) {
     $monthEndText = $monthEnd.ToString("yyyyMMdd")
 
     Write-Host ("[month] {0} -> {1}" -f $monthStartText, $monthEndText)
-    Assert-NoConcurrentFetchPipelineProcess
+    Assert-NoConcurrentBulkDownloadProcess
 
-    $fetchArgs = @(
-        "fetch-batch",
-        "--start", $monthStartText,
-        "--end", $monthEndText,
-        "--batch-size", "1",
-        "--batch-unit", "month",
-        "--workers", $Workers.ToString()
-    )
-    if ($NoProgress) {
-        $fetchArgs += "--no-progress"
-    }
+    $maxAttempts = [Math]::Max(1, $RetryMax + 1)
+    $ok = $false
 
-    $status = $null
-    $runResult = $null
-    $fetchAttempt = 0
-    $maxFetchAttempts = [Math]::Max(1, $RetryMax + 1)
-    while ($fetchAttempt -lt $maxFetchAttempts) {
-        if ($fetchAttempt -gt 0) {
-            Write-Host ("[resume] month={0}->{1} rerun fetch-batch attempt={2}/{3}" -f $monthStartText, $monthEndText, ($fetchAttempt + 1), $maxFetchAttempts)
+    for ($attempt = 0; $attempt -lt $maxAttempts; $attempt++) {
+        if ($attempt -gt 0) {
+            Write-Host ("[retry] month={0}->{1} attempt={2}/{3}" -f $monthStartText, $monthEndText, ($attempt + 1), $maxAttempts)
         }
 
-        $runResult = Invoke-FetchBatchProcess `
-            -Runner $runner `
-            -FetchArgs $fetchArgs `
+        $result = Invoke-MonthRun `
             -MonthStartText $monthStartText `
             -MonthEndText $monthEndText `
-            -MaxMonthMinutes $MaxMonthMinutes `
-            -StatusPollSeconds $StatusPollSeconds `
-            -AttemptIndex $fetchAttempt
+            -AttemptIndex $attempt
 
-        if ([int]$runResult.ExitCode -ne 0) {
-            Write-Host "[warn] fetch-batch failed, try fetch-retry rounds"
-        }
-
-        $status = Read-Status -Runner $runner
-        $retryRound = 0
-        while ($status.status -ne "completed" -and [int]$status.failed_batches -gt 0 -and $retryRound -lt $RetryMax) {
-            $retryRound += 1
-            Write-Host ("[retry] month={0}->{1} round={2}/{3}" -f $monthStartText, $monthEndText, $retryRound, $RetryMax)
-            $retryResult = Invoke-Runner -Runner $runner -CommandArgs @("fetch-retry")
-            if ($retryResult.ExitCode -ne 0) {
-                Write-Host ("[warn] fetch-retry exit code={0}" -f $retryResult.ExitCode)
-            }
-            $status = Read-Status -Runner $runner
-        }
-
-        if ($status.status -eq "completed") {
+        if ([int]$result.ExitCode -eq 0) {
+            $ok = $true
             break
         }
 
-        if ([int]$status.failed_batches -eq 0) {
-            if ($runResult.FatalDetected) {
-                Write-Host "[warn] status still not completed after fatal runtime; will resume from checkpoint."
-            } else {
-                Write-Host "[warn] status is not completed but failed_batches=0; will resume from checkpoint."
-            }
-            $fetchAttempt += 1
-            continue
+        if ($result.TimedOut) {
+            Write-Host ("[warn] month timeout: {0}->{1}, max={2} minutes" -f $monthStartText, $monthEndText, $MaxMonthMinutes) -ForegroundColor Yellow
+        } else {
+            Write-Host ("[warn] month failed exit_code={0}" -f $result.ExitCode) -ForegroundColor Yellow
         }
-
-        break
     }
 
-    if ($status.status -ne "completed") {
-        throw ("month {0}->{1} not completed: status={2}, failed_batches={3}, fetch_exit={4}, fatal_detected={5}" -f $monthStartText, $monthEndText, $status.status, $status.failed_batches, $runResult.ExitCode, $runResult.FatalDetected)
+    if (-not $ok) {
+        throw ("month {0}->{1} failed after {2} attempts" -f $monthStartText, $monthEndText, $maxAttempts)
     }
 
-    Write-Host ("[month-ok] {0}->{1} completed={2}/{3}" -f $monthStartText, $monthEndText, $status.completed_batches, $status.total_batches)
+    Write-Host ("[month-ok] {0}->{1} completed." -f $monthStartText, $monthEndText)
     $cursor = $monthEnd.AddDays(1)
 }
 
-Write-Host "[done] monthly fetch completed."
+Write-Host "[done] monthly bulk download completed."
+
