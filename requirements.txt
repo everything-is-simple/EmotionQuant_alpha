@@ -1,3 +1,2 @@
-# Runtime installation entrypoint.
-# Single source of truth: pyproject.toml [project.dependencies].
-.
+# 运行时依赖统一入口（权威来源：pyproject.toml [project.dependencies]）
+-e .

@@ -11,6 +11,7 @@
 - 权威架构入口：`docs/system-overview.md`
 - 权威能力状态入口：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - 权威治理入口：`Governance/steering/`
+- 权威执行卡入口：`Governance/SpiralRoadmap/execution-cards/`（`DESIGN-ALIGNMENT-ACTION-CARD.md`、`DEBT-CARD-A/B/C`）
 
 ---
 
@@ -19,7 +20,7 @@
 EmotionQuant 是面向中国 A 股的情绪驱动量化系统。
 
 - 个人项目，单开发者
-- 执行模型：**Spiral 闭环**（非线性 Phase 闸门）
+- 执行模型：**Spiral 闭环**（非线性闸门）
 - 每圈默认 7 天，必须有 `run/test/artifact/review/sync` 五件套
 - 文档服务实现，不追求"文档完美"
 
@@ -210,6 +211,8 @@ cache_dir = "G:/EmotionQuant_data/"
 | 系统铁律 | `Governance/steering/系统铁律.md` |
 | 核心原则 | `Governance/steering/CORE-PRINCIPLES.md` |
 | 改进行动主计划 | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |
+| 设计对齐行动卡 | `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` |
+| 债务清理执行卡 | `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md` / `DEBT-CARD-B-CONTRACT.md` / `DEBT-CARD-C-BACKLOG.md` |
 | 命名规范 | `docs/naming-conventions.md` |
 | 命名契约 Schema | `docs/naming-contracts.schema.json` |
 | 命名契约术语/模板 | `docs/naming-contracts-glossary.md` / `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md` |
@@ -275,4 +278,50 @@ cache_dir = "G:/EmotionQuant_data/"
 - 旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
 - 本文件不再维护线性 Stage 叙述。
 
+---
 
+## 14. 设计对齐与债务卡
+
+- 设计-代码对齐行动卡：`Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`（当前状态：Completed）
+- 债务卡 A（骨架整固）：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md`（当前状态：Completed）
+- 债务卡 B（契约补齐）：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-B-CONTRACT.md`（当前状态：Planned）
+- 债务卡 C（滞留债务）：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-C-BACKLOG.md`（当前状态：Planned）
+- 执行规则：执行卡状态必须与 `Governance/record/debts.md`、`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 保持同步。
+
+## 15. 工具链说明
+
+- `.claude/` 保留为历史工具资产，不作为当前规范入口。
+- 可复用治理规则已迁移到 `Governance/steering/` 与 `Governance/Capability/`。
+
+## 16. Git 认证基线
+
+- TLS 后端基线：优先 `openssl`（`git config --global http.sslbackend openssl`，允许仓库内覆盖）。
+- 受限沙箱会话中，认证 `git push` 建议在非沙箱或提权模式执行，确保凭据交互与存储路径可访问。
+
+## 17. MCP 基线
+
+推荐 MCP 服务：
+- `context`（Context7 文档/上下文检索）
+- `fetch`（HTTP 内容抓取）
+- `filesystem`（跨目录文件操作）
+- `sequential-thinking`（多步推理）
+- `mcp-playwright`（浏览器自动化）
+
+Skill 与 MCP 边界：
+- Skill 是流程说明/模板。
+- MCP 是运行时工具。
+- Skill 不替代 MCP。
+
+默认触发策略：
+- 版本敏感 API/框架问题优先 `context`。
+- 无需浏览器渲染的网页内容优先 `fetch`。
+- 非简单文件读写优先 `filesystem`。
+- 多分支决策与复杂排障优先 `sequential-thinking`。
+- UI 流程与截图回放优先 `mcp-playwright`。
+
+Bootstrap：
+- 一键：`powershell -ExecutionPolicy Bypass -File scripts/setup/bootstrap_dev_tooling.ps1`
+- 仅 MCP：`powershell -ExecutionPolicy Bypass -File scripts/setup/configure_mcp.ps1 -ContextApiKey <your_key>`
+- 可选 MCP 目标目录：`-CodexHome <path>`（默认：项目内 `.tmp/codex-home`）
+- 仅 Hooks：`powershell -ExecutionPolicy Bypass -File scripts/setup/configure_git_hooks.ps1`
+- 仅 Skills 检查：`powershell -ExecutionPolicy Bypass -File scripts/setup/check_skills.ps1`

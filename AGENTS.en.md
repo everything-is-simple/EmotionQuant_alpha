@@ -11,6 +11,7 @@ This file provides minimal, executable repository rules for automated agents. Co
 - Authoritative architecture entry: `docs/system-overview.md`
 - Authoritative capability-status entry: `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
 - Authoritative governance entry: `Governance/steering/`
+- Authoritative execution-card entry: `Governance/SpiralRoadmap/execution-cards/` (`DESIGN-ALIGNMENT-ACTION-CARD.md`, `DEBT-CARD-A/B/C`)
 
 ---
 
@@ -19,7 +20,7 @@ This file provides minimal, executable repository rules for automated agents. Co
 EmotionQuant is a sentiment-driven quantitative system for China A-shares.
 
 - Solo developer project
-- Execution model: **Spiral closed-loop** (not linear Phase gates)
+- Execution model: **Spiral closed-loop** (not linear stage gates)
 - Default cadence: 7 days per spiral; each must produce `run/test/artifact/review/sync`
 - Docs serve implementation — no "docs perfection" pursuit
 
@@ -47,7 +48,7 @@ EmotionQuant is a sentiment-driven quantitative system for China A-shares.
 
 ### 4.1 Six-step definition
 
-| Phase | Name | Core action |
+| Stage | Name | Core action |
 |-------|------|-------------|
 | A1 | Align | Define primary objective and In/Out Scope |
 | A2 | Architect | Pick 1-3 CP Slices, define cross-module contracts |
@@ -210,6 +211,8 @@ cache_dir = "G:/EmotionQuant_data/"
 | Iron rules | `Governance/steering/系统铁律.md` |
 | Core principles | `Governance/steering/CORE-PRINCIPLES.md` |
 | Improvement action plan | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |
+| Design-alignment action card | `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` |
+| Debt cleanup execution cards | `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md` / `DEBT-CARD-B-CONTRACT.md` / `DEBT-CARD-C-BACKLOG.md` |
 | Naming conventions | `docs/naming-conventions.md` |
 | Naming contracts schema | `docs/naming-contracts.schema.json` |
 | Naming contracts glossary/template | `docs/naming-contracts-glossary.md` / `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md` |
@@ -277,17 +280,25 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 
 ---
 
-## Tooling note
+## 14. Design Alignment And Debt Cards
+
+- Design-alignment action card: `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` (status: Completed)
+- Debt Card A (skeleton hardening): `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md` (status: Completed)
+- Debt Card B (contract completion): `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-B-CONTRACT.md` (status: Planned)
+- Debt Card C (backlog cleanup): `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-C-BACKLOG.md` (status: Planned)
+- Execution rule: card status must stay consistent with `Governance/record/debts.md` and `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`.
+
+## 15. Tooling Note
 
 - `.claude/` is retained as historical tooling assets; do not treat `.claude` commands as canonical workflow requirements.
 - Reusable governance rules have been migrated to `Governance/steering/` and `Governance/Capability/`.
 
-## 14. Git auth baseline
+## 16. Git Auth Baseline
 
 - TLS backend baseline: prefer `openssl` (`git config --global http.sslbackend openssl`; repo-local override allowed).
 - In sandbox-restricted sessions, authenticated `git push` should run outside sandbox/escalated mode to ensure credential prompt/storage paths are accessible.
 
-## 15. MCP baseline
+## 17. MCP Baseline
 
 Recommended MCP servers for this repo:
 - `context` (Context7 docs/context retrieval)
@@ -300,7 +311,6 @@ Skill vs MCP boundary:
 - Skills are workflow instructions/templates.
 - MCP servers are runtime tools.
 - Skills do **not** replace MCP tools.
-- Existing skill overlap: `playwright` skill complements `mcp-playwright`; other listed MCPs have no direct skill replacement.
 
 Usage triggers (default policy):
 - Use `context` when API/framework docs or version-sensitive references are needed.
@@ -315,4 +325,3 @@ Bootstrap:
 - Optional MCP target path: `-CodexHome <path>` (default: project-local `.tmp/codex-home`)
 - Hooks only: `powershell -ExecutionPolicy Bypass -File scripts/setup/configure_git_hooks.ps1`
 - Skills check only: `powershell -ExecutionPolicy Bypass -File scripts/setup/check_skills.ps1`
-

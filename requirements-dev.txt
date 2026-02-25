@@ -1,5 +1,5 @@
-# Development installation entrypoint.
-# Includes runtime + dev extras in editable mode.
-# Optional full stack:
-#   pip install -e ".[dev,backtest,visualization]"
+# 开发依赖入口（运行时 + dev extras）
+-r requirements.txt
 -e ".[dev]"
+# 可选全栈：
+#   pip install -e ".[dev,backtest,visualization]"
