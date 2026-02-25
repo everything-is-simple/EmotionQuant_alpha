@@ -1,6 +1,7 @@
 # MSS - Market Sentiment System
 """Market temperature, cycle analysis, and position recommendations."""
 
+from src.algorithms.mss.calculator import DefaultMssCalculator, MssCalculator
 from src.algorithms.mss.engine import (
     MssInputSnapshot,
     MssPanorama,
@@ -10,14 +11,19 @@ from src.algorithms.mss.engine import (
 )
 from src.algorithms.mss.pipeline import MssRunResult, run_mss_scoring
 from src.algorithms.mss.probe import MssProbeResult, run_mss_probe
+from src.algorithms.mss.repository import DuckDbMssRepository, MssRepository
 
 # 向后兼容别名（TD-DA-003：正式名称为 MssPanorama）
 MssScoreResult = MssPanorama
 
 __all__ = [
+    "DefaultMssCalculator",
+    "DuckDbMssRepository",
+    "MssCalculator",
     "MssInputSnapshot",
     "MssPanorama",
     "MssProbeResult",
+    "MssRepository",
     "MssRunResult",
     "MssScoreResult",
     "calculate_mss_score",

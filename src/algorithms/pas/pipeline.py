@@ -346,6 +346,8 @@ def run_pas_daily(
                 "bull_gene_score": round(float(bull_gene_score), 4),
                 "structure_score": round(float(structure_score), 4),
                 "behavior_score": round(float(behavior_score), 4),
+                "liquidity_discount": round(float(liquidity_discount), 4),
+                "tradability_discount": round(float(tradability_discount), 4),
                 "contract_version": SUPPORTED_CONTRACT_VERSION,
                 "created_at": created_at,
             }
@@ -390,6 +392,8 @@ def run_pas_daily(
             "bull_gene_score",
             "structure_score",
             "behavior_score",
+            "liquidity_discount",
+            "tradability_discount",
             "contract_version",
             "created_at",
         ]

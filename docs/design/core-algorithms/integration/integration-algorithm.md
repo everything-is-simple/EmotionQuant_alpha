@@ -1,7 +1,7 @@
 # Integration 三三制集成算法设计
 
-**版本**: v3.5.1（重构版）
-**最后更新**: 2026-02-14
+**版本**: v3.6.0（重构版）
+**最后更新**: 2026-02-25
 **状态**: 设计完成（闭环落地口径补齐；代码已落地）
 
 ---
@@ -502,32 +502,86 @@ BU 的入口来自 PAS 的强股分布：先用个股分布形成市场/行业�
 | 扩散期 | 30%-50% | 30%-50% | 相同 |
 | **退潮期** | **0%-20%** | **5%-20%** | **核心差异：BU保留强股小仓，但受TD上限约束** |
 
-### 10.5 双模式关系
+### 10.5 双模式关系与组合模式
 
-#### 方案一：相互验证（推荐）
+> §10.2 定义 `top_down`，§10.3 定义 `bottom_up`。
+> 本节定义两种组合模式 `dual_verify` 与 `complementary`，以及辅助的冲突仲裁策略。
 
-```text
-信号强度 = (top_down_signal + bottom_up_signal) / 2
+#### 10.5.1 `dual_verify` 模式（相互验证，推荐）
 
-- 两套都看多 → 强信号，可加仓
-- 两套都看空 → 强信号，应减仓
-- 两套矛盾 → 弱信号，维持/观望
-```
+**定义**：同时运行 TD 与 BU 两条链路，将两条链路的信号进行交叉验证，取共识信号输出。方向一致时增强置信度，方向矛盾时降级为观望。
 
-#### 方案二：相互补充
+**算法**：
 
 ```text
-- Top-Down 控制总仓位上限
-- Bottom-Up 筛选具体标的
+1. 分别计算：
+   td_result = _top_down_integrate(mss, irs, pas)
+   bu_result = _bottom_up_integrate(mss, irs, pas)
 
-示例：
-退潮期：
-  - TD 说：总仓位不超 20%
-  - BU 说：这 3 只强股值得关注
-  - 结果：用 20% 仓位买这 3 只强股
+2. 信号融合：
+   final_score = (td_result.final_score + bu_result.final_score) / 2
+
+3. 方向共识判定：
+   td_direction = direction_from(td_result)   # +1/0/-1
+   bu_direction = direction_from(bu_result)   # +1/0/-1
+   consensus = td_direction + bu_direction
+
+   - |consensus| == 2 → 强共识（两者一致看多/看空），consensus_factor = 1.0
+   - |consensus| == 1 → 弱共识（一者中性一者有方向），consensus_factor = 0.9
+   - consensus == 0 且 td ≠ bu → 矛盾，consensus_factor = 0.7，recommendation 上限为 HOLD
+   - consensus == 0 且 td == bu == 0 → 双中性，consensus_factor = 1.0，recommendation 上限为 HOLD
+
+4. 最终调整：
+   final_score *= consensus_factor
+   position_size = min(td_result.position_size, bu_result.position_size)
+   neutrality = max(td_result.neutrality, bu_result.neutrality) × consensus_factor
 ```
 
-#### 方案三：风险预算分层覆盖（替代 TD 全覆盖）
+**验收口径**：
+- `integration_mode = "dual_verify"`
+- 两者同看多 → recommendation ∈ {STRONG_BUY, BUY}
+- 两者矛盾 → recommendation ∈ {HOLD, SELL, AVOID}
+- `position_size` 取两者较小值（保守原则）
+- 必须落库 `td_final_score` 与 `bu_final_score`（可追溯）
+
+#### 10.5.2 `complementary` 模式（相互补充）
+
+**定义**：TD 负责宏观风控与仓位上限，BU 负责标的筛选与组合构建。两者互补而非融合。
+
+**算法**：
+
+```text
+1. TD 确定风控框架：
+   td_result = _top_down_integrate(mss, irs, pas)
+   total_position_cap = td_result.position_size   # TD 决定总仓位上限
+   risk_regime = td_result.integration_state      # TD 决定风险状态
+
+2. BU 产出标的排序：
+   bu_result = _bottom_up_integrate(mss, irs, pas)
+   bu_candidates = bu_result.recommendation_list  # 按 PAS 强度排序的候选列表
+
+3. 组合构建：
+   - final_score = td_result.final_score          # 使用 TD 评分（风控口径）
+   - recommendation = td_result.recommendation    # 使用 TD 推荐等级
+   - position_size = td_result.position_size      # 使用 TD 仓位
+   - selected_stocks 从 bu_candidates 中按 BU 排序选取
+   - 每只 selected_stock 的 individual_position ≤ total_position_cap × 单股上限
+
+4. 边界约束：
+   - BU 选出标的的合计仓位 ≤ total_position_cap（不突破 TD 上限）
+   - IRS 回避行业的标的仓位额外折扣（×irs_avoid_discount）
+   - MSS unknown 周期时：仅允许 HOLD，不新增标的
+```
+
+**验收口径**：
+- `integration_mode = "complementary"`
+- 总仓位 ≤ TD 计算的 `position_size`（铁律：BU 不突破 TD 上限）
+- 标的排序来自 BU（PAS 强度优先）
+- 必须落库 `td_position_cap` 与 `bu_candidate_count`（可追溯）
+
+#### 10.5.3 冲突仲裁：风险预算分层覆盖
+
+> 适用于 `dual_verify` 与 `complementary` 模式中 TD/BU 方向冲突的场景。
 
 ```text
 冲突场景：TD 偏保守，BU 偏激进
@@ -680,7 +734,8 @@ def resolve_regime_parameters(mss_cycle: str, market_volatility_20d: float, mode
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
-| v3.5.1 | 2026-02-14 | 修复 R34（review-012）：补充 `contract_version` 输入与前置兼容校验（`nc-v1`），不兼容时阻断执行 |
+|| v3.6.0 | 2026-02-25 | TD-DA-007：§10.5 补充 `dual_verify`/`complementary` 模式正式定义（算法/验收口径）；原方案三抽取为独立冲突仲裁策略 |
+|| v3.5.1 | 2026-02-14 | 修复 R34（review-012）：补充 `contract_version` 输入与前置兼容校验（`nc-v1`），不兼容时阻断执行 |
 | v3.5.0 | 2026-02-14 | 对应 review-005 闭环修复：新增统一状态机（normal/warn_*/blocked）；补齐候选可成交性/冲击成本约束并接入 baseline 回退；新增 regime 参数组（阈值/协同倍率/仓位乘子）；BU/TD 冲突升级为“风险预算分层覆盖” |
 | v3.4.7 | 2026-02-09 | 修复 R26：§2.2/§3.1 增加 IRS `quality_flag/sample_days` 与冷启动回退 baseline 规则；§5 增加 `mss_cycle=unknown` 降级为 `HOLD`；§7.1 中性度改为按 `w_mss/w_irs/w_pas` 加权；§8 周期映射补齐 `unknown` |
 | v3.4.6 | 2026-02-08 | 修复 R19：§6.1 筛选注释与 §9.1 对齐，明确主门槛为 `final_score ≥ 55`（PAS/IRS 软排序） |
