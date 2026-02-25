@@ -1,7 +1,7 @@
 # S3ar/S3b 可执行任务清单（四列表）
 
-**状态**: S3ar Completed / S3b Active  
-**更新时间**: 2026-02-21  
+**状态**: S3ar Completed / S3b Completed  
+**更新时间**: 2026-02-25  
 **用途**: 将 `debt-clearance-plan-v1.md` 拆解为可直接执行的任务单（文件 / 命令 / 测试 / 产物）
 
 ---

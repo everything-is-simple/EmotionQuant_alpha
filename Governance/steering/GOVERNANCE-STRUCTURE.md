@@ -10,7 +10,7 @@
 - `docs/design/core-algorithms/`：核心算法设计（MSS/IRS/PAS/Validation/Integration）
 - `docs/design/core-infrastructure/`：核心基础设施设计（Data/Backtest/Trading/GUI/Analysis）
 - `docs/design/enhancements/`：外挂增强设计与主计划入口
-- `Governance/Capability/`：Spiral 主路线与能力包（CP）
+- `Governance/Capability/`：（已退役，归档见 `Governance/archive/archive-capability-v8-20260223/`）
 - `Governance/SpiralRoadmap/`：系统实现路线与跨圈依赖桥梁
 - `Governance/steering/`：铁律、原则、流程
 - `Governance/steering/TRD.md`：技术需求与选型权威口径（技术源头）
@@ -33,7 +33,7 @@
 | 任务如何写 | `Governance/steering/SPIRAL-TASK-TEMPLATE.md` |
 | 新系统按圈怎么推进 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
 | 跨圈依赖与外挂排布看哪里 | `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md` |
-| 执行卡集中入口看哪里 | `Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md` |
+| 执行卡集中入口看哪里 | `Governance/SpiralRoadmap/EXECUTION-CARDS-INDEX.md` |
 | 6A 工作流如何执行 | `Governance/steering/6A-WORKFLOW.md` |
 | 技术需求与选型看哪里 | `Governance/steering/TRD.md` |
 | 改进行动主计划看哪里 | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |

@@ -138,15 +138,12 @@ desktop.ini
 # ========================================
 # Project Specific
 # ========================================
-# 报告输出
-.reports/*.html
-.reports/*.pdf
-.reports/*.json
-.reports/*.png
+# 报告输出（整目录忽略）
+.reports/
 
 # Agent / tooling traces
 .specstory/
-.claude/settings.json
+.claude/
 
 # Runtime artifacts
 artifacts/

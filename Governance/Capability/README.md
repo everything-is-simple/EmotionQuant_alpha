@@ -4,7 +4,7 @@
 
 当前执行入口：
 - `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-- `Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md`
+- `Governance/SpiralRoadmap/EXECUTION-CARDS-INDEX.md`
 - `Governance/record/development-status.md`
 
 能力与模板历史归档：

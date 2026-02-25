@@ -25,8 +25,8 @@
   - 阶段B（S3a-S4b）微圈执行合同（实操层）
 - `planA/SPIRAL-S5-S7A-EXECUTABLE-ROADMAP.md`
   - 阶段C（S5-S7a）微圈执行合同（实操层）
-- `planA/EXECUTION-CARDS-INDEX.md`
-  - Plan A 全执行卡集中索引（按阶段A/B/C分组）
+- `EXECUTION-CARDS-INDEX.md`
+  - 全执行卡集中索引（按阶段A/B/C分组，Plan A / Plan B 公用）
 - `S3AR-S3B-EXECUTABLE-TASKLIST.md`
   - S3ar/S3b 四列表任务单（文件/命令/测试/产物），用于把债务清偿计划落到可执行粒度
 - `planA/SPIRAL-PRODUCTION-ROUTES.md`

@@ -47,7 +47,7 @@ Plan A 全部执行与重验必须绑定以下设计源，不得用临时口径�
 
 - `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
 - `Governance/SpiralRoadmap/planA/SPIRAL-PRODUCTION-ROUTES.md`
-- `Governance/SpiralRoadmap/planA/EXECUTION-CARDS-INDEX.md`
+- `Governance/SpiralRoadmap/EXECUTION-CARDS-INDEX.md`
 
 ---
 
