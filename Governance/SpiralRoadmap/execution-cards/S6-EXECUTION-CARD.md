@@ -155,5 +155,7 @@ pytest tests/unit/scripts/test_design_freeze_guard.py -q
 
 ## 14. 本轮进度（2026-02-26）
 
-- 计划中，前置依赖为 S5 `PASS/WARN`。
-- 待补齐：`eq run-all` CLI 子命令、ConsistencyChecker 一致性检查器、3 个 target 测试文件。
+- ✅ `eq run-all --date {date}` CLI 子命令已落地（全链路串行 + 二次重跑一致性检查）。
+- ✅ `src/pipeline/consistency.py` ConsistencyChecker 已实现（三层阈值：gate 精确 / score <1e-6 / return <1e-4）。
+- ✅ 3 个 target 测试文件已创建，31 条测试全部通过（test_full_chain_contract / test_replay_reproducibility / test_design_freeze_guard）。
+- 待完成：端到端 artifact 产出、债务清偿日志、review/sync 闭环。

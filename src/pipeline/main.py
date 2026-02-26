@@ -30,7 +30,16 @@ from src.data.l1_pipeline import run_l1_collection
 from src.data.l2_pipeline import run_l2_snapshot
 from src.data.repositories.base import acquire_duckdb_interprocess_lock
 from src.gui.app import run_gui
+from src.pipeline.consistency import (
+    run_full_consistency_check,
+    FullConsistencyReport,
+)
 from src.pipeline.recommend import run_recommendation
+from src.pipeline.scheduler import (
+    get_scheduler_status,
+    install_scheduler,
+    run_once as scheduler_run_once,
+)
 from src.stress.pipeline import run_stress
 from src.trading.pipeline import run_paper_trade
 
@@ -352,6 +361,27 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Export S5 artifact package. Current supported: daily-report.",
     )
+    run_all_parser = subparsers.add_parser(
+        "run-all",
+        help="S6 full-chain replay with consistency check.",
+    )
+    run_all_parser.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+    run_all_parser.add_argument(
+        "--skip-consistency",
+        action="store_true",
+        help="Skip two-pass consistency check (run pipeline once only).",
+    )
+
+    scheduler_parser = subparsers.add_parser(
+        "scheduler",
+        help="S7a scheduler management (install/status/run-once).",
+    )
+    scheduler_sub = scheduler_parser.add_subparsers(dest="scheduler_action")
+    scheduler_sub.add_parser("install", help="Register daily pipeline task.")
+    scheduler_sub.add_parser("status", help="Show current scheduler status.")
+    sched_run_once = scheduler_sub.add_parser("run-once", help="Trigger single-day pipeline run.")
+    sched_run_once.add_argument("--date", required=True, help="Trade date in YYYYMMDD.")
+
     subparsers.add_parser("fetch-status", help="Show latest S3a fetch status.")
     subparsers.add_parser("fetch-retry", help="Retry failed S3a fetch batches.")
 
@@ -1345,6 +1375,166 @@ def _run_gui(ctx: PipelineContext, args: argparse.Namespace) -> int:
     return 1 if result.has_error else 0
 
 
+def _collect_chain_artifacts(
+    config: Config, trade_date: str
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """从 DuckDB 收集 gate / score / return 链产物用于一致性比对。"""
+    db_path = Path(config.duckdb_dir) / "emotionquant.duckdb"
+    gates: list[dict] = []
+    scores: list[dict] = []
+    returns: list[dict] = []
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        if _table_exists(conn, "validation_gate_decision"):
+            rows = conn.execute(
+                "SELECT * FROM validation_gate_decision WHERE trade_date = ? ORDER BY stock_code",
+                [trade_date],
+            ).fetchall()
+            cols = [d[0] for d in conn.description]
+            gates = [dict(zip(cols, r)) for r in rows]
+        if _table_exists(conn, "integrated_recommendation"):
+            rows = conn.execute(
+                "SELECT * FROM integrated_recommendation WHERE trade_date = ? ORDER BY stock_code",
+                [trade_date],
+            ).fetchall()
+            cols = [d[0] for d in conn.description]
+            scores = [dict(zip(cols, r)) for r in rows]
+        if _table_exists(conn, "backtest_daily_returns"):
+            rows = conn.execute(
+                "SELECT * FROM backtest_daily_returns WHERE trade_date = ? ORDER BY stock_code",
+                [trade_date],
+            ).fetchall()
+            cols = [d[0] for d in conn.description]
+            returns = [dict(zip(cols, r)) for r in rows]
+    return gates, scores, returns
+
+
+def _run_all(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    """S6 全链路重跑 + 一致性检查。"""
+    trade_date = str(args.date).strip()
+    skip_consistency = bool(args.skip_consistency)
+
+    # --- Pass 1: 全链路执行 ---
+    steps = [
+        ["run", "--date", trade_date, "--l1-only"],
+        ["run", "--date", trade_date, "--to-l2"],
+        ["mss", "--date", trade_date],
+        ["irs", "--date", trade_date],
+        ["pas", "--date", trade_date],
+        ["recommend", "--date", trade_date, "--mode", "integrated", "--with-validation"],
+    ]
+    for step_argv in steps:
+        rc = main(step_argv)
+        if rc != 0:
+            print(json.dumps({
+                "event": "s6_run_all",
+                "trade_date": trade_date,
+                "failed_step": step_argv[0],
+                "status": "step_failed",
+                "exit_code": rc,
+            }, ensure_ascii=True, sort_keys=True))
+            return rc
+
+    if skip_consistency:
+        print(json.dumps({
+            "event": "s6_run_all",
+            "trade_date": trade_date,
+            "consistency_skipped": True,
+            "status": "ok",
+        }, ensure_ascii=True, sort_keys=True))
+        return 0
+
+    # --- 收集 Pass 1 产物 ---
+    baseline_gates, baseline_scores, baseline_returns = _collect_chain_artifacts(
+        ctx.config, trade_date
+    )
+
+    # --- Pass 2: 重跑同链路 ---
+    for step_argv in steps:
+        rc = main(step_argv)
+        if rc != 0:
+            print(json.dumps({
+                "event": "s6_run_all",
+                "trade_date": trade_date,
+                "failed_step": step_argv[0],
+                "pass": 2,
+                "status": "step_failed",
+                "exit_code": rc,
+            }, ensure_ascii=True, sort_keys=True))
+            return rc
+
+    # --- 收集 Pass 2 产物 ---
+    replay_gates, replay_scores, replay_returns = _collect_chain_artifacts(
+        ctx.config, trade_date
+    )
+
+    # --- 一致性检查 ---
+    report: FullConsistencyReport = run_full_consistency_check(
+        trade_date,
+        baseline_gates=baseline_gates,
+        replay_gates=replay_gates,
+        baseline_scores=baseline_scores,
+        replay_scores=replay_scores,
+        baseline_returns=baseline_returns,
+        replay_returns=replay_returns,
+    )
+
+    payload = {
+        "event": "s6_run_all",
+        "trade_date": trade_date,
+        "gate_chain_passed": report.gate_result.passed,
+        "gate_chain_max_diff": report.gate_result.max_diff,
+        "score_chain_passed": report.score_result.passed,
+        "score_chain_max_diff": report.score_result.max_diff,
+        "return_chain_passed": report.return_result.passed,
+        "return_chain_max_diff": report.return_result.max_diff,
+        "overall_passed": report.overall_passed,
+        "status": "ok" if report.overall_passed else "consistency_failed",
+    }
+    print(json.dumps(payload, ensure_ascii=True, sort_keys=True))
+    return 0 if report.overall_passed else 1
+
+
+def _run_scheduler(ctx: PipelineContext, args: argparse.Namespace) -> int:
+    """S7a scheduler CLI dispatcher."""
+    action = getattr(args, "scheduler_action", None)
+    if action is None:
+        print(json.dumps({"error": "scheduler subcommand required (install/status/run-once)"}))
+        return 2
+
+    if action == "install":
+        status = install_scheduler(ctx.config)
+        print(json.dumps({
+            "event": "s7a_scheduler_install",
+            "installed": status.installed,
+            "schedule_time": status.schedule_time,
+            "timezone": status.timezone,
+            "status": "ok",
+        }, ensure_ascii=True, sort_keys=True))
+        return 0
+
+    if action == "status":
+        status = get_scheduler_status(ctx.config)
+        print(json.dumps({
+            "event": "s7a_scheduler_status",
+            "installed": status.installed,
+            "schedule_time": status.schedule_time,
+            "timezone": status.timezone,
+            "last_run_date": status.last_run_date,
+            "last_run_status": status.last_run_status,
+            "status": "ok",
+        }, ensure_ascii=True, sort_keys=True))
+        return 0
+
+    if action == "run-once":
+        trade_date = str(args.date).strip()
+        result = scheduler_run_once(ctx.config, trade_date)
+        print(json.dumps(result, ensure_ascii=True, sort_keys=True))
+        return 0 if result.get("status") in ("ok", "skipped") else 1
+
+    print(json.dumps({"error": f"unknown scheduler action: {action}"}))
+    return 2
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -1395,6 +1585,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_validation(ctx, args)
     if command == "gui":
         return _run_gui(ctx, args)
+    if command == "run-all":
+        return _run_all(ctx, args)
+    if command == "scheduler":
+        return _run_scheduler(ctx, args)
 
     parser.error(f"unsupported command: {command}")
     return 2

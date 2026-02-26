@@ -1,8 +1,8 @@
 # EmotionQuant 可复用资产登记表（Spiral 版）
 
-**最后更新**: 2026-02-23  
-**版本**: v2.29  
-**范围**: S0-S6
+**最后更新**: 2026-02-26  
+**版本**: v2.32  
+**范围**: S0-S7a
 
 ---
 
@@ -121,7 +121,13 @@
 | A-CODE-055 | S4r/S4br 修复子圈执行资产 | `src/trading/pipeline.py` + `src/stress/pipeline.py` + `src/pipeline/main.py` | A | 落地 `trade --repair s4r` 与 `stress --repair s4br`，统一输出 patch/delta 审计产物并透传 CLI 事件 |
 | A-TEST-056 | S4r/S4br 修复子圈合同测试资产 | `tests/unit/trading/test_order_pipeline_contract.py` + `tests/unit/trading/test_deleveraging_policy_contract.py` + `tests/unit/trading/test_backtest_status_schema_compat_contract.py` + `tests/unit/pipeline/test_cli_entrypoint.py` | A | 固化修复子圈 patch/delta 产物契约与 legacy `trade_records` 自动补列写入兼容契约 |
 | A-CODE-057 | S5 GUI 最小闭环代码资产 | `src/gui/app.py` + `src/pipeline/main.py` | A | 落地 `eq gui` 子命令与 `--export daily-report` 导出链路，输出 manifest/gate/consumption 审计产物 |
-| A-TEST-058 | S5 GUI 最小闭环测试资产 | `tests/unit/gui/test_gui_launch_contract.py` + `tests/unit/gui/test_gui_readonly_contract.py` + `tests/unit/analysis/test_daily_report_export_contract.py` | A | 固化 GUI 启动契约、DuckDB 只读访问契约与 daily-report 导出契约 |
+|| A-TEST-058 | S5 GUI 最小闭环测试资产 | `tests/unit/gui/test_gui_launch_contract.py` + `tests/unit/gui/test_gui_readonly_contract.py` + `tests/unit/analysis/test_daily_report_export_contract.py` | A | 固化 GUI 启动契约、DuckDB 只读访问契约与 daily-report 导出契约 |
+|| A-CODE-059 | S5 GUI 7页数据服务与格式化资产 | `src/gui/models.py` + `src/gui/data_service.py` + `src/gui/formatter.py` + `src/gui/dashboard.py` | A | 7页布局、FreshnessMeta三态、FilterConfig可审计、pnl_color A股红涨绿跌 |
+|| A-TEST-060 | S5 GUI 契约测试资产（35条） | `tests/unit/gui/test_freshness_meta_contract.py` + `tests/unit/gui/test_filter_config_contract.py` + `tests/unit/gui/test_pnl_color_contract.py` | A | 固化 FreshnessMeta/FilterConfig/pnl_color 契约行为 |
+|| A-CODE-061 | S6 ConsistencyChecker + run-all 资产 | `src/pipeline/consistency.py` + `src/pipeline/main.py`（run-all 子命令） | A | 三层阈值一致性检查、全链路串行重跑 |
+|| A-TEST-062 | S6 一致性契约测试资产（31条） | `tests/unit/integration/test_full_chain_contract.py` + `tests/unit/integration/test_replay_reproducibility.py` + `tests/unit/scripts/test_design_freeze_guard.py` | A | 固化三链路阈值、CLI 解析、DESIGN_TRACE 守卫 |
+|| A-CODE-063 | S7a 调度器资产 | `src/pipeline/scheduler.py` + `src/pipeline/main.py`（scheduler 子命令） | A | CalendarGuard/RunHistory/Idempotency/install/status/run-once |
+|| A-TEST-064 | S7a 调度器契约测试资产（26条） | `tests/unit/pipeline/test_scheduler_install_contract.py` + `tests/unit/pipeline/test_scheduler_calendar_idempotency.py` + `tests/unit/pipeline/test_scheduler_run_history_contract.py` | A | 固化安装/交易日判定/幂等去重/运行历史契约 |
 
 ---
 
@@ -142,7 +148,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
-| 2026-02-23 | v2.31 | 新增 S5 GUI 最小闭环代码/测试资产（A-CODE-057、A-TEST-058） |
+|| 2026-02-26 | v2.32 | 新增 S5 GUI 7页/S6 ConsistencyChecker/S7a Scheduler 代码与测试资产（A-CODE-059~063、A-TEST-060~064）；范围扩展至 S7a |
+|| 2026-02-23 | v2.31 | 新增 S5 GUI 最小闭环代码/测试资产（A-CODE-057、A-TEST-058） |
 | 2026-02-23 | v2.30 | S3b 收口一致性同步：本次仅执行 `review/final` 与看板口径对齐，无新增可复用代码/测试资产 |
 | 2026-02-23 | v2.29 | 新增 S4r/S4br 修复子圈代码与测试资产（A-CODE-055、A-TEST-056） |
 | 2026-02-22 | v2.28 | 新增 S3b 优先级串行重跑器（A-QA-052）与 S3e 软门/CLI 透传测试资产（A-TEST-053~054） |

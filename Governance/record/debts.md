@@ -1,8 +1,8 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
 **最后更新**: 2026-02-26  
-**版本**: v1.51  
-**范围**: S0-S6
+**版本**: v1.52  
+**范围**: S0-S7a
 
 ---
 
@@ -95,7 +95,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
-| 2026-02-26 | v1.51 | 新增 TD-ARCH-001（已决策）：6 份 api.md OOP→Pipeline 文档对齐，架构决策记录 `Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md` |
+|| 2026-02-26 | v1.52 | S5/S6/S7a 代码+测试补齐同步：范围扩展至 S7a；无新增 P0/P1 债务；TD-DA-009 仍待处理（Enum 对齐缺口，延至 S8+） |
+|| 2026-02-26 | v1.51 | 新增 TD-ARCH-001（已决策）：6 份 api.md OOP→Pipeline 文档对齐，架构决策记录 `Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md` |
 | 2026-02-26 | v1.50 | 卡 C 全部清零：清偿 TD-S3A-015（AKShare/BaoStock 适配器骨架 + 6 条冒烟测试）；确认 TD-S0-002/TD-S0-005 已在 v1.48/v1.49 清偿；全量 212 tests passed |
 | 2026-02-26 | v1.49 | 独立全量审计：清偿 TD-S0-002（IC/ICIR 校准已落地）；新增 TD-DA-009 跟踪 Enum 设计-实现缺口；TD-S3A-015 更新描述（骨架已存在但未接主链）；两项历史债务插入 S6 执行卡 |
 | 2026-02-26 | v1.48 | 清償 TD-S0-005：独立审计确认 Phase 措辞仅存于只读归档，活跃代码/文档无残留；审计附带发现（Calculator/Repository 接口差距、Integration 语义冲突）已插入 S3e/S6 执行卡作为历史债务 |

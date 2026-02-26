@@ -78,6 +78,14 @@ REQUIRED_TRACE_MARKERS: dict[str, list[str]] = {
         "DESIGN_TRACE",
         "docs/design/core-infrastructure/gui/gui-algorithm.md",
     ],
+    "src/pipeline/consistency.py": [
+        "DESIGN_TRACE",
+        "docs/design/enhancements/eq-improvement-plan-core-frozen.md",
+    ],
+    "src/pipeline/scheduler.py": [
+        "DESIGN_TRACE",
+        "docs/design/core-infrastructure/data-layer/data-layer-api.md",
+    ],
 }
 
 

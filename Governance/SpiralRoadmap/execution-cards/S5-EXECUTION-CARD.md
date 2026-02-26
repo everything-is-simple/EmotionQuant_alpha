@@ -157,4 +157,6 @@ pytest tests/unit/gui/test_pnl_color_contract.py -q
 ## 13. 本轮进度（2026-02-26）
 
 - `eq gui` 子命令已落地，`daily-report` 导出链路与基础合同测试已打通。
-- 待补齐：DataService 7页数据读取、FreshnessMeta/FilterConfig/pnl_color 代码与测试、7页 Streamlit 渲染。
+- ✅ 代码补齐完成：`src/gui/models.py`（全部 dataclass）、`src/gui/formatter.py`、`src/gui/data_service.py`、`src/gui/dashboard.py`（7页布局）。
+- ✅ 测试补齐完成：35 条 GUI 测试全部通过（test_freshness_meta_contract / test_filter_config_contract / test_pnl_color_contract）。
+- 待完成：端到端 artifact 产出 + review/sync 闭环。

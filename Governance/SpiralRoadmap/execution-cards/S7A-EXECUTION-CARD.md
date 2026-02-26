@@ -147,5 +147,7 @@ pytest tests/unit/pipeline/test_scheduler_run_history_contract.py -q
 
 ## 13. 本轮进度（2026-02-26）
 
-- 计划中，前置依赖为 S6 `PASS/WARN`。
-- 待补齐：`src/pipeline/scheduler.py` 调度模块、`eq scheduler` CLI 子命令、3 个 target 测试文件。
+- ✅ `src/pipeline/scheduler.py` 调度模块已实现（SchedulerCore + CalendarGuard + RunHistory + Idempotency）。
+- ✅ `eq scheduler install/status/run-once` CLI 子命令已落地。
+- ✅ 3 个 target 测试文件已创建，26 条测试全部通过（test_scheduler_install_contract / test_scheduler_calendar_idempotency / test_scheduler_run_history_contract）。
+- 待完成：端到端 artifact 产出、review/sync 闭环。
