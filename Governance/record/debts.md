@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
 **最后更新**: 2026-02-26  
-**版本**: v1.52  
+**版本**: v1.53  
 **范围**: S0-S7a
 
 ---
@@ -21,21 +21,10 @@
 
 | ID | 问题 | 优先级 | 影响 | 计划处理圈 | 状态 |
 |---|---|---|---|---|---|
-| TD-S0-002 | ~~Validation 生产级真实收益口径与统计校准~~ | P2 | 影响 S3 回测与实盘前解释力一致性 | S3e | ✅ 已清償 |
-| TD-S0-005 | ~~仓库内仍有部分 `Phase` 历史措辞（设计参考文档）~~ | P2 | 容易带回线性心智 | S0-S2 | ✅ 已清償 |
-| TD-S2C-019 | ~~`recommend --with-validation-bridge` 在 `mss_factor_intermediate` 仅 Parquet 单日覆盖场景会报 `source_missing`，即便 integrated 已产出也返回 failed~~ | P1 | 影响桥接证据一致性与命令退出码稳定性，干扰自动化编排 | S2c-S3b | ✅ 已清償 |
-| TD-S3A-015 | ~~AKShare/BaoStock 适配器骨架已存在但未接入主链、无自动化测试~~ | P2 | 极端情况下对 TuShare 双通道仍存在单生态依赖 | S6 | ✅ 已清償 |
-| TD-ARCH-001 | 设计文档定义 OOP（Calculator/Repository），代码采用 Pipeline + DuckDB 直写 | P2 | 设计-代码架构认知偏差；已决策选项B（文档对齐代码） | -- | ✅ 已决策 |
-| TD-DA-009 | Enum 设计-实现对齐缺口（3 个类名偏差、 4 个设计枚举缺失、 4 个成员名偏差） | P3 | 设计文档与代码枚举不一致，长期维护歧义 | S6 | ? 待处理 |
-| TD-GOV-012 | ~~`DESIGN_TRACE` 已扩展到 S3 Backtest 与 S4 Trading 核心模块，但仍未覆盖全仓核心代码~~ | P2 | 仍可能存在“实现无设计溯源标记”的盲区 | S3-S4 | ✅ 已清償 |
-| TD-DA-001 | ~~Calculator/Repository 类不存在（设计定义各模块 Calculator/Repository，但实现为函数式 API）~~ | P2 | 可测试性/可替换性下降 | S6 | ✅ 已清償 |
-| TD-DA-002 | ~~Enum 类不存在~~ | P2 | 类型安全缺失 | S6 | ✅ 已清償 |
-| TD-DA-003 | ~~输出模型命名偏差~~ | P2 | 跨模块接口理解成本 | S6 | ✅ 已清償 |
-| TD-DA-004 | ~~DuckDB 工具函数重复~~ | P2 | 维护成本高 | S6 | ✅ 已清償 |
-| TD-DA-005 | ~~PAS discount 字段未持久化（`liquidity_discount`/`tradability_discount` 计算后丢弃）~~ | P2 | 诊断/回测解释力不足 | S6 | ✅ 已清償 |
-| TD-DA-006 | ~~Validation 丰富 API 未实现（设计 12 接口 vs 仅 `run_validation_gate()`）~~ | P2 | 高级验证能力缺失 | S6 | ✅ 已清償 |
-| TD-DA-007 | ~~Integration 模式文档缺失（`dual_verify`/`complementary` 代码已实现但设计未定义）~~ | P2 | 文档-代码不一致 | S6 | ✅ 已清償 |
-| TD-DA-008 | ~~MSS `mss_score` 冗余字段~~ | P2 | 语义冗余/迁移成本 | S6 | ✅ 已清償 |
+| TD-DA-009 | Enum 设计-实现对齐缺口（3 个类名偏差、4 个设计枚举缺失、4 个成员名偏差） | P3 | 设计文档与代码枚举不一致，长期维护歧义 | S6-S7a | 待处理（历史债务） |
+| TD-DA-010 | Calculator/Repository 与设计 API 存在方法/签名差距（卡 B 仅完成试点） | P2 | 接口契约与实现边界不一致，影响后续模块替换与可测试性 | S6-S7a | 待处理（历史债务） |
+| TD-DA-011 | Integration dual_verify/complementary 设计语义与实现存在冲突（共识因子/落库字段/权重语义） | P2 | 集成结果可解释性与设计可追溯性存在偏差 | S6-S7a | 待处理（历史债务） |
+| TD-ARCH-001 | 设计文档定义 OOP（Calculator/Repository），代码采用 Pipeline + DuckDB 直写 | P2 | 设计-代码架构口径并存；已决策选项 B（文档对齐代码） | 持续 | 已决策（持续对齐） |
 
 ---
 
@@ -95,8 +84,9 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
-|| 2026-02-26 | v1.52 | S5/S6/S7a 代码+测试补齐同步：范围扩展至 S7a；无新增 P0/P1 债务；TD-DA-009 仍待处理（Enum 对齐缺口，延至 S8+） |
-|| 2026-02-26 | v1.51 | 新增 TD-ARCH-001（已决策）：6 份 api.md OOP→Pipeline 文档对齐，架构决策记录 `Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md` |
+| 2026-02-26 | v1.53 | 独立债务复核：确认 TD-S0-002/TD-S0-005/TD-S2C-019/TD-S3A-015 已完成；将剩余问题收敛为 TD-DA-009/010/011 + TD-ARCH-001，并批量挂载至 S* 执行卡“历史债务”章节 |
+| 2026-02-26 | v1.52 | S5/S6/S7a 代码+测试补齐同步：范围扩展至 S7a；无新增 P0/P1 债务；TD-DA-009 仍待处理（Enum 对齐缺口，延至 S8+） |
+| 2026-02-26 | v1.51 | 新增 TD-ARCH-001（已决策）：6 份 api.md OOP→Pipeline 文档对齐，架构决策记录 `Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md` |
 | 2026-02-26 | v1.50 | 卡 C 全部清零：清偿 TD-S3A-015（AKShare/BaoStock 适配器骨架 + 6 条冒烟测试）；确认 TD-S0-002/TD-S0-005 已在 v1.48/v1.49 清偿；全量 212 tests passed |
 | 2026-02-26 | v1.49 | 独立全量审计：清偿 TD-S0-002（IC/ICIR 校准已落地）；新增 TD-DA-009 跟踪 Enum 设计-实现缺口；TD-S3A-015 更新描述（骨架已存在但未接主链）；两项历史债务插入 S6 执行卡 |
 | 2026-02-26 | v1.48 | 清償 TD-S0-005：独立审计确认 Phase 措辞仅存于只读归档，活跃代码/文档无残留；审计附带发现（Calculator/Repository 接口差距、Integration 语义冲突）已插入 S3e/S6 执行卡作为历史债务 |
@@ -148,3 +138,8 @@
 | 2026-02-15 | v1.2 | 清偿 TD-S0-001：S0a/S0b 闭环与 6A 证据链补齐 |
 | 2026-02-14 | v1.1 | 新增并清偿 TD-GOV-006/007/008（RR 门槛漂移、contract_version 兼容口径、contracts/governance 模板门禁） |
 | 2026-02-07 | v1.0 | 切换到 Spiral 技术债模型，重建债务清单 |
+
+
+
+
+

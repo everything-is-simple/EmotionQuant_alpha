@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-25  
-**当前版本**: v4.53（Plan A SoT 对齐 + 债务清偿同步）  
+**最后更新**: 2026-02-26  
+**当前版本**: v4.54（SpiralRoadmap 状态同步修订）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -12,8 +12,35 @@
 
 - 螺旋1 Canary: `in_progress`
 - S0a-S0c / S1a-S1b / S2a-S2c: `implemented + revalidate_required`
-- S3 / S3b: `in_progress + partial`
-- S5/S6/S7a: `planned`（螺旋2出口前不得宣称完成）
+- S3 / S3b / S3c / S3d / S3e / S4 / S4b: `implemented + partial`
+- S5: `active`（工程推进中，待 artifact/review/sync 收口）
+- S6/S7a: `planned`（螺旋2出口前不得宣称完成）
+
+---
+
+## 本次同步（2026-02-26，SpiralRoadmap 状态口径修订）
+
+1. 对齐 `VORTEX-EVOLUTION-ROADMAP.md` 工程视图：
+   - `S3/S3b/S3c/S3d/S3e/S4b` 统一为 `implemented + partial`。
+   - `S5` 更新为 `active`，`S6/S7a` 保持 `planned`。
+2. 对齐 `EXECUTION-CARDS-INDEX.md` 债务卡状态：
+   - `DEBT-CARD-A/B/C` 统一修订为 `Completed`。
+3. 对齐 `PLANA-BUSINESS-SCOREBOARD.md`：
+   - 回填螺旋1/2核心指标，状态由全 `pending` 更新为 `partial/blocked/planned` 混合口径。
+   - 设计对齐检查由全 `pending` 更新为 `partial`（保持“未宣告 GO”约束）。
+
+---
+
+## 本次同步（2026-02-26，螺旋1 P0 阻断执行化）
+
+1. 已将螺旋1剩余两项阻断写成硬门禁（可执行 + 可判定）：
+   - `5y 数据覆盖率统计`（最低窗口 2020-2024，年度覆盖率门槛 `>=99%`）。
+   - `MSS vs 基准对比实验`（随机基准 + 技术基线 MA/RSI/MACD）。
+2. 已同步 `PLAN-A-REVALIDATION-CHECKLIST.md`：
+   - 增加两项阻断对应的必备产物路径与 `NO_GO` 判定规则。
+3. 已同步 `S3B-EXECUTION-CARD.md`：
+   - 强制 `ab_benchmark_report` 输出 `MSS vs 随机`、`MSS vs 技术基线`。
+   - 增加对照失败时的停圈规则（留在 S3b，不推进后续圈位）。
 
 ---
 
@@ -655,6 +682,7 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
+| 2026-02-26 | v4.54 | 状态同步修订：对齐 VORTEX/执行卡最新口径；当前状态更新为 `S3/S3b/S3c/S3d/S3e/S4/S4b=implemented+partial`、`S5=active`、`S6/S7a=planned` |
 | 2026-02-25 | v4.53 | SoT 对齐同步：当前状态口径切换至 Plan A Rebaseline；新增 TD-S2C-019 清偿与桥接回归测试同步 |
 | 2026-02-23 | v4.52 | 启动 S5：新增 `eq gui` 与 `daily-report` 导出最小闭环实现，补齐 S5 三条目标测试与 `spiral-s5` specs 三件套，状态切换为 `in_progress` |
 | 2026-02-23 | v4.51 | 同步 S3A-S4B 路线图收口：更新路线图状态与 2026-02-23 完成态复核；新增 WARN 准入预算与 S5 并行补强三项（S3e/S3b/S3d） |

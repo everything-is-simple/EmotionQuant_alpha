@@ -154,9 +154,21 @@ pytest tests/unit/gui/test_pnl_color_contract.py -q
 
 ---
 
-## 13. 本轮进度（2026-02-26）
+---
+
+## 历史债务挂载（2026-02-26 独立审计）
+
+| 债务 ID | 类型 | 说明 | 处理策略 |
+|---|---|---|---|
+| TD-DA-009 | 历史债务（未清偿） | Enum 设计-实现对齐缺口（类名/成员/缺失枚举） | 执行本卡时必须在 gate_report.md 给出 Enum 对齐结论（resolved/deferred） |
+| TD-DA-010 | 历史债务（后续） | Calculator/Repository 与设计 API 存在方法/签名差距（卡 B 仅完成试点） | 执行本卡时按 ARCH-DECISION-001 二选一：继续对齐实现或下修设计契约 |
+| TD-DA-011 | 历史债务（后续） | Integration dual_verify/complementary 与设计语义存在冲突（共识因子/落库字段/权重语义） | 执行本卡时输出语义对齐结论并同步 docs + tests + debts |
+| TD-ARCH-001 | 架构决策债务 | OOP 设计口径与 Pipeline 实现口径并存 | 执行本卡时引用 ARCH-DECISION-001，禁止新增口径漂移 |
+
+（2026-02-26）
 
 - `eq gui` 子命令已落地，`daily-report` 导出链路与基础合同测试已打通。
 - ✅ 代码补齐完成：`src/gui/models.py`（全部 dataclass）、`src/gui/formatter.py`、`src/gui/data_service.py`、`src/gui/dashboard.py`（7页布局）。
 - ✅ 测试补齐完成：35 条 GUI 测试全部通过（test_freshness_meta_contract / test_filter_config_contract / test_pnl_color_contract）。
 - 待完成：端到端 artifact 产出 + review/sync 闭环。
+

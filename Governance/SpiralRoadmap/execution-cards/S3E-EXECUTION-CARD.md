@@ -99,6 +99,7 @@ pytest tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py 
 
 | 来源 | 描述 | 审计结论 |
 |---|---|---|
-| TD-S0-002 | Validation 生产级真实收益口径与统计校准仍待完成 | 当前 IC/ICIR 使用 `future_return_5d`（市场均价 5 日前置收益），权重验证使用公式估算收益/回撤（非回测实际结果）；需在本卡重验时补齐个股/组合级真实收益序列校准 |
+| TD-S0-002 | Validation 生产级真实收益口径与统计校准 | 已完成：`src/algorithms/validation/calibration.py::calibrate_ic_baseline()` 与 `tests/unit/algorithms/validation/test_calibration_baseline_contract.py` 已覆盖，移出阻断项。 |
+| TD-DA-011 | Integration 双模式语义冲突对 Validation 消费的传导风险 | 仍待处理：S3e 重验时需校验 dual_verify/complementary 语义一致性，避免 Gate 解释链漂移。 |
 
 

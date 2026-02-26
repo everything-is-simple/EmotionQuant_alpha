@@ -136,10 +136,10 @@ pytest tests/unit/scripts/test_design_freeze_guard.py -q
 
 | 来源 | 描述 | 审计结论 |
 |---|---|---|
-| TD-DA-001 后续 | Calculator/Repository 接口与 API 设计文档差距显著 | MSS Calculator 实现 1/7 方法、IRS Calculator 实现 1/6 方法；签名与设计不同（设计接受 trade_date，实现接受 DataFrame/Snapshot）；Repository 职责边界与设计不一致。稳定化时需决策：对齐设计或修订设计文档 |
-| TD-DA-007 后续 | Integration `dual_verify`/`complementary` 设计文档与代码语义冲突 | `dual_verify`: 缺 `consensus_factor` 分层缩放、未落库 `td_final_score`/`bu_final_score`；`complementary`: 设计定义 100% TD 评分，代码实现 40/60 混合（重大语义冲突）。稳定化时需决策：按设计改代码或按代码改设计 |
-| TD-S3A-015 | AKShare/BaoStock 适配器未接入主链 | 骨架已存在，但未集成到 fetcher 主链、无自动化测试。稳定化时需补齐或明确推迟 |
-| TD-DA-009 | Enum 设计-实现对齐缺口 | 3 类名偏差 + 4 枚举缺失 + 4 成员名偏差。稳定化时需决策：对齐设计或修订设计 |
+| TD-DA-009 | Enum 设计-实现对齐缺口 | 仍待清偿：src/models/enums.py 与 docs/design/*-data-models.md 仍有类名/成员偏差，S6 必须给出对齐结果（实现对齐或设计修订）。 |
+| TD-DA-010 | Calculator/Repository 与设计 API 差距 | 仍待清偿：MSS/IRS 仅完成试点薄封装，方法数量与签名未覆盖设计口径，S6 必须给出“继续实现”或“文档降阶”决策。 |
+| TD-DA-011 | Integration 双模式语义冲突 | 仍待清偿：dual_verify/complementary 在代码与设计的共识因子、字段落库和权重语义存在差异，S6 必须完成对齐并补测试。 |
+| TD-ARCH-001 | OOP 设计与 Pipeline 实现并存 | 已决策：执行 ARCH-DECISION-001（文档对齐代码）；S6 负责防止新增口径漂移。 |
 
 ---
 
@@ -155,7 +155,7 @@ pytest tests/unit/scripts/test_design_freeze_guard.py -q
 
 ## 14. 本轮进度（2026-02-26）
 
-- ✅ `eq run-all --date {date}` CLI 子命令已落地（全链路串行 + 二次重跑一致性检查）。
-- ✅ `src/pipeline/consistency.py` ConsistencyChecker 已实现（三层阈值：gate 精确 / score <1e-6 / return <1e-4）。
-- ✅ 3 个 target 测试文件已创建，31 条测试全部通过（test_full_chain_contract / test_replay_reproducibility / test_design_freeze_guard）。
+- ? `eq run-all --date {date}` CLI 子命令已落地（全链路串行 + 二次重跑一致性检查）。
+- ? `src/pipeline/consistency.py` ConsistencyChecker 已实现（三层阈值：gate 精确 / score <1e-6 / return <1e-4）。
+- ? 3 个 target 测试文件已创建，31 条测试全部通过（test_full_chain_contract / test_replay_reproducibility / test_design_freeze_guard）。
 - 待完成：端到端 artifact 产出、债务清偿日志、review/sync 闭环。

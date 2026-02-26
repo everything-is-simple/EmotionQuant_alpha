@@ -1,7 +1,7 @@
 # EmotionQuant VORTEX 演进路线图（Plan A SoT）
 
 **状态**: Active（Rebaseline）  
-**更新时间**: 2026-02-24  
+**更新时间**: 2026-02-26  
 **定位**: Plan A 唯一能力状态 SoT（业务与工程双视图）
 
 ---
@@ -44,12 +44,12 @@
 | S1a-S1b | MSS 评分/消费 | implemented | revalidate_required | 与真实本地数据重跑 probe |
 | S2a-S2c | 多算法/集成/桥接 | implemented | revalidate_required | 在 canary 数据窗口完成端到端联调 |
 | S3a/S3ar | 采集增强/稳定性 | implemented | partial | 先满足螺旋1数据门禁，再扩至16年 |
-| S3 | 回测闭环 | in_progress | partial | 固化简回测 + 多窗口计划 |
+| S3 | 回测闭环 | implemented | partial | 继续推进螺旋1业务门禁重验与窗口扩展 |
 | S4 | 纸上交易 | implemented | partial | 衔接 S3 回测参数并重放验证 |
-| S3b | 收益归因 | in_progress | partial | 先完成最小归因，再扩完整归因 |
-| S3c/S3d/S3e | 行业/自适应/生产校准 | planned | pending | 依赖 S3b 归因窗口；准备可并行，收口需串行 |
-| S4b | 极端防御 | planned | pending | 依赖 S3e 校准证据 |
-| S5/S6/S7a | 展示/稳定化/调度 | planned | pending | 仅在螺旋2出口后推进 |
+| S3b | 收益归因 | implemented | partial | 持续提升归因稳定性与可解释性 |
+| S3c/S3d/S3e | 行业/自适应/生产校准 | implemented | partial | 已完成工程实现，按螺旋2门禁继续业务重验 |
+| S4b | 极端防御 | implemented | partial | 已具备跨窗口证据，继续按螺旋2门禁重验 |
+| S5/S6/S7a | 展示/稳定化/调度 | S5=active; S6/S7a=planned | pending | S5 持续收口；S6/S7a 仍按螺旋2出口条件推进 |
 | S3.5 | Pre-Live 预演 | planned | pending | 仅在螺旋3出口后推进，作为实盘前最后门禁 |
 
 ---
@@ -100,6 +100,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.4 | 2026-02-26 | 状态同步修订：工程视图对齐执行卡与开发状态；S3/S3b/S3c/S3d/S3e/S4b 更新为 implemented，S5 更新为 active |
 | v2.3 | 2026-02-25 | 堵最大缺口：gate_report 强制包含 §Design-Alignment-Fields（字段级设计校验），闭合设计到执行的断裂点 |
 | v2.2 | 2026-02-24 | 增加设计基线绑定：VORTEX 显式挂接 `docs/design/**` 与 `eq-improvement-plan-core-frozen.md`，并将"设计对齐结论"设为螺旋收口硬门禁 |
 | v2.1 | 2026-02-23 | 与 Plan B 同步精度：canary 升级为5y最低窗口、新增归因对比 P0、S3c/S3d/S3e 双档执行口径（准备并行/收口串行）、新增螺旋3.5 Pre-Live |

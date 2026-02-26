@@ -21,6 +21,7 @@
 
 - 完成 A/B/C 对照与实盘-回测偏差三分解（signal/execution/cost）。
 - 输出“收益来源结论”（信号主导或执行主导），作为 S4b 防御参数校准输入。
+- 完成 `MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)` 对照并给出可复核结论。
 - 形成可复核归因证据，避免仅凭回测推断。
 
 ---
@@ -51,6 +52,7 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
 - `artifacts/spiral-s3b/{trade_date}/attribution_summary.json`
 - `artifacts/spiral-s3b/{trade_date}/consumption.md`
 - `artifacts/spiral-s3b/{trade_date}/gate_report.md`（含 §Design-Alignment-Fields：逐字段校验 `ab_benchmark_report/attribution_summary` 与 `analysis-data-models.md` 一致性）
+- `ab_benchmark_report.md` 必须包含：`MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)` 对比切片与窗口说明
 
 ---
 
@@ -62,6 +64,8 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
   - 三分解是否完整且口径一致
   - 收益来源结论是否可用于 S4b 参数校准
   - `dominant_component≠'none'` 比例是否 >=50%（归因质量底线）
+  - 基准对照是否齐全：`MSS vs 随机`、`MSS vs 技术基线`
+  - 对照结论是否通过：若 `MSS` 同时不优于随机与技术基线，则 `go_nogo=NO_GO` 且留在 S3b
   - gate_report §Design-Alignment-Fields 字段级校验是否通过
 
 ---
@@ -91,11 +95,21 @@ pytest tests/unit/analysis/test_attribution_summary_contract.py -q
 
 ---
 
-## 9. 本轮进度（2026-02-21）
+## 9. 历史债务挂载（2026-02-26 独立审计）
+
+| 债务 ID | 类型 | 说明 | 处理策略 |
+|---|---|---|---|
+| TD-DA-009 | 历史债务（未清偿） | Enum 设计-实现对齐缺口（类名/成员/缺失枚举） | 执行本卡时必须在 gate_report.md 给出 Enum 对齐结论（resolved/deferred） |
+| TD-DA-010 | 历史债务（后续） | Calculator/Repository 与设计 API 存在方法/签名差距（卡 B 仅完成试点） | 执行本卡时按 ARCH-DECISION-001 二选一：继续对齐实现或下修设计契约 |
+| TD-DA-011 | 历史债务（后续） | Integration dual_verify/complementary 与设计语义存在冲突（共识因子/落库字段/权重语义） | 执行本卡时输出语义对齐结论并同步 docs + tests + debts |
+| TD-ARCH-001 | 架构决策债务 | OOP 设计口径与 Pipeline 实现口径并存 | 执行本卡时引用 ARCH-DECISION-001，禁止新增口径漂移 |
+
+---
+
+## 10. 独立审计进展（2026-02-21）
 
 - 已落地最小执行入口：`eq analysis`（A/B/C 对照、实盘-回测偏差、归因摘要）。
 - 已补齐并通过 S3b 合同测试：`tests/unit/analysis/*`。
 - 已形成窗口证据：`artifacts/spiral-s3b/20260219/*`，结论 `quality_status=WARN`、`go_nogo=GO`。
 - 固定窗口 `20260210-20260213` 已形成可复核证据：`S3 backtest` 为 `WARN/GO`（`no_long_entry_signal_in_window`），`S3b analysis` 为 `WARN/GO`（`deviation/attribution` N/A 警告），圈位继续 `Active` 进入下一收口项。
-
 

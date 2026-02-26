@@ -18,26 +18,33 @@
 
 ## 2. 螺旋1（Canary）重验
 
-### 2.1 数据窗口重验（S0-S2 输入）
+### 2.1 数据窗口重验（S0-S2 输入，P0）
 
 - [ ] 执行 `eq fetch-batch --start 20200101 --end 20241231 --batch-size 365 --workers 3`
 - [ ] 执行 `eq fetch-retry`
 - [ ] 执行 `eq data-quality-check --comprehensive`
 - [ ] 产出覆盖率与质量报告，目标覆盖率 `>=99%`（最低窗口：2020-2024；理想：2019-01-01~2026-02-13）
+- [ ] 固化证据：`artifacts/spiral-s0s2/revalidation/coverage_2020_2024.md`（按年列出可交易日覆盖率与缺口摘要）
+- [ ] 固化证据：`artifacts/spiral-s0s2/revalidation/coverage_2020_2024.json`（机器可读口径，供 scoreboard/development-status 回填）
+- [ ] 门禁判定：若任一年度覆盖率 `<99%`，螺旋1 直接 `NO_GO`，仅允许在 S0-S2 修复
 
-### 2.2 端到端同窗重验（S0-S2 -> S3(min) -> S3b(min)）
+### 2.2 端到端同窗重验（S0-S2 -> S3(min) -> S3b(min)，P0）
 
 - [ ] 执行 `eq run --date 20241220 --full-pipeline --validate-each-step`
 - [ ] 执行 `eq backtest --start 20240101 --end 20241220 --engine local`
 - [ ] 执行 `eq analysis --start 20240101 --end 20241220 --ab-benchmark`
 - [ ] 输出最小归因：`signal/execution/cost` 三分解
 - [ ] 输出对比归因：`MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)`
+- [ ] 固化证据：`artifacts/spiral-s3b/{trade_date}/ab_benchmark_report.md`（必须包含 `MSS vs 随机` + `MSS vs 技术基线`）
+- [ ] 固化证据：`artifacts/spiral-s3b/{trade_date}/attribution_summary.json`（必须可追溯到同窗 `backtest`）
+- [ ] 门禁判定：若 `MSS` 同时不优于随机与技术基线，则螺旋1 `NO_GO`，停留 S3/S3b 修复
 
 ### 2.3 螺旋1收口判定
 
 - [ ] 更新 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`（螺旋1全部字段）
 - [ ] 给出螺旋1 `GO/NO_GO`
 - [ ] 若 `NO_GO`：只允许在 S0-S2/S3/S3b 修复，不推进螺旋2
+- [ ] 明确阻断项清零：`5y 覆盖率统计`、`MSS vs 基准对比实验` 两项均需 `closed`
 
 ### 2.4 螺旋1设计对齐复核
 
@@ -124,6 +131,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.3 | 2026-02-26 | 将螺旋1两项 P0 阻断执行化：补充覆盖率与基准对照的必备产物与 NO_GO 判定规则 |
 | v1.2 | 2026-02-24 | 增加 PlanA/PlanB 同精度“设计对齐复核”条目：螺旋1/2/3均要求 `docs/design` 与主计划对齐结论 |
 | v1.1 | 2026-02-23 | 与 Plan B 对齐精度：canary窗口升级、新增归因对比、S3c/S3d/S3e 双档门禁、增加螺旋3.5 Pre-Live 重验 |
 | v1.0 | 2026-02-23 | 首版：按新 Plan A 三螺旋门禁定义 revalidation 执行清单 |

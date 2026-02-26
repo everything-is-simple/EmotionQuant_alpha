@@ -89,10 +89,22 @@ pytest tests/unit/data/test_fetch_retry_contract.py -q
 
 ---
 
-## 9. 本轮进度（2026-02-18）
+---
+
+## 历史债务挂载（2026-02-26 独立审计）
+
+| 债务 ID | 类型 | 说明 | 处理策略 |
+|---|---|---|---|
+| TD-DA-009 | 历史债务（未清偿） | Enum 设计-实现对齐缺口（类名/成员/缺失枚举） | 执行本卡时必须在 gate_report.md 给出 Enum 对齐结论（resolved/deferred） |
+| TD-DA-010 | 历史债务（后续） | Calculator/Repository 与设计 API 存在方法/签名差距（卡 B 仅完成试点） | 执行本卡时按 ARCH-DECISION-001 二选一：继续对齐实现或下修设计契约 |
+| TD-DA-011 | 历史债务（后续） | Integration dual_verify/complementary 与设计语义存在冲突（共识因子/落库字段/权重语义） | 执行本卡时输出语义对齐结论并同步 docs + tests + debts |
+| TD-ARCH-001 | 架构决策债务 | OOP 设计口径与 Pipeline 实现口径并存 | 执行本卡时引用 ARCH-DECISION-001，禁止新增口径漂移 |
+
+（2026-02-18）
 
 - S3a 已收口完成：真实 TuShare 适配、实测吞吐报告、失败批次真实重跑证据齐备。
 - contracts/governance 门禁与全量测试均已通过，已完成向 S3 的消费衔接。
 - 当前圈位已推进到 S3/S4 执行中。
+
 
 
