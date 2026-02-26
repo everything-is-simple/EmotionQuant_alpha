@@ -456,8 +456,8 @@ def _load_stock_industry_lookup(
     f = frame.copy()
     f["_ts"] = f["con_code"].astype(str).str.strip().str.upper()
     f = f[f["_ts"] != ""]
-    f["_in"] = f["in_date"].fillna("").astype(str).str.strip()
-    f["_out"] = f["out_date"].fillna("").astype(str).str.strip()
+    f["_in"] = f["in_date"].astype(str).str.strip().replace("<NA>", "").replace("None", "").replace("nan", "")
+    f["_out"] = f["out_date"].astype(str).str.strip().replace("<NA>", "").replace("None", "").replace("nan", "")
     # 过滤未生效/已失效的成员
     f = f[~((f["_in"] != "") & (f["_in"] > trade_date))]
     f = f[~((f["_out"] != "") & (f["_out"] <= trade_date))]
@@ -681,10 +681,10 @@ def run_integrated_daily(
     default_irs_record = irs_frame.iloc[0].to_dict()
     irs_by_industry: dict[str, dict[str, object]] = {}
     _irs_dedup = irs_frame.copy()
-    _irs_dedup["_ic"] = _irs_dedup["industry_code"].fillna("").astype(str).str.strip()
-    _irs_dedup = _irs_dedup[_irs_dedup["_ic"] != ""].drop_duplicates(subset="_ic", keep="first")
+    _irs_dedup["ic_key"] = _irs_dedup["industry_code"].fillna("").astype(str).str.strip()
+    _irs_dedup = _irs_dedup[_irs_dedup["ic_key"] != ""].drop_duplicates(subset="ic_key", keep="first")
     for tup in _irs_dedup.itertuples(index=False):
-        irs_by_industry[tup._ic] = {col: getattr(tup, col, None) for col in irs_frame.columns}
+        irs_by_industry[tup.ic_key] = {col: getattr(tup, col, None) for col in irs_frame.columns}
 
     validation_gate = _normalize_gate(str(gate_record.get("final_gate", "FAIL")))
     effective_gate = validation_gate
