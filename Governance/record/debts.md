@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
 **最后更新**: 2026-02-26  
-**版本**: v1.53  
+**版本**: v1.54  
 **范围**: S0-S7a
 
 ---
@@ -84,7 +84,8 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
-| 2026-02-26 | v1.53 | 独立债务复核：确认 TD-S0-002/TD-S0-005/TD-S2C-019/TD-S3A-015 已完成；将剩余问题收敛为 TD-DA-009/010/011 + TD-ARCH-001，并批量挂载至 S* 执行卡“历史债务”章节 |
+|| 2026-02-26 | v1.54 | 全仓 iterrows 向量化清零：7 文件 25 处 iterrows 全部消除（PAS/IRS/Integration/Backtest/Trading/L2/AKShare），采用 set_index+to_dict / itertuples / 向量化过滤替代；无新增 P0/P1 债务 |
+|| 2026-02-26 | v1.53 | 独立债务复核：确认 TD-S0-002/TD-S0-005/TD-S2C-019/TD-S3A-015 已完成；将剩余问题收敛为 TD-DA-009/010/011 + TD-ARCH-001，并批量挂载至 S* 执行卡“历史债务”章节 |
 | 2026-02-26 | v1.52 | S5/S6/S7a 代码+测试补齐同步：范围扩展至 S7a；无新增 P0/P1 债务；TD-DA-009 仍待处理（Enum 对齐缺口，延至 S8+） |
 | 2026-02-26 | v1.51 | 新增 TD-ARCH-001（已决策）：6 份 api.md OOP→Pipeline 文档对齐，架构决策记录 `Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md` |
 | 2026-02-26 | v1.50 | 卡 C 全部清零：清偿 TD-S3A-015（AKShare/BaoStock 适配器骨架 + 6 条冒烟测试）；确认 TD-S0-002/TD-S0-005 已在 v1.48/v1.49 清偿；全量 212 tests passed |

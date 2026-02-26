@@ -274,11 +274,11 @@ def _load_baseline_map(config: Config) -> dict[str, tuple[float, float]]:
         return {}
 
     mapping: dict[str, tuple[float, float]] = {}
-    for _, row in baseline.iterrows():
-        key = str(row.get(key_col, "")).strip()
+    for tup in baseline.itertuples(index=False):
+        key = str(getattr(tup, key_col, "")).strip()
         if not key:
             continue
-        mapping[key] = (float(row.get("mean", 0.0)), float(row.get("std", 0.0)))
+        mapping[key] = (float(getattr(tup, "mean", 0.0)), float(getattr(tup, "std", 0.0)))
     return mapping
 
 
@@ -405,8 +405,8 @@ def run_irs_daily(
     factor_rows: list[dict[str, object]] = []
     created_at = pd.Timestamp.utcnow().isoformat()
 
-    for _, row in source.iterrows():
-        item = row.to_dict()
+    for row in source.itertuples(index=False):
+        item = row._asdict()
         industry_code = str(item.get("industry_code", "UNKNOWN") or "UNKNOWN")
         industry_name = str(item.get("industry_name", "未知行业") or "未知行业")
 
@@ -625,20 +625,20 @@ def run_irs_daily(
         local_hist = irs_history.copy()
         if "industry_score" not in local_hist.columns and "irs_score" in local_hist.columns:
             local_hist["industry_score"] = local_hist["irs_score"]
-        for _, old_row in local_hist.iterrows():
-            code = str(old_row.get("industry_code", "")).strip()
+        for tup in local_hist.itertuples(index=False):
+            code = str(getattr(tup, "industry_code", "")).strip()
             if not code:
                 continue
             score_history_by_industry.setdefault(code, []).append(
-                float(old_row.get("industry_score", 0.0) or 0.0)
+                float(getattr(tup, "industry_score", 0.0) or 0.0)
             )
 
     rotation_statuses: list[str] = []
     rotation_slopes: list[float] = []
     rotation_details: list[str] = []
-    for _, day_row in frame.iterrows():
-        code = str(day_row["industry_code"])
-        score_hist = score_history_by_industry.get(code, []) + [float(day_row["industry_score"])]
+    for tup in frame.itertuples(index=False):
+        code = str(tup.industry_code)
+        score_hist = score_history_by_industry.get(code, []) + [float(tup.industry_score)]
         status, slope, band = _rotation_status(score_hist)
         rotation_statuses.append(status)
         rotation_slopes.append(round(float(slope), 6))

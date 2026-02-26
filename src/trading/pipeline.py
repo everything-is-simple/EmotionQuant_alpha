@@ -302,15 +302,13 @@ def _read_prices(database_path: Path, trade_date: str) -> dict[str, dict[str, fl
             "FROM raw_daily WHERE trade_date = ? ORDER BY stock_code",
             [trade_date],
         ).df()
-    lookup: dict[str, dict[str, float]] = {}
-    for _, row in frame.iterrows():
-        stock_code = str(row.get("stock_code", ""))
-        lookup[stock_code] = {
-            "open": float(row.get("open", 0.0) or 0.0),
-            "high": float(row.get("high", 0.0) or 0.0),
-            "low": float(row.get("low", 0.0) or 0.0),
-            "close": float(row.get("close", 0.0) or 0.0),
-        }
+    if frame.empty:
+        return {}
+    frame["stock_code"] = frame["stock_code"].astype(str)
+    for col in ("open", "high", "low", "close"):
+        frame[col] = pd.to_numeric(frame[col], errors="coerce").fillna(0.0)
+    frame = frame.drop_duplicates(subset=["stock_code"], keep="last")
+    lookup: dict[str, dict[str, float]] = frame.set_index("stock_code")[["open", "high", "low", "close"]].to_dict("index")
     return lookup
 
 
@@ -348,13 +346,11 @@ def _read_prev_close_lookup(database_path: Path, trade_date: str) -> dict[str, f
             [trade_date, trade_date],
         ).df()
 
-    lookup: dict[str, float] = {}
-    for _, row in frame.iterrows():
-        stock_code = str(row.get("stock_code", "")).strip()
-        prev_close = float(row.get("prev_close", 0.0) or 0.0)
-        if not stock_code or prev_close <= 0.0:
-            continue
-        lookup[stock_code] = prev_close
+    frame["stock_code"] = frame["stock_code"].astype(str).str.strip()
+    frame["prev_close"] = pd.to_numeric(frame["prev_close"], errors="coerce").fillna(0.0)
+    valid = frame[(frame["stock_code"] != "") & (frame["prev_close"] > 0.0)]
+    valid = valid.drop_duplicates(subset=["stock_code"], keep="last")
+    lookup: dict[str, float] = valid.set_index("stock_code")["prev_close"].to_dict()
     return lookup
 
 
@@ -385,11 +381,11 @@ def _read_stock_profiles(database_path: Path) -> dict[str, dict[str, str]]:
         ).df()
 
     profiles: dict[str, dict[str, str]] = {}
-    for _, row in frame.iterrows():
-        stock_code = str(row.get("stock_code", "")).strip()
+    for row in frame.itertuples(index=False):
+        stock_code = str(getattr(row, "stock_code", "")).strip()
         if not stock_code:
             continue
-        profiles[stock_code] = {"stock_name": str(row.get("stock_name", "")).strip()}
+        profiles[stock_code] = {"stock_name": str(getattr(row, "stock_name", "")).strip()}
     return profiles
 
 
@@ -437,15 +433,16 @@ def _read_available_cash(database_path: Path, trade_date: str, initial_cash: flo
             [trade_date],
         ).df()
 
+    if frame.empty:
+        return round(float(initial_cash), 4)
     cash = float(initial_cash)
-    for _, row in frame.iterrows():
-        direction = str(row.get("direction", "")).strip().lower()
-        amount = float(row.get("amount", 0.0) or 0.0)
-        total_fee = float(row.get("total_fee", 0.0) or 0.0)
-        if direction == "buy":
-            cash -= amount + total_fee
-        elif direction == "sell":
-            cash += amount - total_fee
+    frame["direction"] = frame["direction"].astype(str).str.strip().str.lower()
+    frame["amount"] = pd.to_numeric(frame["amount"], errors="coerce").fillna(0.0)
+    frame["total_fee"] = pd.to_numeric(frame["total_fee"], errors="coerce").fillna(0.0)
+    buy_mask = frame["direction"] == "buy"
+    sell_mask = frame["direction"] == "sell"
+    cash -= float((frame.loc[buy_mask, "amount"] + frame.loc[buy_mask, "total_fee"]).sum())
+    cash += float((frame.loc[sell_mask, "amount"] - frame.loc[sell_mask, "total_fee"]).sum())
     return round(cash, 4)
 
 
@@ -981,8 +978,7 @@ def run_paper_trade(
         selected = signal_frame.head(top_n)
         strict_candidates: list[dict[str, object]] = []
         fallback_candidates: list[dict[str, object]] = []
-        for _, row in selected.iterrows():
-            payload = row.to_dict()
+        for payload in selected.to_dict("records"):
             stock_code = str(payload.get("stock_code", ""))
             final_score = float(payload.get("final_score", 0.0) or 0.0)
             recommendation = str(payload.get("recommendation", "HOLD"))

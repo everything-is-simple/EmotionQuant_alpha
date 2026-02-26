@@ -530,11 +530,11 @@ def _read_stock_profiles(*, database_path: Path) -> dict[str, dict[str, str]]:
         ).df()
 
     profiles: dict[str, dict[str, str]] = {}
-    for _, row in frame.iterrows():
-        stock_code = str(row.get("stock_code", "")).strip()
+    for row in frame.itertuples(index=False):
+        stock_code = str(getattr(row, "stock_code", "")).strip()
         if not stock_code:
             continue
-        profiles[stock_code] = {"stock_name": str(row.get("stock_name", "")).strip()}
+        profiles[stock_code] = {"stock_name": str(getattr(row, "stock_name", "")).strip()}
     return profiles
 
 
@@ -571,18 +571,18 @@ def _read_price_frame(
 
 
 def _build_price_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, str], dict[str, float]]:
-    lookup: dict[tuple[str, str], dict[str, float]] = {}
-    for _, row in price_frame.iterrows():
-        trade_date = str(row.get("trade_date", ""))
-        stock_code = str(row.get("stock_code", ""))
-        lookup[(trade_date, stock_code)] = {
-            "open": float(row.get("open", 0.0) or 0.0),
-            "high": float(row.get("high", 0.0) or 0.0),
-            "low": float(row.get("low", 0.0) or 0.0),
-            "close": float(row.get("close", 0.0) or 0.0),
-            "vol": float(row.get("vol", 0.0) or 0.0),
-            "amount": float(row.get("amount", 0.0) or 0.0),
-        }
+    if price_frame.empty:
+        return {}
+    working = price_frame.copy()
+    working["trade_date"] = working["trade_date"].astype(str)
+    working["stock_code"] = working["stock_code"].astype(str)
+    for col in ("open", "high", "low", "close", "vol", "amount"):
+        working[col] = pd.to_numeric(working[col], errors="coerce").fillna(0.0)
+    working = working.drop_duplicates(subset=["trade_date", "stock_code"], keep="last")
+    lookup: dict[tuple[str, str], dict[str, float]] = (
+        working.set_index(["trade_date", "stock_code"])[["open", "high", "low", "close", "vol", "amount"]]
+        .to_dict("index")
+    )
     return lookup
 
 
@@ -596,14 +596,16 @@ def _build_prev_close_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, str],
     working = working.sort_values(by=["stock_code", "trade_date"])
     working["prev_close"] = working.groupby("stock_code")["close"].shift(1)
 
-    lookup: dict[tuple[str, str], float] = {}
-    for _, row in working.iterrows():
-        stock_code = str(row.get("stock_code", "")).strip()
-        trade_date = str(row.get("trade_date", "")).strip()
-        prev_close = float(row.get("prev_close", 0.0) or 0.0)
-        if not stock_code or not trade_date or prev_close <= 0.0:
-            continue
-        lookup[(trade_date, stock_code)] = prev_close
+    valid = working[working["prev_close"].notna() & (working["prev_close"] > 0.0)].copy()
+    valid["stock_code"] = valid["stock_code"].str.strip()
+    valid["trade_date"] = valid["trade_date"].str.strip()
+    valid = valid[(valid["stock_code"] != "") & (valid["trade_date"] != "")]
+    lookup: dict[tuple[str, str], float] = dict(
+        zip(
+            zip(valid["trade_date"], valid["stock_code"]),
+            valid["prev_close"].astype(float),
+        )
+    )
     return lookup
 
 
@@ -1064,21 +1066,21 @@ def run_backtest(
     long_entry_signal_count = 0
     mapped_long_entry_signal_count = 0
     if not errors:
-        for _, row in integrated_frame.iterrows():
-            recommendation = str(row.get("recommendation", "")).strip().upper()
-            if recommendation not in LONG_ENTRY_RECOMMENDATIONS:
-                continue
-            position_size = float(row.get("position_size", 0.0) or 0.0)
-            if position_size <= 0.0:
-                continue
-            long_entry_signal_count += 1
-            signal_date = str(row.get("trade_date", ""))
+        _filtered = integrated_frame.copy()
+        _filtered["_rec"] = _filtered["recommendation"].astype(str).str.strip().str.upper()
+        _filtered["_ps"] = pd.to_numeric(_filtered["position_size"], errors="coerce").fillna(0.0)
+        _filtered = _filtered[
+            _filtered["_rec"].isin(LONG_ENTRY_RECOMMENDATIONS) & (_filtered["_ps"] > 0.0)
+        ]
+        long_entry_signal_count = len(_filtered)
+        for record in _filtered.drop(columns=["_rec", "_ps"]).to_dict("records"):
+            signal_date = str(record.get("trade_date", ""))
             execute_date = _next_trade_day(replay_days, signal_date)
             if execute_date is None or execute_date > end_date:
                 signal_out_of_window_count += 1
                 continue
             mapped_long_entry_signal_count += 1
-            signals_by_execute_date.setdefault(execute_date, []).append(row.to_dict())
+            signals_by_execute_date.setdefault(execute_date, []).append(record)
 
         for replay_day in replay_days:
             # 1) Sell positions first if T+1 unlock reached.

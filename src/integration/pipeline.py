@@ -384,14 +384,14 @@ def _apply_recommendation_limits(frame: pd.DataFrame) -> pd.DataFrame:
 
     picked_indices: list[int] = []
     industry_counts: dict[str, int] = {}
-    for idx, row in ranked.iterrows():
+    for tup in ranked.itertuples():
         if len(picked_indices) >= MAX_RECOMMENDATIONS_PER_DAY:
             break
-        industry_code = _safe_text(row.get("industry_code", ""), "UNKNOWN")
+        industry_code = _safe_text(getattr(tup, "industry_code", ""), "UNKNOWN")
         current_count = int(industry_counts.get(industry_code, 0))
         if current_count >= MAX_RECOMMENDATIONS_PER_INDUSTRY:
             continue
-        picked_indices.append(idx)
+        picked_indices.append(tup.Index)
         industry_counts[industry_code] = current_count + 1
 
     limited = ranked.loc[picked_indices].copy()
@@ -452,26 +452,30 @@ def _load_stock_industry_lookup(
     if frame.empty:
         return ({}, {})
 
+    # 向量化构建 stock→industry 查找表（消除 iterrows）
+    f = frame.copy()
+    f["_ts"] = f["con_code"].astype(str).str.strip().str.upper()
+    f = f[f["_ts"] != ""]
+    f["_in"] = f["in_date"].fillna("").astype(str).str.strip()
+    f["_out"] = f["out_date"].fillna("").astype(str).str.strip()
+    # 过滤未生效/已失效的成员
+    f = f[~((f["_in"] != "") & (f["_in"] > trade_date))]
+    f = f[~((f["_out"] != "") & (f["_out"] <= trade_date))]
+    f["_ic"] = f["industry_code"].fillna("UNKNOWN").astype(str).str.strip()
+    f["_in_name"] = f["industry_name"].fillna("未知行业").astype(str).str.strip()
+    f["_ic"] = f["_ic"].where(f["_ic"] != "", "UNKNOWN")
+    f["_in_name"] = f["_in_name"].where(f["_in_name"] != "", "未知行业")
+    f["_sc"] = f["_ts"].apply(lambda x: _to_stock_code("", x))
+
+    # 取每个 stock_code / ts_code 的第一条记录
     lookup_by_stock: dict[str, tuple[str, str]] = {}
     lookup_by_ts: dict[str, tuple[str, str]] = {}
-    for _, record in frame.iterrows():
-        ts_code = _safe_text(record.get("con_code", ""), "").upper()
-        if not ts_code:
-            continue
-        in_date = _safe_text(record.get("in_date", ""), "")
-        out_date = _safe_text(record.get("out_date", ""), "")
-        if in_date and in_date > trade_date:
-            continue
-        if out_date and out_date <= trade_date:
-            continue
-        industry_code = _safe_text(record.get("industry_code", ""), "UNKNOWN")
-        industry_name = _safe_text(record.get("industry_name", ""), "未知行业")
-        stock_code = _to_stock_code("", ts_code)
-
-        if stock_code and stock_code not in lookup_by_stock:
-            lookup_by_stock[stock_code] = (industry_code, industry_name)
-        if ts_code and ts_code not in lookup_by_ts:
-            lookup_by_ts[ts_code] = (industry_code, industry_name)
+    f_dedup_sc = f[f["_sc"] != ""].drop_duplicates(subset="_sc", keep="first")
+    for sc, ic, iname in zip(f_dedup_sc["_sc"], f_dedup_sc["_ic"], f_dedup_sc["_in_name"]):
+        lookup_by_stock[sc] = (ic, iname)
+    f_dedup_ts = f.drop_duplicates(subset="_ts", keep="first")
+    for ts, ic, iname in zip(f_dedup_ts["_ts"], f_dedup_ts["_ic"], f_dedup_ts["_in_name"]):
+        lookup_by_ts[ts] = (ic, iname)
     return (lookup_by_stock, lookup_by_ts)
 
 
@@ -676,12 +680,11 @@ def run_integrated_daily(
     gate_record = gate_frame.iloc[0].to_dict()
     default_irs_record = irs_frame.iloc[0].to_dict()
     irs_by_industry: dict[str, dict[str, object]] = {}
-    for _, item in irs_frame.iterrows():
-        record = item.to_dict()
-        industry_code = _safe_text(record.get("industry_code", ""), "")
-        if not industry_code or industry_code in irs_by_industry:
-            continue
-        irs_by_industry[industry_code] = record
+    _irs_dedup = irs_frame.copy()
+    _irs_dedup["_ic"] = _irs_dedup["industry_code"].fillna("").astype(str).str.strip()
+    _irs_dedup = _irs_dedup[_irs_dedup["_ic"] != ""].drop_duplicates(subset="_ic", keep="first")
+    for tup in _irs_dedup.itertuples(index=False):
+        irs_by_industry[tup._ic] = {col: getattr(tup, col, None) for col in irs_frame.columns}
 
     validation_gate = _normalize_gate(str(gate_record.get("final_gate", "FAIL")))
     effective_gate = validation_gate
@@ -784,14 +787,15 @@ def run_integrated_daily(
 
         raw_lookup_by_stock: dict[str, dict[str, object]] = {}
         raw_lookup_by_ts: dict[str, dict[str, object]] = {}
-        for _, raw_row in raw_frame.iterrows():
-            raw_item = raw_row.to_dict()
-            stock_key = str(raw_item.get("stock_code", "")).strip()
-            ts_key = str(raw_item.get("ts_code", "")).strip().upper()
-            if stock_key and stock_key not in raw_lookup_by_stock:
-                raw_lookup_by_stock[stock_key] = raw_item
-            if ts_key and ts_key not in raw_lookup_by_ts:
-                raw_lookup_by_ts[ts_key] = raw_item
+        if not raw_frame.empty:
+            _rf = raw_frame.copy()
+            _rf["_sk"] = _rf["stock_code"].astype(str).str.strip()
+            _rf["_tk"] = _rf["ts_code"].astype(str).str.strip().str.upper() if "ts_code" in _rf.columns else ""
+            _rf_sc = _rf[_rf["_sk"] != ""].drop_duplicates(subset="_sk", keep="first").set_index("_sk")
+            raw_lookup_by_stock = _rf_sc.drop(columns=["_tk"], errors="ignore").to_dict("index")
+            if "_tk" in _rf.columns:
+                _rf_ts = _rf[_rf["_tk"] != ""].drop_duplicates(subset="_tk", keep="first").set_index("_tk")
+                raw_lookup_by_ts = _rf_ts.drop(columns=["_sk"], errors="ignore").to_dict("index")
 
         pas_metrics = pas_frame.copy()
         if "opportunity_grade" not in pas_metrics.columns:
@@ -807,15 +811,17 @@ def run_integrated_daily(
             axis=1,
         )
         pas_metrics["ts_code_key"] = pas_metrics["ts_code"].astype(str).str.strip().str.upper()
-        pas_metrics["industry_code"] = "UNKNOWN"
-        pas_metrics["industry_name"] = "未知行业"
-        for idx, row in pas_metrics.iterrows():
-            stock_code_key = str(row.get("stock_code_key", ""))
-            ts_code_key = str(row.get("ts_code_key", ""))
-            industry_tuple = stock_industry_by_stock.get(stock_code_key) or stock_industry_by_ts.get(ts_code_key)
-            if industry_tuple:
-                pas_metrics.at[idx, "industry_code"] = str(industry_tuple[0])
-                pas_metrics.at[idx, "industry_name"] = str(industry_tuple[1])
+        # 向量化行业查找（消除 iterrows）
+        def _lookup_industry(sc: str, ts: str) -> tuple[str, str]:
+            t = stock_industry_by_stock.get(sc) or stock_industry_by_ts.get(ts)
+            return t if t else ("UNKNOWN", "未知行业")
+
+        _ind_pairs = [
+            _lookup_industry(sc, ts)
+            for sc, ts in zip(pas_metrics["stock_code_key"], pas_metrics["ts_code_key"])
+        ]
+        pas_metrics["industry_code"] = [p[0] for p in _ind_pairs]
+        pas_metrics["industry_name"] = [p[1] for p in _ind_pairs]
         pas_metrics["is_sa"] = pas_metrics["opportunity_grade"].isin({"S", "A"})
         pas_sa_ratio = float(pas_metrics["is_sa"].mean()) if len(pas_metrics) > 0 else 0.0
         industry_sa_ratio_map = (
@@ -824,24 +830,29 @@ def run_integrated_daily(
             else {}
         )
 
-        for _, pas_row in pas_frame.iterrows():
-            pas_record = pas_row.to_dict()
-            risk_reward_ratio = float(pas_record.get("risk_reward_ratio", 0.0))
+        # 主循环：使用 itertuples 替代 iterrows（消除性能瓶颈）
+        _default_ic = str(default_irs_record.get("industry_code", "UNKNOWN"))
+        _default_in = str(default_irs_record.get("industry_name", "未知行业"))
+        _position_cap_warn = effective_gate == "WARN"
+        _temp_extreme = mss_temperature < 30.0 or mss_temperature > 80.0
+
+        for tup in pas_frame.itertuples(index=False):
+            risk_reward_ratio = float(getattr(tup, "risk_reward_ratio", 0.0) or 0.0)
             if risk_reward_ratio < 1.0:
                 rr_filtered_count += 1
                 continue
 
             stock_code = _to_stock_code(
-                str(pas_record.get("stock_code", "")),
-                str(pas_record.get("ts_code", "")),
+                str(getattr(tup, "stock_code", "") or ""),
+                str(getattr(tup, "ts_code", "") or ""),
             )
-            ts_code = str(pas_record.get("ts_code", "")).strip().upper()
+            ts_code = str(getattr(tup, "ts_code", "") or "").strip().upper()
             industry_tuple = stock_industry_by_stock.get(stock_code) or stock_industry_by_ts.get(ts_code)
             if industry_tuple:
                 industry_code, industry_name = industry_tuple
             else:
-                industry_code = str(default_irs_record.get("industry_code", "UNKNOWN"))
-                industry_name = str(default_irs_record.get("industry_name", "未知行业"))
+                industry_code = _default_ic
+                industry_name = _default_in
             irs_record = irs_by_industry.get(industry_code, default_irs_record)
             irs_score = float(irs_record.get("irs_score", 0.0))
             irs_recommendation = str(irs_record.get("recommendation", "HOLD"))
@@ -862,12 +873,12 @@ def run_integrated_daily(
                 stop = entry * 0.98
             target = entry + (entry - stop) * risk_reward_ratio
 
-            pas_score = float(pas_record.get("pas_score", 0.0))
+            pas_score = float(getattr(tup, "pas_score", 0.0) or 0.0)
             effective_pas_score = pas_score * (0.85 if allocation_advice == "回避" else 1.0)
-            pas_direction = str(pas_record.get("pas_direction", "neutral"))
+            pas_direction = str(getattr(tup, "pas_direction", "neutral") or "neutral")
             if pas_direction not in {"bullish", "bearish", "neutral"}:
                 pas_direction = "neutral"
-            opportunity_grade = str(pas_record.get("opportunity_grade", "")).strip().upper()
+            opportunity_grade = str(getattr(tup, "opportunity_grade", "") or "").strip().upper()
             if opportunity_grade not in {"S", "A", "B", "C", "D"}:
                 opportunity_grade = _to_opportunity_grade(pas_score)
 
@@ -917,10 +928,10 @@ def run_integrated_daily(
             neutrality = round(max(0.0, min(1.0, 1.0 - abs(final_score - 50.0) / 50.0)), 4)
 
             base_position_size = max(0.0, min(1.0, final_score / 100.0))
-            if mss_temperature < 30.0 or mss_temperature > 80.0:
+            if _temp_extreme:
                 base_position_size *= 0.85
             position_cap = min(position_cap_ratio, mode_position_cap)
-            if effective_gate == "WARN":
+            if _position_cap_warn:
                 position_cap = min(position_cap, 0.80)
             position_size = round(min(base_position_size, position_cap), 4)
 

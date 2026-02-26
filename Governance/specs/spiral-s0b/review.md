@@ -53,3 +53,16 @@
 
 - 下游消费方: S0c。
 - 消费结论: 已提供标准 L1 输入表与错误分级入口；待 S0c 执行时验证 `L1 -> L2` 读取链路。
+
+---
+
+## 6. 业务重验记录（2026-02-26）
+
+- 重验窗口: 2020-01-01 ~ 2024-12-31（canary-5y）
+- 代表日期: 20241220
+- run: PASS（raw_daily=5373, raw_trade_cal=1 含交易日, raw_index_classify=31, status=ok）
+- test: PASS（11 passed in 3.90s）
+- 关键确认: 使用真实 TuShare 数据（非模拟客户端），解消首次实现时的“未接入真实远端”偏差
+- gate_report: PASS（§Design-Alignment-Fields 全部对齐）
+- artifact: `artifacts/spiral-s0b/20241220/`
+- 结论: S0b 业务重验通过，可推进 S0c

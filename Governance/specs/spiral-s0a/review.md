@@ -44,3 +44,18 @@
 
 - 下游消费方: S0b。
 - 消费结论: 已在 S0b 中通过 `run` 主流程消费统一入口参数语义。
+
+---
+
+## 6. 业务重验记录（2026-02-26）
+
+- 重验窗口: 2020-01-01 ~ 2024-12-31（canary-5y）
+- 代表日期: 20241220
+- Python: 3.10.18
+- run: PASS（dry-run 完成，配置注入正确，无硬编码路径）
+- test: PASS（33 passed in 51.67s）
+- contracts: PASS（49 checks + 7 behavior + 18 traceability + 20 governance）
+- baseline: PASS（14 passed in 0.35s）
+- gate_report: PASS（§Design-Alignment-Fields 全部对齐）
+- artifact: `artifacts/spiral-s0a/20241220/`（run.log/test.log/cli_contract.md/config_effective_values.json/gate_report.md）
+- 结论: S0a 工程与业务重验通过，可推进 S0b

@@ -125,10 +125,10 @@ class AKShareAdapter:
             return []
 
         rows: list[dict[str, Any]] = []
-        for _, record in df.iterrows():
+        for record in df.to_dict("records"):
             row: dict[str, Any] = {}
             for ak_field, std_field in _FIELD_MAP.items():
-                if ak_field in record.index:
+                if ak_field in record:
                     row[std_field] = record[ak_field]
             # 补全标准字段
             row.setdefault("trade_date", trade_date)

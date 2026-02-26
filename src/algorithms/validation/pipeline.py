@@ -46,8 +46,9 @@ class ValidationConfig:
     rank_ic_warn: float = 0.015
     icir_pass: float = 1.00
     icir_warn: float = 0.50
-    decay_pass: float = 0.70
-    decay_warn: float = 0.50
+    # 代理公式 abs(IC)*2.5 → decay_pass 必须与 ic_pass 一致：ic_pass*2.5=0.05
+    decay_pass: float = 0.05
+    decay_warn: float = 0.025
     sharpe_pass: float = 0.60
     sharpe_warn: float = 0.40
     max_drawdown_pass: float = 0.15

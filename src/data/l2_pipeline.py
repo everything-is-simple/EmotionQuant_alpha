@@ -143,7 +143,7 @@ def _build_industry_snapshot_all(
     pct = (working["close"] - working["open"]) / working["open"].replace(0, pd.NA)
     pct = pct.fillna(0.0)
     ranking = working.assign(pct=pct).sort_values("pct", ascending=False).head(5)
-    top5_codes = [_normalize_stock_code(row) for _, row in ranking.iterrows()]
+    top5_codes = [_normalize_stock_code(record) for record in ranking.to_dict("records")]
     top5_pct_chg = [float(round(float(value) * 100.0, 4)) for value in ranking["pct"]]
 
     limit_rows = limit_list.copy() if not limit_list.empty else limit_list
@@ -417,12 +417,12 @@ def _build_industry_snapshot_sw31(
         )
 
     row_dicts: list[dict[str, object]] = []
-    for _, industry_row in classify.sort_values(["industry_code"]).iterrows():
-        industry_code = str(industry_row["industry_code"]).strip()
-        industry_name = str(industry_row["industry_name"]).strip() or industry_code
+    for industry_row in classify.sort_values(["industry_code"]).itertuples(index=False):
+        industry_code = str(industry_row.industry_code).strip()
+        industry_name = str(industry_row.industry_name).strip() or industry_code
         subset = mapped[mapped["industry_code"].astype(str) == industry_code].copy()
         ranking = subset.sort_values("pct", ascending=False).head(5)
-        top5_codes = [_normalize_stock_code(row) for _, row in ranking.iterrows()]
+        top5_codes = [_normalize_stock_code(record) for record in ranking.to_dict("records")]
         top5_pct_chg = [float(round(float(value) * 100.0, 4)) for value in ranking["pct"]]
 
         if not limit_working.empty:
