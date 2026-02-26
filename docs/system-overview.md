@@ -8,7 +8,7 @@
 
 ## 1. 系统定位
 
-EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 起，执行模型从线性 Phase 切换为 Spiral 闭环：
+EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 起，执行模型从线性阶段模型切换为 Spiral 闭环：
 
 - 每 7 天一圈（默认）
 - 每圈必须有 `run/test/artifact/review/sync`（命令、测试、产物、复盘、同步）

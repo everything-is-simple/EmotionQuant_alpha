@@ -449,6 +449,22 @@ def run_analysis(
                         "ORDER BY tr.stock_code",
                         [trade_date],
                     ).df()
+                    _is_backtest_fallback = False
+                    if joined.empty and _table_exists(connection, "backtest_trade_records"):
+                        # 回测交易记录兜底：live 无成交时从 backtest_trade_records 计算归因
+                        _is_backtest_fallback = True
+                        joined = connection.execute(
+                            "SELECT bt.stock_code, bt.filled_price, bt.amount, "
+                            "ir.entry, ir.mss_score, ir.irs_score, ir.pas_score "
+                            "FROM backtest_trade_records bt "
+                            "LEFT JOIN integrated_recommendation ir "
+                            "ON bt.trade_date = ir.trade_date AND bt.stock_code = ir.stock_code "
+                            "WHERE bt.trade_date = ? AND bt.status = 'filled' AND bt.direction = 'buy' "
+                            "ORDER BY bt.stock_code",
+                            [trade_date],
+                        ).df()
+                        if not joined.empty:
+                            warnings.append("attribution_backtest_fallback")
                     if joined.empty:
                         warnings.append("attribution_not_applicable_no_filled_trade")
                         attribution_payload = {
@@ -489,13 +505,13 @@ def run_analysis(
                             trimmed_mss = mss_contrib
                             trimmed_irs = irs_contrib
                             trimmed_pas = pas_contrib
-                            method = "mean_fallback_small_sample"
+                            method = "backtest_fallback_mean" if _is_backtest_fallback else "mean_fallback_small_sample"
                             warnings.append("attribution_small_sample_fallback")
                         else:
                             trimmed_mss = _trim_by_quantile(mss_contrib, 0.05)
                             trimmed_irs = _trim_by_quantile(irs_contrib, 0.05)
                             trimmed_pas = _trim_by_quantile(pas_contrib, 0.05)
-                            method = "trimmed_mean_q0.05"
+                            method = "backtest_fallback_trimmed_mean_q0.05" if _is_backtest_fallback else "trimmed_mean_q0.05"
 
                         sample_count = len(trimmed_mss)
                         trim_ratio = 1.0 - (sample_count / max(raw_sample_count, 1))

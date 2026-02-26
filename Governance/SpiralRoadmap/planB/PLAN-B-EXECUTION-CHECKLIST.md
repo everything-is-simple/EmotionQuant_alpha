@@ -103,20 +103,58 @@
 
 ### PB-3.1 展示闭环（对应 Plan A S5）
 
-- [ ] GUI 只读消费 + FreshnessMeta/FilterConfig 验证
-- [ ] 日报导出可追溯 + A股红涨绿跌
+**Plan A 锚点**：`S5-EXECUTION-CARD.md` v1.0  
+**设计依据**：`gui-algorithm.md`、`gui-data-models.md`、`gui-api.md`、`gui-information-flow.md`（均 v3.2.0）
+
+模块分解：
+
+| 模块 | 必须项 | 验收要点 |
+|---|---|---|
+| 7 页面 | Dashboard / MSS / IRS / PAS / Integrated / Trading / Analysis | 全部只读消费真实产物，不二次计算 |
+| FreshnessMeta | 新鲜度徽标（≤4h fresh / ≤24h stale / >24h expired） | 数据源时间戳可追溯 |
+| FilterConfig | 过滤配置持久化 + 回显 | GUI 配置可复现 |
+| pnl_color | A 股红涨绿跌色彩方案 | 与 gui-algorithm §4 一致 |
+| 日报导出 | 日报 PDF/HTML 导出 | 可追溯到 pipeline 产物 |
+
+- [ ] 7 页面全部只读消费 + FreshnessMeta/FilterConfig 验证
+- [ ] pnl_color A 股红涨绿跌 + 日报导出可追溯
+- [ ] `pytest tests/unit/gui/ -q` 全通过（含 freshness_meta / filter_config / pnl_color 3 个 target 测试）
 - [ ] gate_report + §Design-Alignment-Fields
 
 ### PB-3.2 稳定化闭环（对应 Plan A S6）
 
-- [ ] 全链路重跑一致性通过
-- [ ] 债务清偿记录完成
+**Plan A 锚点**：`S6-EXECUTION-CARD.md` v1.0  
+**设计依据**：`eq-improvement-plan-core-frozen.md` ENH-08、`system-overview.md` §Pipeline
+
+模块分解：
+
+| 模块 | 必须项 | 验收要点 |
+|---|---|---|
+| FullChainReplay | `eq run-all --date {trade_date}` | 全链路可单命令重跑 |
+| ConsistencyChecker | gate 链精确匹配 / score 链 <1e-6 / return 链 <1e-4 | 三层阈值全 PASS |
+| DebtSettlement | debts.md 存量逐条清偿或标注保留理由 | 合并前零未决债务 |
+
+- [ ] `eq run-all` 全链路重跑一致性通过（三层阈值：gate 精确 / score <1e-6 / return <1e-4）
+- [ ] 债务清偿记录完成（debts.md 存量零未决）
+- [ ] `pytest tests/unit/pipeline/test_full_chain_contract.py tests/unit/pipeline/test_replay_reproducibility.py tests/unit/pipeline/test_design_freeze_guard.py -q` 全通过
 - [ ] gate_report + §Design-Alignment-Fields
 
 ### PB-3.3 调度闭环（对应 Plan A S7a）
 
-- [ ] 调度安装/状态/历史/重试可审计
-- [ ] 幂等去重可验证
+**Plan A 锚点**：`S7A-EXECUTION-CARD.md` v1.0  
+**设计依据**：`data-layer-api.md` §6 DataScheduler API、`data-layer-algorithm.md` §7 每日调度流程
+
+模块分解：
+
+| 模块 | 必须项 | 验收要点 |
+|---|---|---|
+| SchedulerCore | `eq scheduler install/status/run-once` | 三命令可用，内部按 data-layer 设计抽象 |
+| CalendarGuard | 消费 `raw_trade_cal` 判断交易日 | 非交易日自动跳过并记录 skip 事件 |
+| RunHistory + Idempotency | `task_execution_log` 记录 + 同 trade_date+task_name 幂等去重 + 失败重试≤3次 | 运行历史可审计；重复执行不重复写入 |
+
+- [ ] `eq scheduler install/status/run-once` 三命令可用
+- [ ] CalendarGuard 非交易日自动跳过 + 幂等去重可验证
+- [ ] `pytest tests/unit/pipeline/test_scheduler_install_contract.py tests/unit/pipeline/test_scheduler_calendar_idempotency.py tests/unit/pipeline/test_scheduler_run_history_contract.py -q` 全通过
 - [ ] gate_report + §Design-Alignment-Fields
 
 ### PB-3.4 Pre-Live 预演（对应 Plan A 螺旋3.5）
@@ -154,6 +192,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v3.1 | 2026-02-26 | PB-3.1/3.2/3.3 升级：增加模块分解+设计依据+Plan A 执行卡锚点+验收测试命令 |
 | v3.0 | 2026-02-25 | 堵最大缺口：按 PB-1.1~PB-3.4 微圈重构；增加字段级设计对齐、量化阈值、微圈同步清单 |
 | v2.1 | 2026-02-24 | 改为设计绑定执行清单 |
 | v2.0 | 2026-02-23 | 实事求是版 |

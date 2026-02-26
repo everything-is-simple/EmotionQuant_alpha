@@ -1,34 +1,90 @@
 # Trading API 接口
 
-**版本**: v3.2.1（重构版）
-**最后更新**: 2026-02-14
-**状态**: 设计完成（闭环落地口径补齐；代码待实现）
+**版本**: v4.0.0
+**最后更新**: 2026-02-26
+**状态**: Pipeline 模式已落地（Python 模块/CLI）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- `src/trading/` 当前仅有 `__init__.py` 占位；交易/风控实现尚未落地。
-- 本文档中的模块结构与接口为规划口径。
+- **现行架构**：过程式 Pipeline + DuckDB 直写。主入口 `run_paper_trade()`（`src/trading/pipeline.py:508`），CLI 由 `eq trade --mode paper --date YYYYMMDD` 触发。
+- 代码已完整实现纸上交易闭环：信号读取 → S3 回测门禁 → 质量门禁 → 涨跌停/T+1 检查 → 下单 → 持仓更新 → 风控事件 → 产物归档。
+- 设计中的 OOP 结构（OrderManager/AuctionExecutor/PositionManager/RiskManager 等）为未来扩展口径，详见附录 A。
+- 架构决策 ARCH-DECISION-001：选项 B（文档对齐代码）。
 
 ---
 
-## 1. 模块结构（规划）
+## 1. Pipeline 接口
 
+### 1.1 Pipeline 编排入口
+
+```python
+def run_paper_trade(
+    *,
+    trade_date: str,
+    mode: str,
+    config: Config,
+    repair: str = "",
+) -> TradeRunResult:
+    """
+    纸上交易 Pipeline 入口（src/trading/pipeline.py:508）
+
+    职责：
+    1. 读取 S3 回测门禁状态 (backtest_results)
+    2. 读取质量门禁状态 (quality_gate_report)
+    3. 从 DuckDB 读取 integrated_recommendation 信号
+    4. 读取当日行情/前收/个股资料/历史持仓
+    5. 涨跌停判定（主板10%/创业板科创板20%/ST 5%）+ T+1 冻结
+    6. 生成交易记录 / 持仓快照 / 风控事件
+    7. 持久化到 DuckDB (trade_records / positions / risk_events)
+    8. 产出 artifacts (trade_records_sample.parquet / positions_sample.parquet / paper_trade_replay.md / gate_report.md)
+
+    Args:
+        mode: 交易模式（当前仅支持 "paper"）
+        repair: 修复模式（"" 或 "s4r"）
+
+    Returns:
+        TradeRunResult（frozen dataclass）
+    Raises:
+        ValueError: unsupported trade mode / unsupported repair mode
+    """
 ```
-trading/
-├── trading_engine.py      # CP-07最小闭环编排器
-├── order_manager.py       # 订单管理器
-├── executor.py            # 交易执行器
-├── execution_feasibility.py # 成交可行性模型
-├── position_manager.py    # 持仓管理器
-├── risk_manager.py        # 风险管理器
-├── t1_tracker.py          # T+1追踪器
-├── commission.py          # 佣金计算
-├── slippage.py            # 滑点模型
-└── v2/
-    └── signal_validator.py # 信号质量验证器（v2.0）
+
+### 1.2 返回类型
+
+```python
+@dataclass(frozen=True)
+class TradeRunResult:
+    trade_date: str
+    mode: str
+    repair: str
+    artifacts_dir: Path
+    trade_records_path: Path
+    positions_path: Path
+    risk_events_path: Path
+    paper_trade_replay_path: Path
+    consumption_path: Path
+    gate_report_path: Path
+    error_manifest_path: Path
+    total_orders: int
+    filled_orders: int
+    risk_event_count: int
+    quality_status: str           # PASS / WARN / FAIL
+    go_nogo: str                  # GO / NO_GO
+    has_error: bool
+    s4r_patch_note_path: Path | None
+    s4r_delta_report_path: Path | None
 ```
+
+### 1.3 A 股规则约束（Pipeline 内嵌）
+
+- **T+1**：买入当日不可卖出，`can_sell_date = next_trade_day`
+- **涨跌停**：主板 10% / 创业板·科创板 20% / ST 5%，一字板显式拒单
+- **手数**：100 股整数倍
+- **费用**：佣金 max(amount×0.0003, 5) + 过户费 amount×0.00002 + 卖出印花税 amount×0.001
+
+---
 
 ---
 
@@ -928,17 +984,30 @@ print(summary)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
-| v3.2.1 | 2026-02-14 | 修复 R34（review-012）：`build_trade_signals` 处理链补充 `contract_version` 前置兼容检查（`nc-v1`）与 `blocked_contract_mismatch` 阻断语义；显式标注 RR=1.0 可执行边界 |
-| v3.2.0 | 2026-02-14 | 对应 review-007 闭环修复：`AuctionExecutor` 增加 `ExecutionFeasibilityModel` 依赖与 `execute_sliced()`；`RiskManager` 增加 `resolve_regime_thresholds()` 与 `RejectReason` 返回类型；新增 `TradingEngine.run_minimal()/run_sandbox()`；示例代码补齐最小闭环链路 |
-| v3.1.5 | 2026-02-09 | 修复 R27：`validate_signal` 参数 `pas` 类型改为 `StockPasDaily`；`build_trade_signals` 增补 Gate FAIL 前置检查；`stock_code` 示例统一为内部格式 `000001` |
-| v3.1.4 | 2026-02-09 | 修复 R20：`check_order` 检查项补齐“行业集中度上限（买单）”，与 trading-algorithm §3.1 Step 2.5 对齐 |
-| v3.1.3 | 2026-02-08 | 修复 R16：`add_position()` 补充必填参数 `industry_code`，与 `Position` 数据模型对齐 |
-| v3.1.2 | 2026-02-08 | 修复 R12：订单类型枚举口径统一为 `auction/market/limit/stop`（与 Backtest/Trading Data Models 对齐） |
-| v3.1.1 | 2026-02-06 | 标注实现状态（代码未落地） |
-| v3.1.0 | 2026-02-04 | 增加 auction_open 订单类型与开盘价成交说明 |
-| v3.0.0 | 2026-01-31 | 重构版：统一API接口定义 |
-| v2.1.0 | 2026-01-23 | 对齐三三制集成推荐 |
-| v2.0.0 | 2026-01-20 | 增加SignalValidator和RiskManagerV2 |
+| v4.0.0 | 2026-02-26 | ARCH-DECISION-001：接口定义改为反映实际 Pipeline 模式（`run_paper_trade`）；OOP 接口移入附录 A；更正实现状态（代码已完整落地） |
+| v3.2.1 | 2026-02-14 | 修复 R34：`build_trade_signals` 补充 `contract_version` 前置检查 |
+| v3.2.0 | 2026-02-14 | review-007 闭环修复：新增 `ExecutionFeasibilityModel`、`TradingEngine.run_minimal()/run_sandbox()` |
+| v3.1.5 | 2026-02-09 | 修复 R27：Gate FAIL 前置检查 |
+| v3.1.4 | 2026-02-09 | 修复 R20：行业集中度上限 |
+| v3.1.0 | 2026-02-04 | 增加 auction_open |
+| v3.0.0 | 2026-01-31 | 重构版 |
+
+---
+
+## 附录 A：OOP 接口（未来扩展口径）
+
+以下 OOP 接口为规划口径，当前未落地。若未来需要拆分为独立模块，可参考以下设计：
+
+- `OrderManager`：订单创建/提交/取消/查询
+- `AuctionExecutor`：集合竞价/限价单执行 + `ExecutionFeasibilityModel`
+- `PositionManager`：持仓新增/减仓/市价更新/现金管理
+- `RiskManager`/`RiskManagerV2`：资金充足性/单股仓位/行业集中度/T+1/涨跌停检查
+- `T1Tracker`：T+1 冻结追踪
+- `SignalValidator`：信号质量验证
+- `TradingEngine`：最小闭环编排 (`run_minimal`/`run_sandbox`)
+- `CommissionConfig`：费用计算
+
+完整接口定义见 v3.2.1 历史版本。
 
 ---
 
@@ -946,3 +1015,4 @@ print(summary)
 - 核心算法：[trading-algorithm.md](./trading-algorithm.md)
 - 数据模型：[trading-data-models.md](./trading-data-models.md)
 - 信息流：[trading-information-flow.md](./trading-information-flow.md)
+- 架构决策：[ARCH-DECISION-001](../../../Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md)

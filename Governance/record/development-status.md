@@ -713,4 +713,4 @@
 | 2026-02-14 | v3.2 | 同步闭环修订：补齐 `contract_version=nc-v1` / `risk_reward_ratio>=1.0` 执行边界与 contracts/governance 门禁口径 |
 | 2026-02-07 | v3.1 | 统一 CP 术语与最小同步契约；重写 ROADMAP/Workflow/Steering 关键文档 |
 | 2026-02-07 | v3.0 | 切换到 Spiral 状态看板；更新仓库地址为 GitHub；定义 S0 进出门禁 |
-| 2026-02-06 | v2.3 | 线性 Phase 状态（归档口径） |
+| 2026-02-06 | v2.3 | 线性阶段模型状态（归档口径） |

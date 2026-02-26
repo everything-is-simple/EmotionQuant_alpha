@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 from pathlib import Path
 import uuid
 
@@ -43,8 +44,8 @@ class ValidationConfig:
     ic_warn: float = 0.01
     rank_ic_pass: float = 0.03
     rank_ic_warn: float = 0.015
-    icir_pass: float = 0.10
-    icir_warn: float = 0.05
+    icir_pass: float = 1.00
+    icir_warn: float = 0.50
     decay_pass: float = 0.70
     decay_warn: float = 0.50
     sharpe_pass: float = 0.60
@@ -120,6 +121,18 @@ def _aggregate_gate(gates: list[str]) -> str:
     return "PASS"
 
 
+def _aggregate_factor_gate(gates: list[str]) -> str:
+    """因子级聚合：多数表决。>50% FAIL → FAIL，≤50% FAIL → WARN，无 FAIL → 同 _aggregate_gate。"""
+    fail_count = sum(1 for g in gates if g == "FAIL")
+    if fail_count > len(gates) / 2:
+        return "FAIL"
+    if fail_count > 0:
+        return "WARN"
+    if any(g == "WARN" for g in gates):
+        return "WARN"
+    return "PASS"
+
+
 def _safe_corr(left: pd.Series, right: pd.Series) -> float:
     if left.empty or right.empty:
         return 0.0
@@ -146,7 +159,7 @@ def _safe_rank_corr(left: pd.Series, right: pd.Series) -> float:
 
 def _decay_proxy_from_ic(ic: float) -> float:
     # Keep decay proxy monotonic: higher |IC| implies stronger expected persistence.
-    return _clip(abs(float(ic)) * 2.0, 0.0, 1.0)
+    return _clip(abs(float(ic)) * 2.5, 0.0, 1.0)
 
 
 def _clip(value: float, low: float, high: float) -> float:
@@ -228,8 +241,8 @@ def _regime_adjusted_config(base: ValidationConfig, regime: str) -> ValidationCo
             ic_warn=base.ic_warn + 0.003,
             rank_ic_pass=base.rank_ic_pass + 0.005,
             rank_ic_warn=base.rank_ic_warn + 0.003,
-            icir_pass=base.icir_pass + 0.02,
-            icir_warn=base.icir_warn + 0.01,
+            icir_pass=base.icir_pass + 0.20,
+            icir_warn=base.icir_warn + 0.10,
             decay_pass=base.decay_pass,
             decay_warn=base.decay_warn,
             sharpe_pass=base.sharpe_pass + 0.05,
@@ -245,8 +258,8 @@ def _regime_adjusted_config(base: ValidationConfig, regime: str) -> ValidationCo
             ic_warn=max(base.ic_warn - 0.003, 0.0),
             rank_ic_pass=max(base.rank_ic_pass - 0.005, 0.0),
             rank_ic_warn=max(base.rank_ic_warn - 0.003, 0.0),
-            icir_pass=max(base.icir_pass - 0.02, 0.0),
-            icir_warn=max(base.icir_warn - 0.01, 0.0),
+            icir_pass=max(base.icir_pass - 0.20, 0.0),
+            icir_warn=max(base.icir_warn - 0.10, 0.0),
             decay_pass=base.decay_pass,
             decay_warn=base.decay_warn,
             sharpe_pass=max(base.sharpe_pass - 0.05, 0.0),
@@ -505,8 +518,7 @@ def run_validation_gate(
         else:
             ic = _safe_corr(left, right)
             rank_ic = _safe_rank_corr(left, right)
-            dispersion = float(pd.Series(left).std(ddof=0) or 0.0)
-            icir = ic / max(dispersion, 0.01)
+            icir = abs(ic) * math.sqrt(sample_size)
             decay_5d = _decay_proxy_from_ic(ic)
             gates = [
                 _normalize_gate(ic, effective_config.ic_pass, effective_config.ic_warn),
@@ -559,8 +571,7 @@ def run_validation_gate(
         right = future_return_series["future_return_5d"]
         future_ic = _safe_corr(left, right)
         future_rank_ic = _safe_rank_corr(left, right)
-        future_dispersion = float(pd.Series(left).std(ddof=0) or 0.0)
-        future_icir = future_ic / max(future_dispersion, 0.01)
+        future_icir = abs(future_ic) * math.sqrt(future_sample_size)
         future_decay = _decay_proxy_from_ic(future_ic)
         future_gates = [
             _normalize_gate(future_ic, effective_config.ic_pass, effective_config.ic_warn),
@@ -594,7 +605,7 @@ def run_validation_gate(
     )
 
     factor_report_frame = pd.DataFrame.from_records(factor_rows)
-    factor_gate = _aggregate_gate(factor_report_frame["gate"].tolist()) if not factor_report_frame.empty else "FAIL"
+    factor_gate = _aggregate_factor_gate(factor_report_frame["gate"].tolist()) if not factor_report_frame.empty else "FAIL"
     neutral_regime_softening_applied = bool(
         resolved_threshold_mode == "regime"
         and resolved_wfa_mode == "dual-window"

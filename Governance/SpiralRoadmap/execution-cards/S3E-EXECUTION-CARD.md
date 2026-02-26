@@ -93,4 +93,12 @@ pytest tests/unit/algorithms/validation/test_validation_oos_metrics_contract.py 
 - 阶段模板：`Governance/SpiralRoadmap/SPIRAL-STAGE-TEMPLATES.md`
 - 依赖图：`Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`
 
+---
+
+## 9. 历史债务消化（审计插入 2026-02-26）
+
+| 来源 | 描述 | 审计结论 |
+|---|---|---|
+| TD-S0-002 | Validation 生产级真实收益口径与统计校准仍待完成 | 当前 IC/ICIR 使用 `future_return_5d`（市场均价 5 日前置收益），权重验证使用公式估算收益/回撤（非回测实际结果）；需在本卡重验时补齐个股/组合级真实收益序列校准 |
+
 

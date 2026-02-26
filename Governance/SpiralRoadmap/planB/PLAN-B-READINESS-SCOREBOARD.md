@@ -128,29 +128,45 @@
 
 ### PB-3.1 展示闭环
 
+**Plan A 锚点**：`S5-EXECUTION-CARD.md` v1.0 | **设计依据**：`gui-algorithm/data-models/api/information-flow` v3.2.0
+
 | 指标 | 量化目标 | 当前值 | 状态 |
 |---|---|---|---|
+| 7 页面覆盖 | Dashboard/MSS/IRS/PAS/Integrated/Trading/Analysis 全可用 | 0/7 | planned |
 | GUI 消费口径 | 只读消费真实产物（不二次计算） | pending | planned |
-| FreshnessMeta | 新鲜度徽标可验证 | pending | planned |
-| FilterConfig | 过滤配置可追溯 | pending | planned |
-| pnl_color | A股红涨绿跌 | pending | planned |
-| 日报导出 | 可追溯到 pipeline 产物 | pending | planned |
+| FreshnessMeta | 新鲜度三级：≤4h fresh / ≤24h stale / >24h expired | pending | planned |
+| FilterConfig | 过滤配置持久化 + 回显可复现 | pending | planned |
+| pnl_color | A 股红涨绿跌（gui-algorithm §4） | pending | planned |
+| 日报导出 | PDF/HTML 可追溯到 pipeline 产物 | pending | planned |
+| 字段对齐率 | GUI dataclass 字段 vs gui-data-models.md ≥95% | pending | planned |
+| target 测试 | freshness_meta + filter_config + pnl_color 3 测试全 PASS | 0/3 | planned |
 | gate_report | 含 §Design-Alignment-Fields | pending | planned |
 
 ### PB-3.2 稳定化闭环
 
+**Plan A 锚点**：`S6-EXECUTION-CARD.md` v1.0 | **设计依据**：ENH-08 + system-overview §Pipeline
+
 | 指标 | 量化目标 | 当前值 | 状态 |
 |---|---|---|---|
-| 全链路一致性 | run-all 重跑结果一致 | pending | planned |
-| 债务清偿 | debts.md 记录完成 | pending | planned |
+| eq run-all | 全链路单命令可重跑 | pending | planned |
+| gate 链一致性 | 精确匹配（bitwise equal） | pending | planned |
+| score 链一致性 | 差异 <1e-6 | pending | planned |
+| return 链一致性 | 差异 <1e-4 | pending | planned |
+| 债务清偿 | debts.md 存量零未决 | pending | planned |
+| target 测试 | full_chain + replay_reproducibility + design_freeze_guard 3 测试全 PASS | 0/3 | planned |
 | gate_report | 含 §Design-Alignment-Fields | pending | planned |
 
 ### PB-3.3 调度闭环
 
+**Plan A 锚点**：`S7A-EXECUTION-CARD.md` v1.0 | **设计依据**：data-layer-api §6 + data-layer-algorithm §7
+
 | 指标 | 量化目标 | 当前值 | 状态 |
 |---|---|---|---|
-| 调度可审计 | install/status/history/retry 全可追溯 | pending | planned |
-| 幂等去重 | 重复执行结果一致 | pending | planned |
+| SchedulerCore | `eq scheduler install/status/run-once` 三命令可用 | 0/3 | planned |
+| CalendarGuard | 非交易日自动跳过 + skip 事件可审计 | pending | planned |
+| Idempotency | 同 trade_date+task_name 重复执行不重复写入 | pending | planned |
+| RunHistory | `task_execution_log` 可查询 + 失败重试≤3次可追溯 | pending | planned |
+| target 测试 | scheduler_install + calendar_idempotency + run_history 3 测试全 PASS | 0/3 | planned |
 | gate_report | 含 §Design-Alignment-Fields | pending | planned |
 
 ### PB-3.4 Pre-Live 预演
@@ -203,6 +219,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v3.1 | 2026-02-26 | PB-3.1/3.2/3.3 升级：增加 Plan A 执行卡锚点+设计依据标注+量化行（7页面覆盖/字段对齐率/三层一致性阈值/调度3命令/target测试计数） |
 | v3.0 | 2026-02-25 | 堵最大缺口：按 PB-1.1~PB-3.4 微圈拆分评分卡；补充量化阈值（超额>5%/3%、夏普>1.0、回撤<20%、胜率>50%、dominant_component、factor_gate_raw、backtest-test-cases>=19、FreshnessMeta、偏差<5%）；设计对齐增加首次校验微圈标注 |
 | v2.1 | 2026-02-24 | 改为设计绑定业务看板：增加 docs/design 对齐检查与螺旋闭环口径 |
 | v2.0 | 2026-02-23 | 实事求是版 |

@@ -8,6 +8,13 @@ import pandas as pd
 
 from src.config.config import Config
 from src.db.helpers import column_exists as _column_exists, table_exists as _table_exists
+from src.models.enums import (
+    GateDecision,
+    MssCycle,
+    PasDirection,
+    RecommendationGrade,
+    Trend,
+)
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/integration/integration-algorithm.md (§3 集成公式, §4 Gate 与桥接阻断)
@@ -25,24 +32,24 @@ SUPPORTED_INTEGRATION_MODES = {"top_down", "bottom_up", "dual_verify", "compleme
 MAX_RECOMMENDATIONS_PER_DAY = 20
 MAX_RECOMMENDATIONS_PER_INDUSTRY = 5
 TOP_DOWN_CYCLE_CAP = {
-    "emergence": 1.00,
-    "fermentation": 0.80,
-    "acceleration": 0.70,
-    "divergence": 0.60,
-    "climax": 0.40,
-    "diffusion": 0.50,
-    "recession": 0.20,
-    "unknown": 0.20,
+    MssCycle.EMERGENCE: 1.00,
+    MssCycle.FERMENTATION: 0.80,
+    MssCycle.ACCELERATION: 0.70,
+    MssCycle.DIVERGENCE: 0.60,
+    MssCycle.CLIMAX: 0.40,
+    MssCycle.DIFFUSION: 0.50,
+    MssCycle.RECESSION: 0.20,
+    MssCycle.UNKNOWN: 0.20,
 }
 BOTTOM_UP_CYCLE_CAP = {
-    "emergence": 0.80,
-    "fermentation": 0.80,
-    "acceleration": 0.70,
-    "divergence": 0.60,
-    "climax": 0.40,
-    "diffusion": 0.50,
-    "recession": 0.20,
-    "unknown": 0.20,
+    MssCycle.EMERGENCE: 0.80,
+    MssCycle.FERMENTATION: 0.80,
+    MssCycle.ACCELERATION: 0.70,
+    MssCycle.DIVERGENCE: 0.60,
+    MssCycle.CLIMAX: 0.40,
+    MssCycle.DIFFUSION: 0.50,
+    MssCycle.RECESSION: 0.20,
+    MssCycle.UNKNOWN: 0.20,
 }
 INTEGRATED_TEXT_COLUMNS = {
     "trade_date",
@@ -207,27 +214,27 @@ def _to_stock_code(stock_code: str, ts_code: str) -> str:
 
 def _direction_from_trend(mss_trend: str) -> str:
     mapping = {
-        "up": "bullish",
-        "down": "bearish",
-        "sideways": "neutral",
+        Trend.UP: PasDirection.BULLISH,
+        Trend.DOWN: PasDirection.BEARISH,
+        Trend.SIDEWAYS: PasDirection.NEUTRAL,
     }
-    return mapping.get(str(mss_trend), "neutral")
+    return mapping.get(str(mss_trend), PasDirection.NEUTRAL)
 
 
 def _direction_from_recommendation(recommendation: str) -> str:
     value = str(recommendation)
-    if value in {"STRONG_BUY", "BUY"}:
-        return "bullish"
-    if value in {"SELL", "AVOID"}:
-        return "bearish"
-    return "neutral"
+    if value in {RecommendationGrade.STRONG_BUY, RecommendationGrade.BUY}:
+        return PasDirection.BULLISH
+    if value in {RecommendationGrade.SELL, RecommendationGrade.AVOID}:
+        return PasDirection.BEARISH
+    return PasDirection.NEUTRAL
 
 
 def _to_direction(mss_direction: str, irs_direction: str, pas_direction: str) -> str:
     direction_score = {
-        "bullish": 1.0,
-        "neutral": 0.0,
-        "bearish": -1.0,
+        PasDirection.BULLISH: 1.0,
+        PasDirection.NEUTRAL: 0.0,
+        PasDirection.BEARISH: -1.0,
     }
     avg = (
         direction_score.get(mss_direction, 0.0)
@@ -235,10 +242,10 @@ def _to_direction(mss_direction: str, irs_direction: str, pas_direction: str) ->
         + direction_score.get(pas_direction, 0.0)
     ) / 3.0
     if avg > 0.3:
-        return "bullish"
+        return PasDirection.BULLISH
     if avg < -0.3:
-        return "bearish"
-    return "neutral"
+        return PasDirection.BEARISH
+    return PasDirection.NEUTRAL
 
 
 def _to_consistency(mss_direction: str, irs_direction: str, pas_direction: str) -> str:
@@ -264,19 +271,19 @@ def _to_opportunity_grade(pas_score: float) -> str:
 
 
 def _to_recommendation(final_score: float, mss_cycle: str) -> str:
-    if final_score >= 75.0 and mss_cycle in {"emergence", "fermentation"}:
-        candidate = "STRONG_BUY"
+    if final_score >= 75.0 and mss_cycle in {MssCycle.EMERGENCE, MssCycle.FERMENTATION}:
+        candidate = RecommendationGrade.STRONG_BUY
     elif final_score >= 70.0:
-        candidate = "BUY"
+        candidate = RecommendationGrade.BUY
     elif final_score >= 50.0:
-        candidate = "HOLD"
+        candidate = RecommendationGrade.HOLD
     elif final_score >= 30.0:
-        candidate = "SELL"
+        candidate = RecommendationGrade.SELL
     else:
-        candidate = "AVOID"
+        candidate = RecommendationGrade.AVOID
 
-    if mss_cycle == "unknown" and candidate in {"STRONG_BUY", "BUY"}:
-        return "HOLD"
+    if mss_cycle == MssCycle.UNKNOWN and candidate in {RecommendationGrade.STRONG_BUY, RecommendationGrade.BUY}:
+        return RecommendationGrade.HOLD
     return candidate
 
 
@@ -292,9 +299,9 @@ def _to_limit_guard_result(close_price: float, high_price: float, low_price: flo
 
 def _normalize_gate(gate: str) -> str:
     candidate = str(gate).strip().upper()
-    if candidate in {"PASS", "WARN", "FAIL"}:
+    if candidate in {GateDecision.PASS, GateDecision.WARN, GateDecision.FAIL}:
         return candidate
-    return "FAIL"
+    return GateDecision.FAIL
 
 
 def _to_bool(value: object) -> bool:

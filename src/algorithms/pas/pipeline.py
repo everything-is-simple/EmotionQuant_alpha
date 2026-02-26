@@ -13,6 +13,7 @@ from src.db.helpers import (
     persist_by_trade_date as _persist,
     table_exists as _table_exists,
 )
+from src.models.enums import PasDirection
 
 # DESIGN_TRACE:
 # - docs/design/core-algorithms/pas/pas-algorithm.md (3 三因子, 5 方向, 6 RR)
@@ -219,11 +220,11 @@ def run_pas_daily(
         consecutive_down_days = _consecutive_count(down_flags)
 
         if close > high_20d_prev and consecutive_up_days >= 3:
-            direction = "bullish"
+            direction = PasDirection.BULLISH
         elif close < low_20d_prev and consecutive_down_days >= 3:
-            direction = "bearish"
+            direction = PasDirection.BEARISH
         else:
-            direction = "neutral"
+            direction = PasDirection.NEUTRAL
 
         limit_up_ratio_series = (pct_chg_series >= board_limit_threshold).astype(float).rolling(
             window=120, min_periods=1

@@ -1,15 +1,17 @@
 # Integration API 接口
 
-**版本**: v3.5.1（重构版）
-**最后更新**: 2026-02-14
-**状态**: 设计完成并已落地（Python 模块/CLI；当前仓库无 Web API）
+**版本**: v4.0.0
+**最后更新**: 2026-02-26
+**状态**: Pipeline 模式已落地（Python 模块/CLI；当前仓库无 Web API）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库已落地 `src/integration/pipeline.py`，并由 `eq recommend --mode integrated --with-validation-bridge` 统一触发 Integration。
-- 本文档为设计规格与实现对照基线，接口演进需与 CP-05 同步更新（历史线性编号 05，仅兼容说明）。
+- **现行架构**：过程式 Pipeline + DuckDB 直写。主入口 `run_integrated_daily()`（`src/integration/pipeline.py:573`），CLI 由 `eq recommend --mode integrated --with-validation-bridge` 触发。
+- Integration 暂无 IntegrationEngine/IntegrationRepository 类封装。设计中的 OOP 接口为未来扩展口径，详见附录 A。
+- 架构决策 ARCH-DECISION-001：选项 B（文档对齐代码）。
+- 接口演进需与 CP-05 同步更新。
 
 ---
 
@@ -20,155 +22,58 @@
 
 ---
 
-## 2. 模块接口（Python）
+## 2. 模块接口（Python）— Pipeline 模式
 
-### 2.1 集成引擎接口
-
-```python
-class IntegrationEngine:
-    """Integration"""
-    MAX_MODULE_WEIGHT = 0.60
-    
-    def calculate(
-        self,
-        mss_input: MssInput,
-        irs_inputs: List[IrsInput],
-        pas_inputs: List[PasInput],
-        weight_plan: WeightPlan,
-        validation_gate_decision: ValidationGateDecision,
-        contract_version: str = "nc-v1"
-    ) -> List[IntegratedRecommendation]:
-        """
-        计算集成推荐
-        
-        Args:
-            mss_input: 当日MSS数据（全市场唯一）
-            irs_inputs: 当日各行业IRS数据（读取 quality_flag/sample_days；当 quality_flag ∈ {cold_start, stale} 时强制回退 baseline 权重并提升 Gate 状态为 WARN）
-            pas_inputs: 当日各股票PAS数据
-            weight_plan: 已通过验证的权重方案（含 plan_id 与 w_mss/w_irs/w_pas；需由 Validation `resolve_weight_plan(trade_date, gate.selected_weight_plan)` 解析）
-            validation_gate_decision: 验证门禁决策（含 `tradability_pass_ratio/impact_cost_bps/candidate_exec_pass/position_cap_ratio`）
-            contract_version: 契约版本（当前仅支持 `nc-v1`，不兼容时拒绝执行）
-        Returns:
-            集成推荐列表（按final_score降序，输出需包含 `integration_state` 与 `position_cap_ratio`）
-        Raises:
-            ValueError: 输入数据无效
-            WeightViolationError: 权重方案违反约束
-            ValidationGateError: validation_gate_decision.final_gate=FAIL，不允许进入集成
-            ContractVersionError: contract_version 与当前运行时不兼容
-        """
-        pass
-    
-    def generate_recommendations(
-        self,
-        signals: List[IntegratedRecommendation],
-        top_n: int = 20
-    ) -> List[IntegratedRecommendation]:
-        """
-        筛选并生成最终推荐列表
-        
-        Args:
-            signals: 全部集成信号
-            top_n: 最大推荐数量
-        Returns:
-            筛选后的推荐列表（按等级+评分排序）
-        """
-        pass
-    
-    def get_latest_recommendations(self, trade_date: str = None) -> List[IntegratedRecommendation]:
-        """获取最新推荐列表"""
-        pass
-    
-    def verify_weight_plan(self, weight_plan: WeightPlan) -> bool:
-        """验证权重约束：非负、和为1、单模块上限"""
-        weights = [weight_plan.w_mss, weight_plan.w_irs, weight_plan.w_pas]
-        return (
-            all(v >= 0 for v in weights) and
-            abs(sum(weights) - 1.0) < 1e-8 and
-            all(v <= self.MAX_MODULE_WEIGHT for v in weights)
-        )
-
-    def resolve_regime_parameters(
-        self,
-        mss_cycle: str,
-        market_volatility_20d: float,
-        mode: str = "auto"
-    ) -> RegimeParameters:
-        """解析风险状态参数组（fixed/auto）"""
-        pass
-
-    def classify_integration_state(
-        self,
-        gate: ValidationGateDecision,
-        irs_quality_flag: str
-    ) -> str:
-        """统一状态机：normal / warn_* / blocked_*"""
-        pass
-
-    def check_candidate_executability(
-        self,
-        gate: ValidationGateDecision,
-        tradability_pass_floor: float = 0.90,
-        impact_cost_bps_cap: float = 35.0
-    ) -> bool:
-        """候选方案执行约束检查（可成交性+冲击成本）"""
-        pass
-```
-
-### 2.2 Validation 桥接调用约定
+### 2.1 Pipeline 编排入口
 
 ```python
-# 约定：Integration 不直接解析 selected_weight_plan 字符串
-gate, weight_plan = validation_orchestrator.build_integration_inputs(trade_date)
-signals = integration_engine.calculate(
-    mss_input=mss,
-    irs_inputs=irs,
-    pas_inputs=pas,
-    weight_plan=weight_plan,
-    validation_gate_decision=gate,
-    contract_version=gate.contract_version,  # 当前要求 nc-v1
-)
-```
-
-说明：`selected_weight_plan` -> `WeightPlan` 的桥接责任在 Validation Orchestrator，避免 Integration 侧重复实现解析逻辑。
-
-### 2.3 数据仓库接口
-
-```python
-class IntegrationRepository:
-    """Integration 数据仓库"""
-    
-    def save(self, recommendation: IntegratedRecommendation) -> None:
-        """保存单条记录（幂等）"""
-        pass
-    
-    def save_batch(self, recommendations: List[IntegratedRecommendation]) -> int:
-        """批量保存"""
-        pass
-    
-    def get_by_date(self, trade_date: str) -> List[IntegratedRecommendation]:
-        """按日期查询"""
-        pass
-    
-    def get_by_stock(self, stock_code: str, limit: int = 30) -> List[IntegratedRecommendation]:
-        """按股票查询历史"""
-        pass
-```
-
-### 2.4 最小实现闭环（P0）
-
-```python
-def run_integration_contract_tests() -> dict:
+def run_integrated_daily(
+    *,
+    trade_date: str,
+    config: Config,
+    with_validation_bridge: bool = False,
+    integration_mode: str = "top_down",
+) -> IntegrationRunResult:
     """
-    最小闭环契约测试（CP-05）：
-    1) PASS + candidate -> 使用 candidate 权重
-    2) WARN + candidate 缺失 -> baseline + warn_gate_fallback
-    3) FAIL -> ValidationGateError
-    4) cold_start/stale -> baseline + warn_data_*
-    5) candidate_exec_pass=False -> baseline + warn_candidate_exec
-    6) contract_version != "nc-v1" -> ContractVersionError
+    Integration 日级 Pipeline 入口（src/integration/pipeline.py:573）
+
+    职责：
+    1. 从 DuckDB 读取 MSS(mss_panorama) / IRS(irs_industry_daily) / PAS(stock_pas_daily)
+    2. 读取 Validation Gate 决策(validation_gate_decision) 与权重方案(validation_weight_plan)
+    3. 执行三算法加权集成 + 状态机分类 + RR 过滤
+    4. 持久化 `integrated_recommendation`(L3) + `quality_gate_report`
+    5. 支持模式：top_down / dual_verify / complementary
+
+    Returns:
+        IntegrationRunResult（frozen dataclass）
+    Raises:
+        FileNotFoundError: duckdb_not_found
+        ValueError: required_tables_missing / mss_panorama_empty / irs/pas_empty / validation_gate_empty
     """
-    pass
 ```
+
+### 2.2 返回类型
+
+```python
+@dataclass(frozen=True)
+class IntegrationRunResult:
+    trade_date: str
+    count: int                    # 集成推荐总数
+    integration_mode: str         # top_down / dual_verify / complementary
+    frame: pd.DataFrame           # 集成推荐 DataFrame
+    quality_status: str           # PASS / WARN / FAIL
+    quality_frame: pd.DataFrame   # 质量门禁报告
+    validation_gate: str          # 上游 Validation Gate 决策
+    integration_state: str        # normal / warn_* / blocked_*
+    go_nogo: str                  # GO / NO_GO
+    rr_filtered_count: int        # RR 过滤数量
+    quality_message: str
+```
+
+### 2.3 Validation 桥接调用约定
+
+当 `with_validation_bridge=True` 时，Pipeline 内部从 `validation_weight_plan` 解析权重方案；
+`selected_weight_plan` -> `WeightPlan` 的桥接责任在 Pipeline 内部函数 `_resolve_weight_plan()`。
 
 ---
 
@@ -190,16 +95,32 @@ def run_integration_contract_tests() -> dict:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
-| v3.5.1 | 2026-02-14 | 修复 R34（review-012）：`calculate()` 增加 `contract_version` 输入；桥接调用显式透传 `gate.contract_version`；错误处理补充契约版本不兼容阻断 |
-| v3.5.0 | 2026-02-14 | 对应 review-005 闭环修复：新增 `resolve_regime_parameters/classify_integration_state/check_candidate_executability` 接口；补充最小闭环契约测试接口；异常处理统一到 `warn_*` 状态机语义 |
-| v3.4.4 | 2026-02-09 | 修复 R29：补充 Validation -> Integration 权重桥接调用约定（通过 Validation Orchestrator 解析 `selected_weight_plan` 为 `WeightPlan`） |
-| v3.4.3 | 2026-02-09 | 修复 R27：`calculate()` 参数说明补充 IRS `quality_flag/sample_days` 对 Gate 与权重回退的影响；错误处理补充 `Gate=FAIL` 与“全行业 cold_start”行为 |
-| v3.4.2 | 2026-02-08 | 修复 R17：`weight_plan` 参数类型由 `dict` 收敛为 `WeightPlan`，保留 `plan_id` 追溯并增强类型约束 |
-| v3.4.1 | 2026-02-08 | 修复 R11：显式定义 `MAX_MODULE_WEIGHT = 0.60`，与 Validation 权重上限口径一致 |
-| v3.4.0 | 2026-02-07 | 接入 Validation Gate 与 weight_plan；权重校验由固定1/3改为约束校验 |
-| v3.3.1 | 2026-02-05 | 移除 HTTP 接口示例，改为模块接口定义；与路线图/仓库架构对齐 |
-| v3.3.0 | 2026-02-04 | 同步 Integration v3.3.0：示例评分与协同约束口径对齐 |
-| v3.0.0 | 2026-01-31 | 重构版：统一API风格、完善错误处理 |
+| v4.0.0 | 2026-02-26 | ARCH-DECISION-001：接口定义改为反映实际 Pipeline 模式（`run_integrated_daily`）；IntegrationEngine/IntegrationRepository 移入附录 A |
+| v3.5.1 | 2026-02-14 | 修复 R34：`calculate()` 增加 `contract_version` 输入；契约版本不兼容阻断 |
+| v3.5.0 | 2026-02-14 | 新增 `resolve_regime_parameters/classify_integration_state/check_candidate_executability` |
+| v3.4.4 | 2026-02-09 | 补充 Validation -> Integration 权重桥接调用约定 |
+| v3.4.3 | 2026-02-09 | 错误处理补充 `Gate=FAIL` 与“全行业 cold_start” |
+| v3.4.0 | 2026-02-07 | 接入 Validation Gate 与 weight_plan |
+| v3.3.1 | 2026-02-05 | 移除 HTTP 接口示例 |
+| v3.0.0 | 2026-01-31 | 重构版 |
+
+---
+
+## 附录 A：IntegrationEngine/IntegrationRepository 接口（未来扩展口径）
+
+当前 Integration 未落地 OOP 封装。以下为规划接口，供未来推广参考：
+
+```python
+class IntegrationEngine:
+    MAX_MODULE_WEIGHT = 0.60
+    def calculate(self, mss_input, irs_inputs, pas_inputs, weight_plan, validation_gate_decision, contract_version="nc-v1") -> List[IntegratedRecommendation]: ...
+    def verify_weight_plan(self, weight_plan: WeightPlan) -> bool: ...
+    def classify_integration_state(self, gate, irs_quality_flag: str) -> str: ...
+
+class IntegrationRepository:
+    def save_batch(self, recommendations) -> int: ...
+    def get_by_date(self, trade_date: str) -> List[IntegratedRecommendation]: ...
+```
 
 ---
 
@@ -207,6 +128,7 @@ def run_integration_contract_tests() -> dict:
 - 算法设计：[integration-algorithm.md](./integration-algorithm.md)
 - 数据模型：[integration-data-models.md](./integration-data-models.md)
 - 信息流：[integration-information-flow.md](./integration-information-flow.md)
+- 架构决策：[ARCH-DECISION-001](../../../Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md)
 
 
 

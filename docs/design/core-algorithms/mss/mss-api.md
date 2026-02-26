@@ -1,15 +1,17 @@
 # MSS API 接口
 
-**版本**: v3.2.0（重构版）
-**最后更新**: 2026-02-14
-**状态**: 设计完成并已落地（Python 模块/CLI；当前仓库无 Web API）
+**版本**: v4.0.0
+**最后更新**: 2026-02-26
+**状态**: Pipeline 模式已落地（Python 模块/CLI；当前仓库无 Web API）
 
 ---
 
 ## 实现状态（仓库现状）
 
-- 当前仓库已落地 `src/algorithms/mss/engine.py`、`src/algorithms/mss/pipeline.py`、`src/algorithms/mss/probe.py`，并由 `eq mss`/`eq mss-probe` 提供统一入口。
-- 本文档为设计规格与实现对照基线，接口演进需与 CP-02 同步更新（历史线性编号 02，仅兼容说明）。
+- **现行架构**：过程式 Pipeline + DuckDB 直写。主入口 `run_mss_scoring()`（`src/algorithms/mss/pipeline.py:334`），核心计算 `calculate_mss_score()`（`src/algorithms/mss/engine.py:440`）。CLI 由 `eq mss`/`eq mss-probe` 提供。
+- **TD-DA-001 试点**：`calculator.py`（`MssCalculator` Protocol + `DefaultMssCalculator`）与 `repository.py`（`MssRepository` Protocol + `DuckDbMssRepository`）已落地为薄封装，当前非主链调用路径。详见附录 A。
+- 架构决策 ARCH-DECISION-001：选项 B（文档对齐代码），Calculator/Repository 为未来扩展口径。
+- 接口演进需与 CP-02 同步更新。
 
 ---
 
@@ -20,92 +22,74 @@
 
 ---
 
-## 2. 模块接口（Python）
+## 2. 模块接口（Python）— Pipeline 模式
 
-### 2.1 计算器接口
+### 2.1 Pipeline 编排入口
 
 ```python
-class MssCalculator:
-    """MSS 计算器接口"""
-    
-    def calculate(self, trade_date: str) -> MssPanorama:
-        """
-        计算指定日期的 MSS 全景数据
-        
-        Args:
-            trade_date: 交易日期 YYYYMMDD
-        Returns:
-            MssPanorama 对象
-        Raises:
-            ValueError: 非交易日或输入数据缺失
-            DataNotReadyError: 依赖数据未就绪
-        """
-        pass
-    
-    def batch_calculate(self, start_date: str, end_date: str) -> List[MssPanorama]:
-        """
-        批量计算日期范围内的 MSS 数据
-        
-        Args:
-            start_date: 开始日期 YYYYMMDD
-            end_date: 结束日期 YYYYMMDD
-        Returns:
-            MssPanorama 列表（按日期升序）
-        """
-        pass
-    
-    def get_latest(self) -> MssPanorama:
-        """获取最新一日的 MSS 数据"""
-        pass
-    
-    def get_temperature(self, trade_date: str) -> float:
-        """获取指定日期的温度值"""
-        pass
-    
-    def get_cycle(self, trade_date: str) -> str:
-        """
-        获取指定日期的周期阶段
+def run_mss_scoring(
+    *,
+    trade_date: str,
+    config: Config,
+    threshold_mode: str = "adaptive",
+    artifacts_dir: Path | None = None,
+) -> MssRunResult:
+    """
+    MSS 日级 Pipeline 入口（src/algorithms/mss/pipeline.py:334）
 
-        Returns:
-            str: 周期代码（emergence/fermentation/acceleration/divergence/climax/diffusion/recession/unknown）
-                其中 `unknown` 表示历史数据不足以识别周期，为合法降级输出
-        """
-        pass
-    
-    def get_position_advice(self, trade_date: str) -> str:
-        """获取指定日期的仓位建议"""
-        pass
+    职责：
+    1. 从 DuckDB `market_snapshot`(L2) 加载当日快照
+    2. 从 `mss_panorama` 加载历史温度序列
+    3. 解析周期阈值（adaptive/fixed）
+    4. 调用 calculate_mss_score() 执行核心计算
+    5. 持久化结果到 DuckDB `mss_panorama`(L3)
+    6. 产出 artifacts（factor_trace / threshold_snapshot / gate_report / consumption）
 
-    def get_extreme_direction_bias(self, trade_date: str) -> float:
-        """获取指定日期的极端方向偏置（-1~1）"""
-        pass
+    Returns:
+        MssRunResult（frozen dataclass）
+    Raises:
+        RuntimeError: duckdb_not_found / market_snapshot_table_missing
+    """
 ```
 
-### 2.2 数据仓库接口
+### 2.2 核心计算函数
 
 ```python
-class MssRepository:
-    """MSS 数据仓库接口"""
-    
-    def save(self, panorama: MssPanorama) -> None:
-        """保存单条记录（幂等）"""
-        pass
-    
-    def save_batch(self, panoramas: List[MssPanorama]) -> int:
-        """批量保存，返回实际插入/更新条数"""
-        pass
-    
-    def get_by_date(self, trade_date: str) -> Optional[MssPanorama]:
-        """按日期查询"""
-        pass
-    
-    def get_by_date_range(self, start_date: str, end_date: str) -> List[MssPanorama]:
-        """按日期范围查询"""
-        pass
-    
-    def get_latest_n(self, n: int = 30) -> List[MssPanorama]:
-        """获取最近N条记录"""
-        pass
+def calculate_mss_score(
+    snapshot: MssInputSnapshot,
+    *,
+    temperature_history: Sequence[float] | None = None,
+    threshold_mode: str = "adaptive",
+    stale_hard_limit_days: int = 3,
+) -> MssPanorama:
+    """
+    纯计算函数（src/algorithms/mss/engine.py:440）
+
+    输入：MssInputSnapshot + 历史温度序列
+    输出：MssPanorama（含 temperature/cycle/trend/rank/percentile 等全量字段）
+    Raises:
+        DataNotReadyError: stale_days > stale_hard_limit_days 时阻断
+    """
+```
+
+### 2.3 返回类型
+
+```python
+@dataclass(frozen=True)
+class MssRunResult:
+    trade_date: str
+    artifacts_dir: Path
+    mss_panorama_count: int
+    threshold_mode: str
+    has_error: bool
+    error_manifest_path: Path
+    factor_trace_path: Path
+    sample_path: Path
+    factor_intermediate_sample_path: Path
+    threshold_snapshot_path: Path
+    adaptive_regression_path: Path
+    gate_report_path: Path
+    consumption_path: Path
 ```
 
 ---
@@ -133,6 +117,7 @@ class MssRepository:
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v4.0.0 | 2026-02-26 | ARCH-DECISION-001：接口定义改为反映实际 Pipeline 模式（`run_mss_scoring` / `calculate_mss_score`）；Calculator/Repository 移入附录 A |
 | v3.2.0 | 2026-02-14 | 落地 review-001 修复：增加 `get_extreme_direction_bias()` 读取接口；错误处理改为矩阵化定义，明确 `stale_days` 分层处理与“禁止沿用前值”约束 |
 | v3.1.2 | 2026-02-09 | 修复 R27：`get_cycle()` 返回值文档补充 `unknown` 合法降级语义；错误处理补充 `unknown` 与 `DataNotReadyError` 的边界 |
 | v3.1.1 | 2026-02-05 | 移除 HTTP 接口示例，改为模块接口定义；与路线图/仓库架构对齐 |
@@ -141,10 +126,33 @@ class MssRepository:
 
 ---
 
+## 附录 A：Calculator/Repository 接口（未来扩展口径）
+
+TD-DA-001 试点已在 `src/algorithms/mss/calculator.py` 与 `src/algorithms/mss/repository.py` 落地为 Protocol 薄封装，当前非主链调用路径。若未来需要多实现替换（如内存桨/文件桨），可提升为主链。
+
+```python
+# Protocol 定义（src/algorithms/mss/calculator.py）
+@runtime_checkable
+class MssCalculator(Protocol):
+    def calculate(self, snapshot: MssInputSnapshot, *, temperature_history: Sequence[float] | None = None, threshold_mode: str = "adaptive", stale_hard_limit_days: int = 3) -> MssPanorama: ...
+
+# Protocol 定义（src/algorithms/mss/repository.py）
+@runtime_checkable
+class MssRepository(Protocol):
+    def load_snapshot(self, trade_date: str) -> MssInputSnapshot: ...
+    def load_temperature_history(self, trade_date: str, *, limit: int = 252) -> list[float]: ...
+    def save_panorama(self, panorama: MssPanorama, trade_date: str) -> int: ...
+```
+
+默认实现：`DefaultMssCalculator`（委托 `calculate_mss_score`）、`DuckDbMssRepository`（DuckDB 读写）。
+
+---
+
 **关联文档**：
 - 算法设计：[mss-algorithm.md](./mss-algorithm.md)
 - 数据模型：[mss-data-models.md](./mss-data-models.md)
 - 信息流：[mss-information-flow.md](./mss-information-flow.md)
+- 架构决策：[ARCH-DECISION-001](../../../Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md)
 
 
 

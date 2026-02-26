@@ -270,7 +270,7 @@ class DataQualityChecker:
 
 ## 5. 实施计划
 
-### 5.1 Phase 1: AKShare 适配（优先级 P0）
+### 5.1 批次 1: AKShare 适配（优先级 P0）
 
 **目标**：完成 AKShare 作为第一兜底
 
@@ -282,7 +282,7 @@ class DataQualityChecker:
 
 **预计时间**：2-3 天
 
-### 5.2 Phase 2: BaoStock 适配（优先级 P1）
+### 5.2 批次 2: BaoStock 适配（优先级 P1）
 
 **目标**：完成 BaoStock 作为第二兜底
 
@@ -294,7 +294,7 @@ class DataQualityChecker:
 
 **预计时间**：2-3 天
 
-### 5.3 Phase 3: 自动降级机制（优先级 P1）
+### 5.3 批次 3: 自动降级机制（优先级 P1）
 
 **目标**：实现自动降级与数据源切换
 

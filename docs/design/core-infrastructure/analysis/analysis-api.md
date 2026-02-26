@@ -1,652 +1,139 @@
 # Analysis API 接口
 
-**版本**: v3.2.0（重构版）
-**最后更新**: 2026-02-14
-**状态**: 设计完成（闭环口径补齐；S3b 最小实现已落地，持续增强中）
+**版本**: v4.0.0
+**最后更新**: 2026-02-26
+**状态**: Pipeline 模式已落地（Python 模块/CLI）
 
 ---
 
-## 1. 模块结构
+## 实现状态（仓库现状）
 
-Analysis 层产出 L4 分析指标与报告，不替代 L3 算法；仅消费 L3 算法输出与回测/实盘结果。
-
-当前实现入口：`src/analysis/pipeline.py::run_analysis`，并由 `eq analysis` 调用。
+- **现行架构**：过程式 Pipeline + DuckDB 直写。主入口 `run_analysis()`（`src/analysis/pipeline.py:145`），CLI 由 `eq analysis` 触发。
+- 已实现三项子任务：A/B 基准对比 (`--ab-benchmark`)、实盘-回测偏差归因 (`--deviation live-backtest`)、归因汇总 (`--attribution-summary`)。
+- Analysis 层产出 L4 分析指标与报告，不替代 L3 算法；仅消费 L3 算法输出与回测/实盘结果。
+- 设计中的 OOP 结构（AnalysisEngine/PerformanceAnalyzer/SignalAttributor/RiskReporter/ReportWriter/Visualizer）为未来扩展口径，详见附录 A。
+- 架构决策 ARCH-DECISION-001：选项 B（文档对齐代码）。
 
 **外部库边界**：不得以 quantstats/empyrical 等第三方库替代 Analysis 模块，可作为内部计算工具使用（不改变输出口径）。
 
 **输入依赖**：`mss_panorama`、`irs_industry_daily`、`stock_pas_daily`、`integrated_recommendation`；`trade_records` / `backtest_trade_records`、`backtest_results`（含 equity_curve）、`positions`。
 
-```
-analysis/
-├── analysis_engine.py        # 最小闭环执行入口
-├── performance_analyzer.py   # 绩效指标计算
-├── signal_attribution.py     # MSS/IRS/PAS贡献拆解
-├── risk_reporter.py          # 风险与回撤分析
-├── report_writer.py          # 报告输出（Markdown/CSV）
-└── visualizer.py             # 可视化输出接口
-```
-
-### 1.1 AnalysisEngine（最小闭环执行器，P0）
-
-```python
-class AnalysisEngine:
-    """Analysis 最小可运行闭环"""
-
-    def __init__(
-        self,
-        repository: DataRepository,
-        analyzer: PerformanceAnalyzer,
-        attributor: SignalAttributor,
-        risk_reporter: RiskReporter,
-        report_writer: ReportWriter
-    ) -> None:
-        ...
-
-    def run_minimal(
-        self,
-        trade_date: str,
-        start_date: str,
-        end_date: str
-    ) -> AnalysisRunResult:
-        """
-        执行最小闭环：
-        compute_metrics -> attribute_signals -> generate_daily_report -> persist/export
-        """
-```
-
 ---
 
-## 2. PerformanceAnalyzer（绩效分析器）
+## 1. Pipeline 接口
 
-### 2.1 类定义
-
-```python
-class PerformanceAnalyzer:
-    """绩效分析器"""
-
-    def __init__(self, repository: DataRepository) -> None:
-        """初始化分析器"""
-```
-
-### 2.2 compute_metrics
+### 1.1 Pipeline 编排入口
 
 ```python
-def compute_metrics(
-    self,
-    start_date: str,
-    end_date: str,
-    equity_curve: List[float] = None,
-    trades: List[Trade] = None,
-    risk_free_rate: float = 0.015
-) -> PerformanceMetrics:
+def run_analysis(
+    *,
+    config: Config,
+    start_date: str = "",
+    end_date: str = "",
+    trade_date: str = "",
+    run_ab_benchmark: bool = False,
+    deviation_mode: str = "",
+    run_attribution_summary: bool = False,
+) -> AnalysisRunResult:
     """
-    计算绩效指标
+    Analysis Pipeline 入口（src/analysis/pipeline.py:145）
+
+    职责：
+    1. 至少选一项子任务（ab-benchmark / deviation / attribution-summary）
+    2. A/B 基准对比：需 start_date + end_date，读取 backtest_results 计算绩效指标
+    3. 偏差归因：需 trade_date + deviation_mode="live-backtest"，拆解信号/执行/费用偏差
+    4. 归因汇总：需 trade_date，计算 MSS/IRS/PAS 贡献并持久化
+    5. 持久化到 DuckDB (performance_metrics / live_backtest_deviation / signal_attribution)
+    6. 产出 artifacts (ab_benchmark_report.md / live_backtest_deviation_report.md / attribution_summary.json / gate_report.md)
 
     Args:
-        start_date: 开始日期
-        end_date: 结束日期
-        equity_curve: 净值曲线（可选，不提供则从数据库读取）
-        trades: 交易列表（可选，不提供则从数据库读取）
-        risk_free_rate: 年化无风险利率（默认 0.015）
+        config: Config 实例
+        start_date: A/B 基准开始日期（YYYYMMDD）
+        end_date: A/B 基准结束日期（YYYYMMDD）
+        trade_date: 偏差归因/归因汇总日期（YYYYMMDD）
+        run_ab_benchmark: 是否执行 A/B 基准对比
+        deviation_mode: 偏差模式（"" 或 "live-backtest"）
+        run_attribution_summary: 是否执行归因汇总
 
     Returns:
-        PerformanceMetrics: 绩效指标
+        AnalysisRunResult（frozen dataclass）
+    Raises:
+        ValueError: 无子任务 / 参数缺失 / 不支持的 deviation_mode
     """
 ```
 
-### 2.3 calculate_daily_returns
+### 1.2 返回类型
 
 ```python
-def calculate_daily_returns(
-    self,
-    equity_curve: List[float]
-) -> List[float]:
-    """
-    计算日收益率序列
-
-    Args:
-        equity_curve: 净值曲线
-
-    Returns:
-        List[float]: 日收益率列表
-    """
-```
-
-### 2.4 calculate_max_drawdown
-
-```python
-def calculate_max_drawdown(
-    self,
-    equity_curve: List[float]
-) -> Tuple[float, str, str]:
-    """
-    计算最大回撤
-
-    Args:
-        equity_curve: 净值曲线
-
-    Returns:
-        Tuple[float, str, str]: (最大回撤, 开始日期, 结束日期)
-    """
-```
-
-### 2.5 calculate_risk_metrics
-
-```python
-def calculate_risk_metrics(
-    self,
-    daily_returns: List[float],
-    annual_return: float,
-    max_drawdown: float,
-    risk_free_rate: float = 0.015
-) -> dict:
-    """
-    计算风险调整收益指标
-
-    Args:
-        daily_returns: 日收益率
-        annual_return: 年化收益率
-        max_drawdown: 最大回撤
-        risk_free_rate: 无风险利率
-
-    Returns:
-        dict: {sharpe_ratio, sortino_ratio, calmar_ratio}
-    """
-```
-
-### 2.6 calculate_trade_stats
-
-```python
-def calculate_trade_stats(
-    self,
-    trades: List[Trade]
-) -> dict:
-    """
-    计算交易统计
-
-    Args:
-        trades: 交易列表
-
-    Returns:
-        dict: {win_rate, profit_factor, avg_holding_days, total_trades}
-    """
-```
-
----
-
-## 3. SignalAttributor（信号归因器）
-
-### 3.1 类定义
-
-```python
-class SignalAttributor:
-    """信号归因分析器"""
-
-    def __init__(self, repository: DataRepository) -> None:
-        """初始化归因器"""
-```
-
-### 3.2 attribute_signals
-
-```python
-def attribute_signals(
-    self,
-    trade_date: str,
-    trim_quantile: float = 0.05,
-    min_sample_count: int = 20
-) -> SignalAttribution:
-    """
-    计算单日信号归因
-
-    Args:
-        trade_date: 交易日期
-        trim_quantile: 双尾截尾分位（默认 5%）
-        min_sample_count: 稳健归因最小样本数
-
-    Returns:
-        SignalAttribution: 归因结果（含 raw/trimmed 样本统计）
-    """
-```
-
-### 3.3 attribute_period
-
-```python
-def attribute_period(
-    self,
-    start_date: str,
-    end_date: str
-) -> List[SignalAttribution]:
-    """
-    计算时间段信号归因
-
-    Args:
-        start_date: 开始日期
-        end_date: 结束日期
-
-    Returns:
-        List[SignalAttribution]: 每日归因结果
-    """
-```
-
-### 3.4 calculate_hit_rate
-
-```python
-def calculate_hit_rate(
-    self,
-    signals: List[Signal],
-    trades: List[Trade],
-    forward_days: int = 5
-) -> dict:
-    """
-    计算信号命中率
-
-    Args:
-        signals: 信号列表
-        trades: 交易列表
-        forward_days: 前向窗口（天）
-
-    Returns:
-        dict: {hit_rate, avg_forward_return, sample_count}
-    """
-```
-
-### 3.5 calculate_rotation_hit_rate
-
-```python
-def calculate_rotation_hit_rate(
-    self,
-    start_date: str,
-    end_date: str
-) -> float:
-    """
-    计算IRS行业轮动命中率
-
-    Args:
-        start_date: 开始日期
-        end_date: 结束日期
-
-    Returns:
-        float: 轮动命中率
-    """
-```
-
-### 3.6 decompose_live_backtest_deviation（实盘-回测偏差归因，P1）
-
-```python
-def decompose_live_backtest_deviation(
-    self,
+@dataclass(frozen=True)
+class AnalysisRunResult:
     trade_date: str
-) -> LiveBacktestDeviation:
-    """
-    拆解实盘与回测偏差来源
-
-    Args:
-        trade_date: 交易日期
-
-    Returns:
-        LiveBacktestDeviation:
-            {signal_deviation, execution_deviation, cost_deviation, total_deviation, dominant_component}
-    """
+    start_date: str
+    end_date: str
+    artifacts_dir: Path
+    ab_benchmark_report_path: Path
+    live_backtest_deviation_report_path: Path
+    attribution_summary_path: Path
+    consumption_path: Path
+    gate_report_path: Path
+    error_manifest_path: Path
+    quality_status: str           # PASS / WARN / FAIL
+    go_nogo: str                  # GO / NO_GO
+    has_error: bool
 ```
+
+### 1.3 DuckDB 持久化表
+
+- `performance_metrics`：metric_date / total_return / annual_return / max_drawdown / volatility / sharpe_ratio / sortino_ratio / calmar_ratio / win_rate / profit_factor / total_trades / avg_holding_days / created_at
+- `live_backtest_deviation`：trade_date / signal_deviation / execution_deviation / cost_deviation / total_deviation / dominant_component / created_at
+- `signal_attribution`：trade_date / mss_attribution / irs_attribution / pas_attribution / sample_count / raw_sample_count / trimmed_sample_count / trim_ratio / attribution_method / created_at
 
 ---
 
-## 4. RiskReporter（风险报告器）
-
-### 4.1 类定义
+## 2. 调用示例
 
 ```python
-class RiskReporter:
-    """风险分析与报告"""
+from src.config.config import Config
+from src.analysis.pipeline import run_analysis
 
-    def __init__(self, repository: DataRepository) -> None:
-        """初始化报告器"""
-```
+config = Config.from_env()
 
-### 4.2 analyze_risk_distribution
-
-```python
-def analyze_risk_distribution(
-    self,
-    recommendations: List[Recommendation]
-) -> RiskSummary:
-    """
-    分析风险等级分布
-
-    Args:
-        recommendations: 推荐列表
-
-    Returns:
-        RiskSummary: 风险摘要
-    """
-```
-
-### 4.3 analyze_concentration
-
-```python
-def analyze_concentration(
-    self,
-    positions: List[Position]
-) -> dict:
-    """
-    分析持仓集中度
-
-    Args:
-        positions: 持仓列表
-
-    Returns:
-        dict: {hhi, max_concentration, industry_count, top_industry}
-    """
-```
-
-### 4.4 analyze_drawdown_periods
-
-```python
-def analyze_drawdown_periods(
-    self,
-    equity_curve: List[float],
-    threshold: float = -0.05
-) -> List[dict]:
-    """
-    分析回撤期间
-
-    Args:
-        equity_curve: 净值曲线
-        threshold: 回撤阈值
-
-    Returns:
-        List[dict]: [{start_date, end_date, max_drawdown, duration}]
-    """
-```
-
-### 4.5 analyze_risk_trend（前瞻风险摘要，P1）
-
-```python
-def analyze_risk_trend(
-    self,
-    trade_date: str,
-    lookback_days: int = 20
-) -> RiskSummary:
-    """
-    计算风险变化率与拐点
-
-    Args:
-        trade_date: 交易日期
-        lookback_days: 回看窗口
-
-    Returns:
-        RiskSummary:
-            {high_risk_change_rate, low_risk_change_rate, risk_turning_point, risk_regime}
-    """
-```
-
----
-
-## 5. ReportWriter（报告生成器）
-
-### 5.1 类定义
-
-```python
-class ReportWriter:
-    """报告生成与导出"""
-
-    def __init__(self, repository: DataRepository) -> None:
-        """初始化生成器"""
-```
-
-### 5.2 generate_daily_report
-
-```python
-def generate_daily_report(
-    self,
-    report_date: str
-) -> DailyReportData:
-    """
-    生成日报数据
-
-    Args:
-        report_date: 报告日期
-
-    Returns:
-        DailyReportData: 日报数据
-    """
-```
-
-### 5.3 render_markdown
-
-```python
-def render_markdown(
-    self,
-    report_data: DailyReportData,
-    template: str = "daily_report"
-) -> str:
-    """
-    渲染Markdown报告
-
-    Args:
-        report_data: 报告数据
-        template: 模板名称
-
-    Returns:
-        str: Markdown内容
-    """
-```
-
-### 5.4 export_to_file
-
-```python
-def export_to_file(
-    self,
-    content: str,
-    filename: str,
-    format: str = "md",
-    output_dir: str = None
-) -> str:
-    """
-    导出报告文件
-
-    Args:
-        content: 内容
-        filename: 文件基名（不含路径/时间戳）
-        format: 格式 (md/csv)
-        output_dir: 输出目录（可选，默认 `.reports/analysis/`，遵循治理规范）
-
-    Returns:
-        str: 完整文件路径（含时间戳，如 `.reports/analysis/daily_report_20260131_153000.md`）
-    """
-```
-
-### 5.5 export_metrics_csv
-
-```python
-def export_metrics_csv(
-    self,
-    metrics: PerformanceMetrics,
-    filename: str = None
-) -> str:
-    """
-    导出绩效指标CSV
-
-    Args:
-        metrics: 绩效指标
-        filename: 文件基名（可选，不含路径/时间戳）
-
-    Returns:
-        str: 文件路径
-    """
-```
-
-### 5.6 export_dashboard_snapshot（GUI/治理对接，P2）
-
-```python
-def export_dashboard_snapshot(
-    self,
-    report_date: str,
-    format: str = "json"
-) -> str:
-    """
-    导出统一快照，供 GUI 与治理看板读取
-
-    Args:
-        report_date: 报告日期
-        format: 导出格式（默认 json）
-
-    Returns:
-        str: 快照文件路径（如 `.reports/analysis/dashboard_snapshot_20260131_153000.json`）
-    """
-```
-
----
-
-## 6. Visualizer（可视化接口）
-
-### 6.1 build_temperature_trend
-
-```python
-def build_temperature_trend(
-    self,
-    mss_history: List[MssPanorama]
-) -> TemperatureTrendData:
-    """
-    构建温度趋势图数据
-
-    Args:
-        mss_history: MSS历史数据
-
-    Returns:
-        TemperatureTrendData: 图表数据
-    """
-```
-
-### 6.2 build_industry_radar
-
-```python
-def build_industry_radar(
-    self,
-    irs_data: List[IrsIndustryDaily],
-    top_n: int = 10
-) -> IndustryRadarData:
-    """
-    构建行业雷达图数据
-
-    Args:
-        irs_data: IRS数据
-        top_n: Top N数量
-
-    Returns:
-        IndustryRadarData: 雷达图数据
-    """
-```
-
-### 6.3 build_score_distribution
-
-```python
-def build_score_distribution(
-    self,
-    pas_data: List[StockPasDaily]
-) -> ScoreDistributionData:
-    """
-    构建PAS评分分布图数据
-
-    Args:
-        pas_data: PAS数据
-
-    Returns:
-        ScoreDistributionData: 分布图数据
-    """
-```
-
----
-
-## 7. 完整调用示例
-
-```python
-from analysis.analysis_engine import AnalysisEngine
-from analysis.performance_analyzer import PerformanceAnalyzer
-from analysis.signal_attribution import SignalAttributor
-from analysis.risk_reporter import RiskReporter
-from analysis.report_writer import ReportWriter
-
-# 初始化
-analyzer = PerformanceAnalyzer(repository)
-attributor = SignalAttributor(repository)
-risk_reporter = RiskReporter(repository)
-report_writer = ReportWriter(repository)
-engine = AnalysisEngine(repository, analyzer, attributor, risk_reporter, report_writer)
-
-# 最小闭环（P0）
-result = engine.run_minimal(
-    trade_date="20260131",
-    start_date="20260101",
-    end_date="20260131"
-)
-print(result.state)
-print(result.saved_tables)
-
-# 计算绩效指标
-metrics = analyzer.compute_metrics(
+# A/B 基准对比
+result = run_analysis(
+    config=config,
     start_date="20260101",
     end_date="20260131",
-    trades=repository.get_trade_records("20260131"),  # 可选；不传则由实现自行读取
-    risk_free_rate=0.015
+    run_ab_benchmark=True,
 )
-print(f"总收益: {metrics.total_return:.2%}")
-print(f"夏普比率: {metrics.sharpe_ratio:.2f}")
+print(result.quality_status)  # PASS / WARN / FAIL
 
-# 信号归因（稳健口径）
-attribution = attributor.attribute_signals(
+# 实盘-回测偏差归因
+result = run_analysis(
+    config=config,
     trade_date="20260131",
-    trim_quantile=0.05,
-    min_sample_count=20
+    deviation_mode="live-backtest",
 )
-print(f"MSS贡献: {attribution.mss_attribution:.4f}")
-print(f"IRS贡献: {attribution.irs_attribution:.4f}")
-print(f"PAS贡献: {attribution.pas_attribution:.4f}")
-print(f"归因方法: {attribution.attribution_method}")
 
-# 实盘-回测偏差归因（P1）
-deviation = attributor.decompose_live_backtest_deviation("20260131")
-print(f"总偏差: {deviation.total_deviation:.4f}")
-print(f"主导偏差: {deviation.dominant_component}")
-
-# 风险分析
-positions = repository.get_positions()
-concentration = risk_reporter.analyze_concentration(positions)
-risk_summary = risk_reporter.analyze_risk_trend("20260131", lookback_days=20)
-print(f"HHI: {concentration['hhi']:.4f}")
-print(f"最大行业占比: {concentration['max_concentration']:.2%}")
-print(f"风险拐点: {risk_summary.risk_turning_point}")
-
-# 生成日报
-report_data = report_writer.generate_daily_report("20260131")
-markdown = report_writer.render_markdown(report_data)
-path = report_writer.export_to_file(markdown, "daily_report", "md")
-print(f"报告已导出: {path}")  # .reports/analysis/daily_report_{YYYYMMDD_HHMMSS}.md
-
-# 导出绩效CSV
-csv_path = report_writer.export_metrics_csv(metrics)
-print(f"指标已导出: {csv_path}")
-
-# 导出 GUI/治理统一快照（P2）
-snapshot_path = report_writer.export_dashboard_snapshot("20260131")
-print(f"快照已导出: {snapshot_path}")
+# 归因汇总
+result = run_analysis(
+    config=config,
+    trade_date="20260131",
+    run_attribution_summary=True,
+)
 ```
 
 ---
 
-## 8. 报告落盘路径
+## 3. 产物路径
 
-| 文件类型 | 路径模板 | 示例 |
-|----------|----------|------|
-| 日报 | .reports/analysis/daily_report_{YYYYMMDD_HHMMSS}.md | .reports/analysis/daily_report_20260131_153000.md |
-| 周报 | .reports/analysis/weekly_report_{YYYYMMDD_HHMMSS}.md | .reports/analysis/weekly_report_20260131_153000.md |
-| 月报 | .reports/analysis/monthly_report_{YYYYMMDD_HHMMSS}.md | .reports/analysis/monthly_report_20260131_153000.md |
-| 绩效指标 | .reports/analysis/performance_metrics_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/performance_metrics_20260131_153000.csv |
-| 归因结果 | .reports/analysis/signal_attribution_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/signal_attribution_20260131_153000.csv |
-| 偏差归因 | .reports/analysis/live_backtest_deviation_{YYYYMMDD_HHMMSS}.csv | .reports/analysis/live_backtest_deviation_20260131_153000.csv |
-| 看板快照 | .reports/analysis/dashboard_snapshot_{YYYYMMDD_HHMMSS}.json | .reports/analysis/dashboard_snapshot_20260131_153000.json |
-| 回测报告 | .reports/analysis/backtest_report_{YYYYMMDD_HHMMSS}.md | .reports/analysis/backtest_report_20260131_153000.md |
-| 归档（可选） | .reports/archive/analysis/{YYYYMM}/analysis_reports_{YYYYMMDD_HHMMSS}.zip | .reports/archive/analysis/202601/analysis_reports_20260131_153000.zip |
+所有产物输出到 `artifacts/spiral-s3b/{anchor_date}/`：
+
+- `ab_benchmark_report.md` — A/B 基准对比报告
+- `live_backtest_deviation_report.md` — 实盘-回测偏差归因报告
+- `attribution_summary.json` — 归因汇总 JSON
+- `gate_report.md` — 质量门禁报告
+- `consumption.md` — 资源消耗记录
+- `error_manifest.json` — 错误清单
 
 ---
 
@@ -654,16 +141,26 @@ print(f"快照已导出: {snapshot_path}")
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
-| v3.2.0 | 2026-02-14 | 闭环修订：新增 `AnalysisEngine.run_minimal`；`attribute_signals` 补齐稳健归因参数；新增 `decompose_live_backtest_deviation`、`analyze_risk_trend`、`export_dashboard_snapshot`；落盘路径补齐偏差与看板快照 |
-| v3.1.5 | 2026-02-12 | 路径整理：归档目录口径由 `.archive/analysis/` 统一为 `.reports/archive/analysis/` |
-| v3.1.4 | 2026-02-09 | 修复 R27：`build_score_distribution` 参数类型更正为 `List[StockPasDaily]`，与 PAS data-model/API 一致 |
-| v3.1.3 | 2026-02-09 | 修复 R21：`compute_metrics` 增加 `trades` 可选参数并明确默认回源；`export_to_file` 增加 `output_dir` 可选参数并显式默认 `.reports/analysis/` |
-| v3.1.2 | 2026-02-08 | 修复 R16：`compute_metrics` 增加 `risk_free_rate` 参数并透传到风险指标计算口径 |
-| v3.1.1 | 2026-02-08 | 修复 R10：`calculate_risk_metrics` 默认 `risk_free_rate` 调整为 0.015，与 Analysis/Backtest 公式统一 |
+| v4.0.0 | 2026-02-26 | ARCH-DECISION-001：接口定义改为反映实际 Pipeline 模式（`run_analysis`）；OOP 接口移入附录 A；更正实现状态 |
+| v3.2.0 | 2026-02-14 | 闭环修订：新增 `AnalysisEngine.run_minimal`、偏差归因、风险趋势、看板快照 |
+| v3.1.5 | 2026-02-12 | 路径整理 |
 | v3.1.0 | 2026-02-04 | 对齐边界/依赖与报告落盘规范 |
-| v3.0.0 | 2026-01-31 | 重构版：统一API接口定义 |
-| v2.1.0 | 2026-01-23 | 增加信号归因接口 |
-| v2.0.0 | 2026-01-20 | 初始版本 |
+| v3.0.0 | 2026-01-31 | 重构版 |
+
+---
+
+## 附录 A：OOP 接口（未来扩展口径）
+
+以下 OOP 接口为规划口径，当前未落地。若未来需要拆分为独立模块，可参考以下设计：
+
+- `AnalysisEngine`：最小闭环编排 (`run_minimal`)
+- `PerformanceAnalyzer`：绩效指标计算 (compute_metrics / calculate_daily_returns / calculate_max_drawdown / calculate_risk_metrics / calculate_trade_stats)
+- `SignalAttributor`：信号归因 (attribute_signals / attribute_period / calculate_hit_rate / calculate_rotation_hit_rate / decompose_live_backtest_deviation)
+- `RiskReporter`：风险报告 (analyze_risk_distribution / analyze_concentration / analyze_drawdown_periods / analyze_risk_trend)
+- `ReportWriter`：报告输出 (generate_daily_report / render_markdown / export_to_file / export_metrics_csv / export_dashboard_snapshot)
+- `Visualizer`：可视化 (build_temperature_trend / build_industry_radar / build_score_distribution)
+
+完整接口定义见 v3.2.0 历史版本。
 
 ---
 
@@ -671,5 +168,6 @@ print(f"快照已导出: {snapshot_path}")
 - 核心算法：[analysis-algorithm.md](./analysis-algorithm.md)
 - 数据模型：[analysis-data-models.md](./analysis-data-models.md)
 - 信息流：[analysis-information-flow.md](./analysis-information-flow.md)
+- 架构决策：[ARCH-DECISION-001](../../../Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md)
 
 
