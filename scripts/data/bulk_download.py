@@ -462,14 +462,19 @@ def write_parquet(
     df = pd.DataFrame.from_records(records)
     # 追加模式：如果文件已存在则合并
     if output_path.exists():
-        existing = pd.read_parquet(output_path)
-        df = pd.concat([existing, df], ignore_index=True)
-        # 按 trade_date 去重（保留新数据）
-        if "trade_date" in df.columns:
-            df = df.drop_duplicates(
-                subset=["trade_date"] + (["stock_code"] if "stock_code" in df.columns else []),
-                keep="last",
-            )
+        try:
+            existing = pd.read_parquet(output_path)
+            df = pd.concat([existing, df], ignore_index=True)
+            # 按 trade_date 去重（保留新数据）
+            if "trade_date" in df.columns:
+                df = df.drop_duplicates(
+                    subset=["trade_date"] + (["stock_code"] if "stock_code" in df.columns else []),
+                    keep="last",
+                )
+        except Exception as exc:
+            # 已有文件损坏（如之前下载中断），删掉重写
+            print(f"    [警告] Parquet 文件损坏，将重建: {output_path.name} ({exc})")
+            output_path.unlink(missing_ok=True)
     df.to_parquet(output_path, index=False)
 
 
@@ -755,8 +760,11 @@ def run_bulk_download(
                     for table_name, buffered_rows in batch_buffer.items():
                         if buffered_rows:
                             count = writer.write_batch(table_name, buffered_rows)
-                            write_parquet(parquet_root, table_name, buffered_rows)
                             progress.total_rows += count
+                            try:
+                                write_parquet(parquet_root, table_name, buffered_rows)
+                            except Exception as pq_exc:
+                                print(f"    [警告] Parquet 写入失败({table_name}): {pq_exc}")
                     batch_buffer.clear()
                     batch_count = 0
 
@@ -785,8 +793,11 @@ def run_bulk_download(
         for table_name, buffered_rows in batch_buffer.items():
             if buffered_rows:
                 count = writer.write_batch(table_name, buffered_rows)
-                write_parquet(parquet_root, table_name, buffered_rows)
                 progress.total_rows += count
+                try:
+                    write_parquet(parquet_root, table_name, buffered_rows)
+                except Exception as pq_exc:
+                    print(f"    [警告] Parquet 写入失败({table_name}): {pq_exc}")
 
     finally:
         writer.close()
