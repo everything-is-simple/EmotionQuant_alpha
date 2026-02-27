@@ -1,7 +1,7 @@
 # EmotionQuant VORTEX 演进路线图（Plan A SoT）
 
 **状态**: Active（Rebaseline）  
-**更新时间**: 2026-02-27  
+**更新时间**: 2026-02-28  
 **定位**: Plan A 唯一能力状态 SoT（业务与工程双视图）
 
 ---
@@ -62,7 +62,7 @@
 | 本地历史数据未形成可用窗口 | P0 | closed | canary-5y（最低2020-2024）覆盖>=99%，并有质量报告 |
 | 端到端回测证据不足 | P0 | closed | 同窗 run/backtest/analysis 全链路成功并留档 |
 | 归因无法回答收益来源 | P0 | closed | 至少完成 signal/execution/cost 三分解 |
-| 归因无对比基准 | P0 | open | 完成 MSS vs 随机、MSS vs 技术基线 对比并可解释 |
+|| 归因无对比基准 | P0 | closed | 已完成 MSS vs 随机 + MSS vs 技术基线 对比实验（2020/2026 双窗口），结论：MSS 未超越基准，需 S3/S3b 修复 |
 | 业务成果不可见 | P0 | closed | `PLANA-BUSINESS-SCOREBOARD.md` 每圈更新并给 GO/NO_GO |
 | 实盘前无预演门禁 | P0 | open | 螺旋3.5 连续20交易日预演通过 |
 
@@ -101,7 +101,8 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v2.6 | 2026-02-27 | 新增代码级逐卡复检快照并完成 S3AR 解阻：S0A-S4R 已全部通过代码级复检（S3AR 复检证据见 `artifacts/spiral-s3ar/20260227/recheck_20260227_143413/`） |
+|| v2.7 | 2026-02-28 | P0 阻断项「归因无对比基准」closed：benchmark_comparison.py 实现 MSS vs 随机/技术基线对比，2020+2026 双窗口实验完成，MSS 均未超越基准 |
+|| v2.6 | 2026-02-27 | 新增代码级逐卡复检快照并完成 S3AR 解阻：S0A-S4R 已全部通过代码级复检（S3AR 复检证据见 `artifacts/spiral-s3ar/20260227/recheck_20260227_143413/`） |
 | v2.5 | 2026-02-27 | S0A-S2C 顺序重验回填：S0-S2 业务验证更新为 partial；P0 阻断矩阵更新为 `3 closed + 1 open + 1 closed` |
 | v2.4 | 2026-02-26 | 状态同步修订：工程视图对齐执行卡与开发状态；S3/S3b/S3c/S3d/S3e/S4b 更新为 implemented，S5 更新为 active |
 | v2.3 | 2026-02-25 | 堵最大缺口：gate_report 强制包含 §Design-Alignment-Fields（字段级设计校验），闭合设计到执行的断裂点 |

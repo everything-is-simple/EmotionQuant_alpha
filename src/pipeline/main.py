@@ -335,6 +335,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate live-backtest deviation report.",
     )
     analysis_parser.add_argument(
+        "--benchmark-mode",
+        choices=("full",),
+        default="",
+        help="Benchmark comparison mode: full runs MSS vs random/technical baselines.",
+    )
+    analysis_parser.add_argument(
         "--attribution-summary",
         action="store_true",
         help="Generate signal attribution summary output.",
@@ -1260,6 +1266,7 @@ def _run_analysis(ctx: PipelineContext, args: argparse.Namespace) -> int:
             end_date=str(args.end or "").strip(),
             trade_date=str(args.date or "").strip(),
             run_ab_benchmark=bool(args.ab_benchmark),
+            benchmark_mode=str(args.benchmark_mode or "").strip(),
             deviation_mode=str(args.deviation or "").strip(),
             run_attribution_summary=bool(args.attribution_summary),
         )

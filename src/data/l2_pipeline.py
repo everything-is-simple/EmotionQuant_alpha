@@ -814,9 +814,14 @@ def run_l2_snapshot(
             frame=industry_frame,
         )
 
-        parquet_root.mkdir(parents=True, exist_ok=True)
-        market_frame.to_parquet(parquet_root / "market_snapshot.parquet", index=False)
-        industry_frame.to_parquet(parquet_root / "industry_snapshot.parquet", index=False)
+        (parquet_root / "market_snapshot").mkdir(parents=True, exist_ok=True)
+        market_frame.to_parquet(
+            parquet_root / "market_snapshot" / f"{trade_date}.parquet", index=False,
+        )
+        (parquet_root / "industry_snapshot").mkdir(parents=True, exist_ok=True)
+        industry_frame.to_parquet(
+            parquet_root / "industry_snapshot" / f"{trade_date}.parquet", index=False,
+        )
 
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         market_frame.to_parquet(artifacts_dir / "market_snapshot_sample.parquet", index=False)

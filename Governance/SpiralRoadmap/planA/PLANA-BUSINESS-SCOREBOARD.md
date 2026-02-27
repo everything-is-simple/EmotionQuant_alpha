@@ -1,7 +1,7 @@
 # Plan A 业务价值看板（强制更新）
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-27  
+**更新时间**: 2026-02-28  
 **用途**: 回答“做成了吗？做得怎么样？”
 
 ---
@@ -10,7 +10,7 @@
 
 | 螺旋 | 状态 | 最近评审日 | 结论 |
 |---|---|---|---|
-| 螺旋1（Canary） | in_progress | 2026-02-27 | NO_GO：S0A-S2C 顺序重验已完成，随机/技术基线对比证据仍缺失 |
+| 螺旋1（Canary） | in_progress | 2026-02-28 | NO_GO：对比实验已完成，MSS 在 2020/2026 双窗口均未超越基准，需 S3/S3b 修复 |
 | 螺旋2（Full） | in_progress | 2026-02-26 | partial：工程实现已具备，待全历史与业务门禁收口 |
 | 螺旋3（Production） | planned | - | 等待螺旋2出口 |
 | 螺旋3.5（Pre-Live） | planned | - | 等待螺旋3出口 |
@@ -26,8 +26,8 @@
 | 端到端可运行 | run+backtest+analysis 同窗成功 | 已达成（2024 同窗 `recommend/backtest/analysis` 均成功） | completed |
 | 简回测产物 | 收益曲线+交易记录 | 已产出（`backtest_results` + `backtest_trade_records`） | partial |
 | 最小归因产物 | signal/execution/cost 三分解 | 已产出（A/B/C + 偏差归因） | partial |
-| MSS vs 随机基准超额收益 | >5% | 缺少显式随机基线段落（当前报告为 A/B/C 代理口径） | blocked |
-| MSS vs 技术基线超额收益 | >3% | 缺少 MA/RSI/MACD 明细段落 | blocked |
+| MSS vs 随机基准超额收益 | >5% | 2020: -34.4% (MSS -30.4% vs Random +3.9%); 2026: -3.8% (MSS -5.6% vs Random -1.7%) | fail |
+| MSS vs 技术基线超额收益 | >3% | 2020: -20.5% (MSS -30.4% vs Tech -10.0%); 2026: -1.8% (MSS -5.6% vs Tech -3.8%) | fail |
 | 风险收益基线 | 夏普>1.0 / 最大回撤<20% / 胜率>50% | 已有绩效产物，出口阈值复核待完成 | partial |
 | 归因质量 | dominant_component≠'none'比例 >=50%（S3b 扩窗后） | 当前 `dominant_component=none` 占比偏高 | blocked |
 | 归因方法合理性 | attribution_method 小样本自动 fallback 到 mean_fallback_small_sample | 已落地并可审计 | partial |
@@ -113,6 +113,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.5 | 2026-02-28 | MSS vs 基准对比实验完成: 2020+2026 双窗口 MSS 均未超越随机/技术基线, 螺旋1 blocked->fail |
 | v1.4 | 2026-02-27 | S0A-S2C 顺序重验回填：覆盖率 100%、同窗链路完成，螺旋1结论更新为 NO_GO（阻断项收敛到基准对比证据缺失） |
 | v1.3 | 2026-02-26 | 状态同步修订：回填螺旋1/2核心指标（基于跨窗口实跑与现有产物），设计对齐检查从全 pending 调整为 partial 口径 |
 | v1.2 | 2026-02-25 | 堵缺口：螺旋1新增归因质量/方法合理性指标，螺旋2新增 factor_gate_raw 健康度/backtest-test-cases 覆盖，GUI 设计对齐检查补充 FreshnessMeta |

@@ -283,14 +283,34 @@ class BaseRepository:
             existing_columns.add(name)
 
     def save_to_parquet(self, data: Any) -> Path:
+        """将数据写入 Parquet，按 trade_date 分区存储。
+
+        存储结构（对齐 data-layer-algorithm.md §2.3）：
+          {parquet_root}/{table_name}/{trade_date}.parquet
+
+        若数据不含 trade_date 列，则写入 {table_name}/latest.parquet。
+        """
         self._assert_table_name()
         records = self._normalize_records(data)
-        output_path = self.parquet_root / f"{self.table_name}.parquet"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        table_dir = self.parquet_root / self.table_name
+        if not records:
+            return table_dir
+
         frame = pd.DataFrame.from_records(records)
+        table_dir.mkdir(parents=True, exist_ok=True)
+
         with self._write_io_lock:
-            frame.to_parquet(output_path, index=False)
-        return output_path
+            if "trade_date" in frame.columns:
+                for trade_date_value, group in frame.groupby("trade_date"):
+                    file_name = str(trade_date_value).strip()
+                    if not file_name:
+                        file_name = "unknown"
+                    output_path = table_dir / f"{file_name}.parquet"
+                    group.to_parquet(output_path, index=False)
+            else:
+                output_path = table_dir / "latest.parquet"
+                frame.to_parquet(output_path, index=False)
+        return table_dir
 
     def count_by_trade_date(self, trade_date: str) -> int:
         self._assert_table_name()

@@ -1,7 +1,7 @@
 # Plan A Revalidation 执行清单
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-27  
+**更新时间**: 2026-02-28  
 **状态**: Active  
 **用途**: 不重写代码，按新 Plan A 完成闭环重验
 
@@ -34,17 +34,17 @@
 - [x] 执行 `python -m src.pipeline.main backtest --start 20240101 --end 20241220 --engine local_vectorized`
 - [x] 执行 `python -m src.pipeline.main analysis --start 20240101 --end 20241220 --ab-benchmark`
 - [x] 输出最小归因：`signal/execution/cost` 三分解
-- [ ] 输出对比归因：`MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)`（当前 `ab_benchmark_report` 仍为 A/B/C 代理口径）
-- [ ] 固化证据：`artifacts/spiral-s3b/{trade_date}/ab_benchmark_report.md`（必须包含 `MSS vs 随机` + `MSS vs 技术基线`）
+- [x] 输出对比归因：`MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)`（`benchmark_comparison.py` 实现：随机=同等数量随机选股 seed=42，技术=MA5/MA20+RSI14+MACD 投票 >=2）
+- [x] 固化证据：`artifacts/spiral-s3b/20201220/ab_benchmark_report.md`（2020 窗口：MSS -30.4% / Random +3.9% / Technical -10.0%），`artifacts/spiral-s3b/20260219/ab_benchmark_report.md`（2026 窗口：MSS -5.6% / Random -1.7% / Technical -3.8%）
 - [x] 固化证据：`artifacts/spiral-s3b/{trade_date}/attribution_summary.json`（必须可追溯到同窗 `backtest`）
-- [ ] 门禁判定：若 `MSS` 同时不优于随机与技术基线，则螺旋1 `NO_GO`，停留 S3/S3b 修复
+- [x] 门禁判定：MSS 在两个窗口均不优于随机与技术基线 → 螺旋1 `NO_GO`，停留 S3/S3b 修复
 
 ### 2.3 螺旋1收口判定
 
 - [x] 更新 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`（螺旋1全部字段）
 - [x] 给出螺旋1 `GO/NO_GO`（当前 `NO_GO`，阻断项为“随机/技术基线对比证据缺失”）
 - [x] 若 `NO_GO`：只允许在 S0-S2/S3/S3b 修复，不推进螺旋2
-- [ ] 明确阻断项清零：`5y 覆盖率统计`、`MSS vs 基准对比实验` 两项均需 `closed`
+- [x] 明确阻断项清零：`5y 覆盖率统计` closed、`MSS vs 基准对比实验` closed（实验已完成，结论为 NO_GO：MSS 未超越基准）
 
 ### 2.4 螺旋1设计对齐复核
 
@@ -131,7 +131,8 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v1.3 | 2026-02-26 | 将螺旋1两项 P0 阻断执行化：补充覆盖率与基准对照的必备产物与 NO_GO 判定规则 |
+|| v1.4 | 2026-02-28 | 螺旋1阻断项清零：完成 MSS vs 随机基准/技术基线(MA/RSI/MACD)对比实验（2020+2026 双窗口），结论 NO_GO |
+|| v1.3 | 2026-02-26 | 将螺旋1两项 P0 阻断执行化：补充覆盖率与基准对照的必备产物与 NO_GO 判定规则 |
 | v1.2 | 2026-02-24 | 增加 PlanA/PlanB 同精度“设计对齐复核”条目：螺旋1/2/3均要求 `docs/design` 与主计划对齐结论 |
 | v1.1 | 2026-02-23 | 与 Plan B 对齐精度：canary窗口升级、新增归因对比、S3c/S3d/S3e 双档门禁、增加螺旋3.5 Pre-Live 重验 |
 | v1.0 | 2026-02-23 | 首版：按新 Plan A 三螺旋门禁定义 revalidation 执行清单 |

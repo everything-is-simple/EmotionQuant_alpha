@@ -17,6 +17,11 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+from src.analysis.benchmark_comparison import (
+    BenchmarkComparisonResult,
+    format_benchmark_report,
+    run_benchmark_comparison,
+)
 from src.config.config import Config
 from src.db.helpers import column_exists as _table_has_column, table_exists as _table_exists
 
@@ -157,6 +162,7 @@ def run_analysis(
     end_date: str = "",
     trade_date: str = "",
     run_ab_benchmark: bool = False,
+    benchmark_mode: str = "",
     deviation_mode: str = "",
     run_attribution_summary: bool = False,
 ) -> AnalysisRunResult:
@@ -548,22 +554,37 @@ def run_analysis(
 
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
+    benchmark_comparison_result: BenchmarkComparisonResult | None = None
+    if run_ab_benchmark and str(benchmark_mode).strip().lower() == "full":
+        try:
+            benchmark_comparison_result = run_benchmark_comparison(
+                config=config,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        except Exception as exc:
+            warnings.append(f"benchmark_comparison_error: {exc}")
+
     if run_ab_benchmark:
-        _write_markdown(
-            ab_report_path,
-            [
-                "# S3b A/B/C Benchmark Report",
-                "",
-                f"- start_date: {start_date}",
-                f"- end_date: {end_date}",
-                f"- backtest_id: {ab_payload.get('backtest_id', '')}",
-                f"- A_sentiment_main_total_return: {ab_payload.get('a_sentiment_main_total_return', 0.0)}",
-                f"- B_baseline_mss_proxy_return: {ab_payload.get('b_baseline_mss_proxy_return', 0.0)}",
-                f"- C_control_pas_proxy_return: {ab_payload.get('c_control_pas_proxy_return', 0.0)}",
-                f"- conclusion: {ab_payload.get('conclusion', 'unknown')}",
-                "",
-            ],
-        )
+        if benchmark_comparison_result is not None:
+            report_lines = format_benchmark_report(benchmark_comparison_result)
+            _write_markdown(ab_report_path, report_lines)
+        else:
+            _write_markdown(
+                ab_report_path,
+                [
+                    "# S3b A/B/C Benchmark Report",
+                    "",
+                    f"- start_date: {start_date}",
+                    f"- end_date: {end_date}",
+                    f"- backtest_id: {ab_payload.get('backtest_id', '')}",
+                    f"- A_sentiment_main_total_return: {ab_payload.get('a_sentiment_main_total_return', 0.0)}",
+                    f"- B_baseline_mss_proxy_return: {ab_payload.get('b_baseline_mss_proxy_return', 0.0)}",
+                    f"- C_control_pas_proxy_return: {ab_payload.get('c_control_pas_proxy_return', 0.0)}",
+                    f"- conclusion: {ab_payload.get('conclusion', 'unknown')}",
+                    "",
+                ],
+            )
 
     if deviation_mode:
         _write_markdown(
