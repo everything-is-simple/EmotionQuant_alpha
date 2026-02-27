@@ -103,6 +103,12 @@ def _resolve_trade_date(pro: Any, override_trade_date: str | None) -> str:
     if not open_days:
         raise RuntimeError("no open trading day found in latest 45 days")
     open_days.sort()
+    # 默认使用“最近已完结交易日”，避免盘中检查当天导致 daily/daily_basic 为空的误判。
+    # 例如：当日 13:00 执行时，trade_cal 标记当天开市，但日线数据通常尚未落库。
+    today_text = end_day.strftime("%Y%m%d")
+    completed_days = [day for day in open_days if str(day) < today_text]
+    if completed_days:
+        return completed_days[-1]
     return open_days[-1]
 
 

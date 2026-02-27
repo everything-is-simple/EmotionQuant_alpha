@@ -84,7 +84,7 @@
 - [x] S3
 - [x] S3R
 - [x] S4
-- [ ] S3AR（阻断：双 TuShare token core readiness 未通过）
+- [x] S3AR
 - [x] S3B
 - [x] S3C
 - [x] S3D

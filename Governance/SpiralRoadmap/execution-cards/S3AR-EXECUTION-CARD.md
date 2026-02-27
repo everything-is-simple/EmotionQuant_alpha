@@ -1,6 +1,6 @@
 # S3ar 执行卡（v0.3）
 
-**状态**: Implemented（工程完成） + Code-Revalidated（卡住）  
+**状态**: Implemented（工程完成） + Code-Revalidated（通过）  
 **重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
@@ -17,11 +17,11 @@
 
 ## 代码级重验（2026-02-27）
 
-- [ ] run 冒烟通过（当前阻断：双 TuShare token 核心接口 readiness 未通过（见 token-check 报告））
-- [x] test 契约通过（代码与测试可通过，阻断在外部通道可用性）
-- [ ] 功能检查正常（受主备 token readiness 阻断）
-- 结论：`卡住`
-- 证据：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
+- [x] run 冒烟通过（双 token 检查、窗口基准压测、fetch-batch/status/retry 全通过）
+- [x] test 契约通过（`test_fetcher_contract` / `test_fetch_retry_contract` / `test_config_defaults`）
+- [x] 功能检查正常（主备通道 core/all readiness 均为 `true`）
+- 结论：`通过`
+- 证据：`artifacts/spiral-s3ar/20260227/recheck_20260227_143413/s3ar_recheck_summary.md`
 
 ## 1. 目标
 
