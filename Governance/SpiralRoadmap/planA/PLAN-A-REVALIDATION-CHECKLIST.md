@@ -1,7 +1,7 @@
 # Plan A Revalidation 执行清单
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-24  
+**更新时间**: 2026-02-27  
 **状态**: Active  
 **用途**: 不重写代码，按新 Plan A 完成闭环重验
 
@@ -20,37 +20,37 @@
 
 ### 2.1 数据窗口重验（S0-S2 输入，P0）
 
-- [ ] 执行 `eq fetch-batch --start 20200101 --end 20241231 --batch-size 365 --workers 3`
-- [ ] 执行 `eq fetch-retry`
-- [ ] 执行 `eq data-quality-check --comprehensive`
-- [ ] 产出覆盖率与质量报告，目标覆盖率 `>=99%`（最低窗口：2020-2024；理想：2019-01-01~2026-02-13）
-- [ ] 固化证据：`artifacts/spiral-s0s2/revalidation/coverage_2020_2024.md`（按年列出可交易日覆盖率与缺口摘要）
-- [ ] 固化证据：`artifacts/spiral-s0s2/revalidation/coverage_2020_2024.json`（机器可读口径，供 scoreboard/development-status 回填）
-- [ ] 门禁判定：若任一年度覆盖率 `<99%`，螺旋1 直接 `NO_GO`，仅允许在 S0-S2 修复
+- [x] 执行 `eq fetch-batch --start 20200101 --end 20241231 --batch-size 365 --workers 3`（以本地 2000-2026 全量已落库数据替代重抓）
+- [x] 执行 `eq fetch-retry`（窗口内无缺口，等效完成）
+- [x] 执行 `eq data-quality-check --comprehensive`（等效校验：trade_cal vs raw_daily 覆盖率审计）
+- [x] 产出覆盖率与质量报告，目标覆盖率 `>=99%`（最低窗口：2020-2024；理想：2019-01-01~2026-02-13）
+- [x] 固化证据：`artifacts/spiral-s0s2/revalidation/coverage_2020_2024.md`（按年列出可交易日覆盖率与缺口摘要）
+- [x] 固化证据：`artifacts/spiral-s0s2/revalidation/coverage_2020_2024.json`（机器可读口径，供 scoreboard/development-status 回填）
+- [x] 门禁判定：若任一年度覆盖率 `<99%`，螺旋1 直接 `NO_GO`，仅允许在 S0-S2 修复（当前覆盖率=100%）
 
 ### 2.2 端到端同窗重验（S0-S2 -> S3(min) -> S3b(min)，P0）
 
-- [ ] 执行 `eq run --date 20241220 --full-pipeline --validate-each-step`
-- [ ] 执行 `eq backtest --start 20240101 --end 20241220 --engine local`
-- [ ] 执行 `eq analysis --start 20240101 --end 20241220 --ab-benchmark`
-- [ ] 输出最小归因：`signal/execution/cost` 三分解
-- [ ] 输出对比归因：`MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)`
+- [x] 执行 `python -m src.pipeline.main recommend --date 20241220 --mode integrated --with-validation-bridge --evidence-lane release`（CLI 现口径替代 `run --full-pipeline`）
+- [x] 执行 `python -m src.pipeline.main backtest --start 20240101 --end 20241220 --engine local_vectorized`
+- [x] 执行 `python -m src.pipeline.main analysis --start 20240101 --end 20241220 --ab-benchmark`
+- [x] 输出最小归因：`signal/execution/cost` 三分解
+- [ ] 输出对比归因：`MSS vs 随机基准`、`MSS vs 技术基线(MA/RSI/MACD)`（当前 `ab_benchmark_report` 仍为 A/B/C 代理口径）
 - [ ] 固化证据：`artifacts/spiral-s3b/{trade_date}/ab_benchmark_report.md`（必须包含 `MSS vs 随机` + `MSS vs 技术基线`）
-- [ ] 固化证据：`artifacts/spiral-s3b/{trade_date}/attribution_summary.json`（必须可追溯到同窗 `backtest`）
+- [x] 固化证据：`artifacts/spiral-s3b/{trade_date}/attribution_summary.json`（必须可追溯到同窗 `backtest`）
 - [ ] 门禁判定：若 `MSS` 同时不优于随机与技术基线，则螺旋1 `NO_GO`，停留 S3/S3b 修复
 
 ### 2.3 螺旋1收口判定
 
-- [ ] 更新 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`（螺旋1全部字段）
-- [ ] 给出螺旋1 `GO/NO_GO`
-- [ ] 若 `NO_GO`：只允许在 S0-S2/S3/S3b 修复，不推进螺旋2
+- [x] 更新 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md`（螺旋1全部字段）
+- [x] 给出螺旋1 `GO/NO_GO`（当前 `NO_GO`，阻断项为“随机/技术基线对比证据缺失”）
+- [x] 若 `NO_GO`：只允许在 S0-S2/S3/S3b 修复，不推进螺旋2
 - [ ] 明确阻断项清零：`5y 覆盖率统计`、`MSS vs 基准对比实验` 两项均需 `closed`
 
 ### 2.4 螺旋1设计对齐复核
 
-- [ ] `core-algorithms`：MSS/IRS/PAS/Validation/Integration 语义无降级
-- [ ] `core-infrastructure`：Data/Backtest/Analysis 契约链路无绕过
-- [ ] `enhancements`：执行动作与 `eq-improvement-plan-core-frozen.md` 一致
+- [x] `core-algorithms`：MSS/IRS/PAS/Validation/Integration 语义无降级（S0A-S2C 顺序重验 + 失败恢复后全绿）
+- [x] `core-infrastructure`：Data/Backtest/Analysis 契约链路无绕过
+- [x] `enhancements`：执行动作与 `eq-improvement-plan-core-frozen.md` 一致
 
 ---
 

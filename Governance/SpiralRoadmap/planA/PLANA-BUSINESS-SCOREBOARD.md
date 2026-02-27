@@ -1,7 +1,7 @@
 # Plan A 业务价值看板（强制更新）
 
 **创建时间**: 2026-02-23  
-**更新时间**: 2026-02-26  
+**更新时间**: 2026-02-27  
 **用途**: 回答“做成了吗？做得怎么样？”
 
 ---
@@ -10,7 +10,7 @@
 
 | 螺旋 | 状态 | 最近评审日 | 结论 |
 |---|---|---|---|
-| 螺旋1（Canary） | in_progress | 2026-02-26 | WARN：已形成跨窗口证据，未达出口门禁 |
+| 螺旋1（Canary） | in_progress | 2026-02-27 | NO_GO：S0A-S2C 顺序重验已完成，随机/技术基线对比证据仍缺失 |
 | 螺旋2（Full） | in_progress | 2026-02-26 | partial：工程实现已具备，待全历史与业务门禁收口 |
 | 螺旋3（Production） | planned | - | 等待螺旋2出口 |
 | 螺旋3.5（Pre-Live） | planned | - | 等待螺旋3出口 |
@@ -21,17 +21,17 @@
 
 | 指标 | 目标 | 当前值 | 状态 |
 |---|---|---|---|
-| 本地数据窗口 | 最低 2020-01-01 ~ 2024-12-31（理想 2019-01-01 ~ 2026-02-13） | 20260102~20260213 canary 实跑窗已闭环（5y窗口待补） | partial |
-| 数据覆盖率 | >=99% | canary 实跑窗已覆盖，5y覆盖率统计待补 | partial |
-| 端到端可运行 | run+backtest+analysis 同窗成功 | 已达成（多窗成功，当前口径 WARN/GO） | partial |
+| 本地数据窗口 | 最低 2020-01-01 ~ 2024-12-31（理想 2019-01-01 ~ 2026-02-13） | 2020-01-01 ~ 2024-12-31 已实证覆盖 | completed |
+| 数据覆盖率 | >=99% | 100.00%（`coverage_2020_2024.json`） | completed |
+| 端到端可运行 | run+backtest+analysis 同窗成功 | 已达成（2024 同窗 `recommend/backtest/analysis` 均成功） | completed |
 | 简回测产物 | 收益曲线+交易记录 | 已产出（`backtest_results` + `backtest_trade_records`） | partial |
 | 最小归因产物 | signal/execution/cost 三分解 | 已产出（A/B/C + 偏差归因） | partial |
-| MSS vs 随机基准超额收益 | >5% | pending | planned |
-| MSS vs 技术基线超额收益 | >3% | pending | planned |
+| MSS vs 随机基准超额收益 | >5% | 缺少显式随机基线段落（当前报告为 A/B/C 代理口径） | blocked |
+| MSS vs 技术基线超额收益 | >3% | 缺少 MA/RSI/MACD 明细段落 | blocked |
 | 风险收益基线 | 夏普>1.0 / 最大回撤<20% / 胜率>50% | 已有绩效产物，出口阈值复核待完成 | partial |
 | 归因质量 | dominant_component≠'none'比例 >=50%（S3b 扩窗后） | 当前 `dominant_component=none` 占比偏高 | blocked |
 | 归因方法合理性 | attribution_method 小样本自动 fallback 到 mean_fallback_small_sample | 已落地并可审计 | partial |
-| 螺旋结论 | GO/NO_GO | WARN（未达螺旋1出口门禁） | blocked |
+| 螺旋结论 | GO/NO_GO | NO_GO（阻断项：`MSS vs 随机/技术基线` 对比证据未闭合） | blocked |
 
 ---
 
@@ -78,14 +78,14 @@
 
 | 设计域 | 检查项 | 状态 |
 |---|---|---|
-| core-algorithms/mss | `mss_panorama` 字段与语义一致 | partial |
-| core-algorithms/irs | SW31 门禁与行业覆盖一致 | partial |
-| core-algorithms/pas | PAS 输出字段一致 | partial |
-| core-algorithms/validation | `validation_weight_plan` 桥接一致 | partial |
-| core-algorithms/integration | 四模式与硬约束一致 | partial |
-| core-infrastructure/data-layer | L1-L4 依赖与落库口径一致 | partial |
-| core-infrastructure/backtest | 回测口径与主线引擎一致 | partial |
-| core-infrastructure/trading | A股规则与风控口径一致 | partial |
+| core-algorithms/mss | `mss_panorama` 字段与语义一致 | completed |
+| core-algorithms/irs | SW31 门禁与行业覆盖一致 | completed |
+| core-algorithms/pas | PAS 输出字段一致 | completed |
+| core-algorithms/validation | `validation_weight_plan` 桥接一致 | completed |
+| core-algorithms/integration | 四模式与硬约束一致 | completed |
+| core-infrastructure/data-layer | L1-L4 依赖与落库口径一致 | completed |
+| core-infrastructure/backtest | 回测口径与主线引擎一致 | completed |
+| core-infrastructure/trading | A股规则与风控口径一致 | completed |
 | core-infrastructure/analysis | 归因链路与偏差分解一致 | partial |
 | core-infrastructure/gui | 只读展示口径一致 + FreshnessMeta/FilterConfig 验证 | partial |
 
@@ -104,6 +104,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.4 | 2026-02-27 | S0A-S2C 顺序重验回填：覆盖率 100%、同窗链路完成，螺旋1结论更新为 NO_GO（阻断项收敛到基准对比证据缺失） |
 | v1.3 | 2026-02-26 | 状态同步修订：回填螺旋1/2核心指标（基于跨窗口实跑与现有产物），设计对齐检查从全 pending 调整为 partial 口径 |
 | v1.2 | 2026-02-25 | 堵缺口：螺旋1新增归因质量/方法合理性指标，螺旋2新增 factor_gate_raw 健康度/backtest-test-cases 覆盖，GUI 设计对齐检查补充 FreshnessMeta |
 | v1.1 | 2026-02-24 | 增加 `docs/design` 设计对齐检查，提升与 Plan B 同精度门禁口径 |

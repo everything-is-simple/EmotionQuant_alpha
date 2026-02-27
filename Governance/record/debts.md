@@ -1,7 +1,7 @@
 # EmotionQuant 技术债登记表（Spiral 版）
 
-**最后更新**: 2026-02-26  
-**版本**: v1.54  
+**最后更新**: 2026-02-27  
+**版本**: v1.55  
 **范围**: S0-S7a
 
 ---
@@ -21,10 +21,7 @@
 
 | ID | 问题 | 优先级 | 影响 | 计划处理圈 | 状态 |
 |---|---|---|---|---|---|
-| TD-DA-009 | Enum 设计-实现对齐缺口（3 个类名偏差、4 个设计枚举缺失、4 个成员名偏差） | P3 | 设计文档与代码枚举不一致，长期维护歧义 | S6-S7a | 待处理（历史债务） |
-| TD-DA-010 | Calculator/Repository 与设计 API 存在方法/签名差距（卡 B 仅完成试点） | P2 | 接口契约与实现边界不一致，影响后续模块替换与可测试性 | S6-S7a | 待处理（历史债务） |
-| TD-DA-011 | Integration dual_verify/complementary 设计语义与实现存在冲突（共识因子/落库字段/权重语义） | P2 | 集成结果可解释性与设计可追溯性存在偏差 | S6-S7a | 待处理（历史债务） |
-| TD-ARCH-001 | 设计文档定义 OOP（Calculator/Repository），代码采用 Pipeline + DuckDB 直写 | P2 | 设计-代码架构口径并存；已决策选项 B（文档对齐代码） | 持续 | 已决策（持续对齐） |
+| - | 当前无未清偿技术债（历史债务已于 2026-02-27 清零） | - | - | - | cleared |
 
 ---
 
@@ -32,6 +29,10 @@
 
 | ID | 问题 | 完成时间 | 说明 |
 |---|---|---|---|
+| TD-DA-009 | Enum 设计-实现对齐缺口（类名/缺失枚举/成员名偏差） | 2026-02-27 | 清偿证据：`scripts/revalidation/audit_enum_contract.py` + `artifacts/spiral-s0s2/revalidation/20260227_104537/enum_contract_audit.json`，运行时枚举与 `docs/naming-contracts.schema.json` 全量一致 |
+| TD-DA-010 | Calculator/Repository 与设计 API 方法/签名差距 | 2026-02-27 | 采用 ARCH-DECISION-001（文档对齐代码）完成清偿：MSS/IRS/PAS/Integration/Trading/Analysis API 文档已统一 Pipeline 主口径（对应 `*-api.md` v4.0.0） |
+| TD-DA-011 | Integration dual_verify/complementary 语义冲突 | 2026-02-27 | 清偿证据：S2B/S2C 顺序重验通过（dual_verify/complementary 均 `status=ok`），并通过 `tests/unit/integration/test_algorithm_semantics_regression.py` |
+| TD-ARCH-001 | OOP 设计口径与 Pipeline 实现口径并存 | 2026-02-27 | 架构决策已固化且完成落地，不再计入债务清单；保留为治理基线（`Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md`） |
 | TD-S0-001 | 尚未形成 S0 可运行最小闭环（命令+测试+产物） | 2026-02-15 | S0a/S0b/S0c 已完成 run/test/artifact/review/sync，6A 证据归档至 `Governance/specs/spiral-s0a`、`Governance/specs/spiral-s0b`、`Governance/specs/spiral-s0c` |
 | TD-S0-003 | 权重验证模块仅设计未实现 | 2026-02-17 | S2c 已在 `src/algorithms/validation/pipeline.py` 落地 Walk-Forward 权重验证与 Gate 决策，并由 `test_weight_validation_walk_forward_contract.py` 覆盖 |
 | TD-S2-009 | IRS/PAS 当前使用最小启发式评分，未接入完整行业映射与收益校准 | 2026-02-17 | S2c 已完成 IRS/PAS full 语义实现与合同测试；后续生产级收益校准由 `TD-S0-002` 跟踪 |
@@ -84,8 +85,9 @@
 
 | 日期 | 版本 | 变更内容 |
 |---|---|---|
-|| 2026-02-26 | v1.54 | 全仓 iterrows 向量化清零：7 文件 25 处 iterrows 全部消除（PAS/IRS/Integration/Backtest/Trading/L2/AKShare），采用 set_index+to_dict / itertuples / 向量化过滤替代；无新增 P0/P1 债务 |
-|| 2026-02-26 | v1.53 | 独立债务复核：确认 TD-S0-002/TD-S0-005/TD-S2C-019/TD-S3A-015 已完成；将剩余问题收敛为 TD-DA-009/010/011 + TD-ARCH-001，并批量挂载至 S* 执行卡“历史债务”章节 |
+| 2026-02-27 | v1.55 | 历史债务清零：清偿 TD-DA-009/010/011 与 TD-ARCH-001；当前债务清单置空（cleared），并补充 S0A-S2C 顺序重验与枚举契约审计证据 |
+| 2026-02-26 | v1.54 | 全仓 iterrows 向量化清零：7 文件 25 处 iterrows 全部消除（PAS/IRS/Integration/Backtest/Trading/L2/AKShare），采用 set_index+to_dict / itertuples / 向量化过滤替代；无新增 P0/P1 债务 |
+| 2026-02-26 | v1.53 | 独立债务复核：确认 TD-S0-002/TD-S0-005/TD-S2C-019/TD-S3A-015 已完成；将剩余问题收敛为 TD-DA-009/010/011 + TD-ARCH-001，并批量挂载至 S* 执行卡“历史债务”章节 |
 | 2026-02-26 | v1.52 | S5/S6/S7a 代码+测试补齐同步：范围扩展至 S7a；无新增 P0/P1 债务；TD-DA-009 仍待处理（Enum 对齐缺口，延至 S8+） |
 | 2026-02-26 | v1.51 | 新增 TD-ARCH-001（已决策）：6 份 api.md OOP→Pipeline 文档对齐，架构决策记录 `Governance/record/ARCH-DECISION-001-pipeline-vs-oop.md` |
 | 2026-02-26 | v1.50 | 卡 C 全部清零：清偿 TD-S3A-015（AKShare/BaoStock 适配器骨架 + 6 条冒烟测试）；确认 TD-S0-002/TD-S0-005 已在 v1.48/v1.49 清偿；全量 212 tests passed |

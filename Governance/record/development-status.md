@@ -1,7 +1,7 @@
 # EmotionQuant 开发状态（Spiral 版）
 
-**最后更新**: 2026-02-26  
-**当前版本**: v4.54（SpiralRoadmap 状态同步修订）  
+**最后更新**: 2026-02-27  
+**当前版本**: v4.55（S0A-S2C 顺序重验 + P0 回填）  
 **仓库地址**: ${REPO_REMOTE_URL}（定义见 `.env.example`）
 
 ---
@@ -11,10 +11,27 @@
 当前状态以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 为唯一 SoT：
 
 - 螺旋1 Canary: `in_progress`
-- S0a-S0c / S1a-S1b / S2a-S2c: `implemented + revalidate_required`
+- S0a-S0c / S1a-S1b / S2a-S2c: `implemented + partial`（2026-02-27 已完成顺序重验，剩余基准对照证据待补）
 - S3 / S3b / S3c / S3d / S3e / S4 / S4b: `implemented + partial`
 - S5: `active`（工程推进中，待 artifact/review/sync 收口）
 - S6/S7a: `planned`（螺旋2出口前不得宣称完成）
+
+---
+
+## 本次同步（2026-02-27，S0A-S2C 顺序重验 + P0 回填）
+
+1. 已按执行卡顺序完成 `S0A -> S2C` 重验执行，产出汇总：
+   - `artifacts/spiral-s0s2/revalidation/20260227_104537/s0a_s2c_revalidation_summary.md`
+   - `artifacts/spiral-s0s2/revalidation/20260227_104537/rerun_recovery_summary.md`
+2. 首轮失败根因已闭环：DuckDB 锁冲突导致 4 项 run 步骤误失败；清锁后重跑全部恢复 `rc=0`。
+3. P0-1（2020-2024 覆盖率）已闭环：
+   - `artifacts/spiral-s0s2/revalidation/coverage_2020_2024.{md,json}`
+   - 覆盖率 `100.00%`。
+4. P0-2（同窗链路）已完成 run/backtest/analysis：
+   - `recommend --mode integrated --with-validation-bridge`
+   - `backtest --start 20240101 --end 20241220`
+   - `analysis --ab-benchmark` + `analysis --deviation --attribution-summary`
+5. 当前唯一未闭合阻断：`ab_benchmark_report.md` 仍是 A/B/C 代理口径，缺少显式 “MSS vs 随机 / MSS vs 技术基线(MA/RSI/MACD)” 段落。
 
 ---
 

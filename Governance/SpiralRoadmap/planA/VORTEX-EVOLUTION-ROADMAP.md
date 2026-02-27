@@ -1,7 +1,7 @@
 # EmotionQuant VORTEX 演进路线图（Plan A SoT）
 
 **状态**: Active（Rebaseline）  
-**更新时间**: 2026-02-26  
+**更新时间**: 2026-02-27  
 **定位**: Plan A 唯一能力状态 SoT（业务与工程双视图）
 
 ---
@@ -40,9 +40,9 @@
 
 | 圈位 | 名称 | 实现状态 | 业务验证状态 | 下一动作 |
 |---|---|---|---|---|
-| S0a-S0c | 入口/L1/L2 | implemented | revalidate_required | 对齐 canary-5y 数据窗口并重验（最低2020-2024） |
-| S1a-S1b | MSS 评分/消费 | implemented | revalidate_required | 与真实本地数据重跑 probe |
-| S2a-S2c | 多算法/集成/桥接 | implemented | revalidate_required | 在 canary 数据窗口完成端到端联调 |
+| S0a-S0c | 入口/L1/L2 | implemented | partial | 已完成顺序重验与覆盖率审计（100%），等待螺旋1最终收口 |
+| S1a-S1b | MSS 评分/消费 | implemented | partial | 已完成顺序重验，probe 结论 `WARN_NEGATIVE_SPREAD` |
+| S2a-S2c | 多算法/集成/桥接 | implemented | partial | 已完成顺序重验，桥接与四模式通过，等待螺旋1最终收口 |
 | S3a/S3ar | 采集增强/稳定性 | implemented | partial | 先满足螺旋1数据门禁，再扩至16年 |
 | S3 | 回测闭环 | implemented | partial | 继续推进螺旋1业务门禁重验与窗口扩展 |
 | S4 | 纸上交易 | implemented | partial | 衔接 S3 回测参数并重放验证 |
@@ -58,11 +58,11 @@
 
 | 阻断项 | 级别 | 当前判定 | 清除条件 |
 |---|---|---|---|
-| 本地历史数据未形成可用窗口 | P0 | open | canary-5y（最低2020-2024）覆盖>=99%，并有质量报告 |
-| 端到端回测证据不足 | P0 | open | 同窗 run/backtest/analysis 全链路成功并留档 |
-| 归因无法回答收益来源 | P0 | open | 至少完成 signal/execution/cost 三分解 |
+| 本地历史数据未形成可用窗口 | P0 | closed | canary-5y（最低2020-2024）覆盖>=99%，并有质量报告 |
+| 端到端回测证据不足 | P0 | closed | 同窗 run/backtest/analysis 全链路成功并留档 |
+| 归因无法回答收益来源 | P0 | closed | 至少完成 signal/execution/cost 三分解 |
 | 归因无对比基准 | P0 | open | 完成 MSS vs 随机、MSS vs 技术基线 对比并可解释 |
-| 业务成果不可见 | P0 | open | `PLANA-BUSINESS-SCOREBOARD.md` 每圈更新并给 GO/NO_GO |
+| 业务成果不可见 | P0 | closed | `PLANA-BUSINESS-SCOREBOARD.md` 每圈更新并给 GO/NO_GO |
 | 实盘前无预演门禁 | P0 | open | 螺旋3.5 连续20交易日预演通过 |
 
 ---
@@ -100,6 +100,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.5 | 2026-02-27 | S0A-S2C 顺序重验回填：S0-S2 业务验证更新为 partial；P0 阻断矩阵更新为 `3 closed + 1 open + 1 closed` |
 | v2.4 | 2026-02-26 | 状态同步修订：工程视图对齐执行卡与开发状态；S3/S3b/S3c/S3d/S3e/S4b 更新为 implemented，S5 更新为 active |
 | v2.3 | 2026-02-25 | 堵最大缺口：gate_report 强制包含 §Design-Alignment-Fields（字段级设计校验），闭合设计到执行的断裂点 |
 | v2.2 | 2026-02-24 | 增加设计基线绑定：VORTEX 显式挂接 `docs/design/**` 与 `eq-improvement-plan-core-frozen.md`，并将"设计对齐结论"设为螺旋收口硬门禁 |
