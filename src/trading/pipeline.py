@@ -308,6 +308,7 @@ def _read_prices(database_path: Path, trade_date: str) -> dict[str, dict[str, fl
     for col in ("open", "high", "low", "close"):
         frame[col] = pd.to_numeric(frame[col], errors="coerce").fillna(0.0)
     frame = frame.drop_duplicates(subset=["stock_code"], keep="last")
+    # 行情查找表用于订单撮合阶段的 O(1) 读取，避免逐股过滤 DataFrame。
     lookup: dict[str, dict[str, float]] = frame.set_index("stock_code")[["open", "high", "low", "close"]].to_dict("index")
     return lookup
 
@@ -348,6 +349,7 @@ def _read_prev_close_lookup(database_path: Path, trade_date: str) -> dict[str, f
 
     frame["stock_code"] = frame["stock_code"].astype(str).str.strip()
     frame["prev_close"] = pd.to_numeric(frame["prev_close"], errors="coerce").fillna(0.0)
+    # 昨收只保留有效值，供涨跌停保护逻辑直接消费。
     valid = frame[(frame["stock_code"] != "") & (frame["prev_close"] > 0.0)]
     valid = valid.drop_duplicates(subset=["stock_code"], keep="last")
     lookup: dict[str, float] = valid.set_index("stock_code")["prev_close"].to_dict()
@@ -380,6 +382,7 @@ def _read_stock_profiles(database_path: Path) -> dict[str, dict[str, str]]:
             f"SELECT {stock_code_expr} AS stock_code, {name_expr} AS stock_name FROM raw_stock_basic"
         ).df()
 
+    # 使用 itertuples 构建股票画像字典，减少循环开销。
     profiles: dict[str, dict[str, str]] = {}
     for row in frame.itertuples(index=False):
         stock_code = str(getattr(row, "stock_code", "")).strip()
@@ -435,6 +438,7 @@ def _read_available_cash(database_path: Path, trade_date: str, initial_cash: flo
 
     if frame.empty:
         return round(float(initial_cash), 4)
+    # 历史现金回放采用“买入扣款、卖出回款”的资金守恒口径。
     cash = float(initial_cash)
     frame["direction"] = frame["direction"].astype(str).str.strip().str.lower()
     frame["amount"] = pd.to_numeric(frame["amount"], errors="coerce").fillna(0.0)

@@ -382,6 +382,7 @@ def _apply_recommendation_limits(frame: pd.DataFrame) -> pd.DataFrame:
         kind="stable",
     )
 
+    # 限额策略采用“全市场排序后顺序挑选”，确保每日20/行业5的硬约束可解释。
     picked_indices: list[int] = []
     industry_counts: dict[str, int] = {}
     for tup in ranked.itertuples():
@@ -440,6 +441,7 @@ def _load_stock_industry_lookup(
     if not member_snapshot or not classify_snapshot:
         return ({}, {})
 
+    # raw_index_member/raw_index_classify 采用最近快照，避免跨日混用导致行业映射漂移。
     frame = connection.execute(
         "SELECT m.con_code, m.index_code, m.in_date, m.out_date, "
         "c.industry_code, c.industry_name "
@@ -836,6 +838,7 @@ def run_integrated_daily(
         _position_cap_warn = effective_gate == "WARN"
         _temp_extreme = mss_temperature < 30.0 or mss_temperature > 80.0
 
+        # 主循环保留逐股决策语义，但读取侧已向量化（查找字典 + 预计算映射）。
         for tup in pas_frame.itertuples(index=False):
             risk_reward_ratio = float(getattr(tup, "risk_reward_ratio", 0.0) or 0.0)
             if risk_reward_ratio < 1.0:

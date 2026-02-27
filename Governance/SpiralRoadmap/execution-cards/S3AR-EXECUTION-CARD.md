@@ -1,6 +1,6 @@
 # S3ar 执行卡（v0.3）
 
-**状态**: Implemented（工程完成，业务待重验）  
+**状态**: Implemented（工程完成） + Code-Revalidated（卡住）  
 **重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段B（S3a-S4b）  
@@ -14,6 +14,14 @@
 - 证据锚点：`Governance/specs/spiral-s3ar/final.md`、`Governance/specs/spiral-s3ar/review.md`。
 - 代码锚点：`src/data/fetcher.py`、`src/data/fetch_batch_pipeline.py`、`src/data/repositories/base.py`。
 - 测试锚点：`tests/unit/data/test_fetcher_contract.py`、`tests/unit/data/test_fetch_retry_contract.py`、`tests/unit/data/test_duckdb_lock_recovery_contract.py`。
+
+## 代码级重验（2026-02-27）
+
+- [ ] run 冒烟通过（当前阻断：双 TuShare token 核心接口 readiness 未通过（见 token-check 报告））
+- [x] test 契约通过（代码与测试可通过，阻断在外部通道可用性）
+- [ ] 功能检查正常（受主备 token readiness 阻断）
+- 结论：`卡住`
+- 证据：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
 
 ## 1. 目标
 
@@ -31,10 +39,8 @@
 eq fetch-batch --start {start} --end {end} --batch-size 365 --workers 3
 eq fetch-status
 eq fetch-retry
-python scripts/data/check_tushare_l1_token.py --token-env TUSHARE_PRIMARY_TOKEN --http-url http://106.54.191.157:5000
-python scripts/data/check_tushare_l1_token.py --token-env TUSHARE_FALLBACK_TOKEN
-python scripts/data/benchmark_tushare_l1_rate.py --token-env TUSHARE_PRIMARY_TOKEN --http-url http://106.54.191.157:5000 --api daily --calls 500 --workers 50
-python scripts/data/benchmark_tushare_l1_rate.py --token-env TUSHARE_FALLBACK_TOKEN --api daily --calls 500 --workers 50
+python scripts/data/check_tushare_dual_tokens.py --env-file .env --channels both
+python scripts/data/benchmark_tushare_l1_channels_window.py --env-file .env --start {start} --end {end} --channels both
 ```
 
 ---
@@ -54,8 +60,8 @@ pytest tests/unit/config/test_config_defaults.py -q
 - `artifacts/spiral-s3a/{trade_date}/fetch_progress.json`
 - `artifacts/spiral-s3a/{trade_date}/fetch_retry_report.md`
 - `artifacts/spiral-s3a/{trade_date}/throughput_benchmark.md`
-- `artifacts/token-checks/tushare_l1_token_check_*.json`
-- `artifacts/token-checks/tushare_l1_rate_benchmark_*.json`
+- `artifacts/token-checks/tushare_l1_dual_token_check_*.json`
+- `artifacts/token-checks/tushare_l1_channels_window_benchmark_*.json`
 
 ---
 

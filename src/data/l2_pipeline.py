@@ -416,12 +416,14 @@ def _build_industry_snapshot_sw31(
             how="left",
         )
 
+    # 逐行业聚合是 SW31 语义口径的关键步骤，输出必须保持行业级可审计字段。
     row_dicts: list[dict[str, object]] = []
     for industry_row in classify.sort_values(["industry_code"]).itertuples(index=False):
         industry_code = str(industry_row.industry_code).strip()
         industry_name = str(industry_row.industry_name).strip() or industry_code
         subset = mapped[mapped["industry_code"].astype(str) == industry_code].copy()
         ranking = subset.sort_values("pct", ascending=False).head(5)
+        # top5 采用当日涨幅排序，作为行业领涨强度与连板统计输入。
         top5_codes = [_normalize_stock_code(record) for record in ranking.to_dict("records")]
         top5_pct_chg = [float(round(float(value) * 100.0, 4)) for value in ranking["pct"]]
 

@@ -1,7 +1,7 @@
 # Plan A 执行卡索引
 
 **状态**: Active  
-**更新时间**: 2026-02-26  
+**更新时间**: 2026-02-27  
 **定位**: Plan A 执行卡集中入口（run/test/artifact/review/sync）
 
 ---
@@ -66,3 +66,29 @@
 ## Revalidation 清单
 
 - `Governance/SpiralRoadmap/planA/PLAN-A-REVALIDATION-CHECKLIST.md`
+
+## 代码级复检快照（2026-02-27）
+
+证据基线：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
+
+- [x] S0A
+- [x] S0B
+- [x] S0C
+- [x] S1A
+- [x] S1B
+- [x] S2A
+- [x] S2B
+- [x] S2C
+- [x] S2R
+- [x] S3A
+- [x] S3
+- [x] S3R
+- [x] S4
+- [ ] S3AR（阻断：双 TuShare token core readiness 未通过）
+- [x] S3B
+- [x] S3C
+- [x] S3D
+- [x] S3E
+- [x] S4B
+- [x] S4BR
+- [x] S4R

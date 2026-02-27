@@ -529,6 +529,7 @@ def _read_stock_profiles(*, database_path: Path) -> dict[str, dict[str, str]]:
             "FROM raw_stock_basic"
         ).df()
 
+    # 体量较大时使用 itertuples，避免 iterrows 的对象装箱开销。
     profiles: dict[str, dict[str, str]] = {}
     for row in frame.itertuples(index=False):
         stock_code = str(getattr(row, "stock_code", "")).strip()
@@ -579,6 +580,8 @@ def _build_price_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, str], dict
     for col in ("open", "high", "low", "close", "vol", "amount"):
         working[col] = pd.to_numeric(working[col], errors="coerce").fillna(0.0)
     working = working.drop_duplicates(subset=["trade_date", "stock_code"], keep="last")
+    # 通过多列索引一次性构建 (trade_date, stock_code) -> OHLCVA 查找表，
+    # 避免回放主循环内反复 DataFrame 过滤。
     lookup: dict[tuple[str, str], dict[str, float]] = (
         working.set_index(["trade_date", "stock_code"])[["open", "high", "low", "close", "vol", "amount"]]
         .to_dict("index")
@@ -596,6 +599,7 @@ def _build_prev_close_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, str],
     working = working.sort_values(by=["stock_code", "trade_date"])
     working["prev_close"] = working.groupby("stock_code")["close"].shift(1)
 
+    # 先向量化计算昨收，再收敛成字典供涨跌停判定直接读取。
     valid = working[working["prev_close"].notna() & (working["prev_close"] > 0.0)].copy()
     valid["stock_code"] = valid["stock_code"].str.strip()
     valid["trade_date"] = valid["trade_date"].str.strip()
@@ -1083,7 +1087,7 @@ def run_backtest(
             signals_by_execute_date.setdefault(execute_date, []).append(record)
 
         for replay_day in replay_days:
-            # 1) Sell positions first if T+1 unlock reached.
+            # 1) 先执行卖出：仅当 T+1 解锁后允许平仓。
             for stock_code, pos in list(positions.items()):
                 can_sell_date = str(pos.get("can_sell_date", replay_day))
                 if replay_day < can_sell_date:
@@ -1168,7 +1172,7 @@ def run_backtest(
                 liquidity_tier_counts[liquidity_tier] = liquidity_tier_counts.get(liquidity_tier, 0) + 1
                 del positions[stock_code]
 
-            # 2) Execute buys mapped from signal_date -> execute_date(T+1).
+            # 2) 再执行买入：信号日映射到执行日（T+1）后进入撮合。
             for signal in signals_by_execute_date.get(replay_day, []):
                 stock_code = str(signal.get("stock_code", ""))
                 if not stock_code:
@@ -1463,7 +1467,7 @@ def run_backtest(
                 fee_tier_counts[fee_tier_label] = fee_tier_counts.get(fee_tier_label, 0) + 1
                 liquidity_tier_counts[liquidity_tier] = liquidity_tier_counts.get(liquidity_tier, 0) + 1
 
-            # 3) Mark-to-market equity for max drawdown tracking.
+            # 3) 逐日盯市权益曲线，用于最大回撤与收益分布统计。
             market_value = 0.0
             for stock_code, pos in positions.items():
                 price = price_lookup.get((replay_day, stock_code), {})

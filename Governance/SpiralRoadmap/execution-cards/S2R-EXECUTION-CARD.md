@@ -1,6 +1,6 @@
 # S2r 执行卡（v0.2）
 
-**状态**: Implemented（工程完成，业务待重验）  
+**状态**: Implemented（工程完成） + Code-Revalidated（通过）  
 **重验口径**: 本卡“工程完成”不等于螺旋闭环完成；是否可推进以 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 与 `Governance/SpiralRoadmap/planA/PLANA-BUSINESS-SCOREBOARD.md` 的 GO/NO_GO 为准。  
 **更新时间**: 2026-02-21  
 **阶段**: 阶段A（S0-S2）  
@@ -15,6 +15,14 @@
 - 关键确认：`--repair s2r` 已可运行，修复产物 `s2r_patch_note/s2r_delta_report` 与 `integration_mode`、桥接链路均可审计。
 
 ---
+
+## 代码级重验（2026-02-27）
+
+- [x] run 冒烟通过（见统一审计汇总）
+- [x] test 契约通过（见统一审计汇总）
+- [x] 功能检查正常（见统一审计汇总）
+- 结论：`通过`
+- 证据：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
 
 ## 1. 目标
 

@@ -1,7 +1,7 @@
 # EmotionQuant S3a-S4b 真螺旋执行路线图（执行版 v1.8）
 
 **状态**: Active（螺旋2 Full 闭环执行中）  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-27  
 **适用范围**: S3a-S4b（阶段B：数据采集增强、回测、纸上交易、收益归因、行业语义校准、MSS 自适应校准、Validation 生产校准、极端防御）  
 **文档角色**: S3a-S4b 执行合同（不是上位 SoT 替代）
 
@@ -44,6 +44,23 @@
   - `S3e`：将 `factor_gate_raw=FAIL` 比例从 `4/4` 降至可控区间。
   - `S3b`：提升可比成交样本，使 `dominant_component` 不再长期 `none`。
   - `S3d`：消除负 spread 窗口，至少达到“无负窗”。
+
+## 代码级复检勾选（2026-02-27）
+
+证据基线：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
+
+- [x] S3a
+- [x] S3
+- [x] S3r
+- [x] S4
+- [ ] S3ar（阻断：双 TuShare token core readiness 未通过）
+- [x] S3b
+- [x] S3c
+- [x] S3d
+- [x] S3e
+- [x] S4b
+- [x] S4br
+- [x] S4r
 
 ## 0. 文档定位（先对齐 SoT）
 

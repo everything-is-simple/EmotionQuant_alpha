@@ -43,7 +43,8 @@
 | S0a-S0c | 入口/L1/L2 | implemented | partial | 已完成顺序重验与覆盖率审计（100%），等待螺旋1最终收口 |
 | S1a-S1b | MSS 评分/消费 | implemented | partial | 已完成顺序重验，probe 结论 `WARN_NEGATIVE_SPREAD` |
 | S2a-S2c | 多算法/集成/桥接 | implemented | partial | 已完成顺序重验，桥接与四模式通过，等待螺旋1最终收口 |
-| S3a/S3ar | 采集增强/稳定性 | implemented | partial | 先满足螺旋1数据门禁，再扩至16年 |
+| S3a | 采集增强 | implemented | partial | 代码级复检通过，等待螺旋1最终收口 |
+| S3ar | 采集稳定性修复 | implemented | blocked | 外部阻断：双 TuShare token core readiness 未通过 |
 | S3 | 回测闭环 | implemented | partial | 继续推进螺旋1业务门禁重验与窗口扩展 |
 | S4 | 纸上交易 | implemented | partial | 衔接 S3 回测参数并重放验证 |
 | S3b | 收益归因 | implemented | partial | 持续提升归因稳定性与可解释性 |
@@ -100,6 +101,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v2.6 | 2026-02-27 | 新增代码级逐卡复检快照：S0A-S4R 中 20 张卡 `completed`，S3AR 因外部 token readiness 阻断标记 `blocked` |
 | v2.5 | 2026-02-27 | S0A-S2C 顺序重验回填：S0-S2 业务验证更新为 partial；P0 阻断矩阵更新为 `3 closed + 1 open + 1 closed` |
 | v2.4 | 2026-02-26 | 状态同步修订：工程视图对齐执行卡与开发状态；S3/S3b/S3c/S3d/S3e/S4b 更新为 implemented，S5 更新为 active |
 | v2.3 | 2026-02-25 | 堵最大缺口：gate_report 强制包含 §Design-Alignment-Fields（字段级设计校验），闭合设计到执行的断裂点 |

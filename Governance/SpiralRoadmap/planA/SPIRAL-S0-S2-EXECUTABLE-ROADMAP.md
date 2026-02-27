@@ -1,7 +1,7 @@
 # EmotionQuant S0-S2r 真螺旋执行路线图（执行版 v1.4）
 
 **状态**: Active（工程实现已落地，业务闭环重验中）  
-**更新时间**: 2026-02-23  
+**更新时间**: 2026-02-27  
 **适用范围**: S0-S2r（数据层到核心算法深化与修复闭环）  
 **文档角色**: S0-S2r 执行合同（不是上位 SoT 替代）
 
@@ -40,6 +40,20 @@
   - `pytest tests/unit/algorithms/mss/test_mss_full_semantics_contract.py -q`（通过）
   - `pytest tests/unit/integration/test_algorithm_semantics_regression.py -q`（通过）
 - 维护规则：若任一契约/语义回归失败，必须将状态回退为 `blocked` 并进入对应修复微圈（含 `S2r`）。
+
+## 代码级复检勾选（2026-02-27）
+
+证据基线：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
+
+- [x] S0a
+- [x] S0b
+- [x] S0c
+- [x] S1a
+- [x] S1b
+- [x] S2a
+- [x] S2b
+- [x] S2c
+- [x] S2r
 
 ---
 

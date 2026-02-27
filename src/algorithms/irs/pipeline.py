@@ -274,6 +274,7 @@ def _load_baseline_map(config: Config) -> dict[str, tuple[float, float]]:
         return {}
 
     mapping: dict[str, tuple[float, float]] = {}
+    # baseline 只做小表映射，使用 itertuples 避免逐行 Series 装箱。
     for tup in baseline.itertuples(index=False):
         key = str(getattr(tup, key_col, "")).strip()
         if not key:
@@ -405,6 +406,7 @@ def run_irs_daily(
     factor_rows: list[dict[str, object]] = []
     created_at = pd.Timestamp.utcnow().isoformat()
 
+    # 行业层计算保留逐行业语义，循环体内部全部使用向量化序列运算。
     for row in source.itertuples(index=False):
         item = row._asdict()
         industry_code = str(item.get("industry_code", "UNKNOWN") or "UNKNOWN")
@@ -636,6 +638,7 @@ def run_irs_daily(
     rotation_statuses: list[str] = []
     rotation_slopes: list[float] = []
     rotation_details: list[str] = []
+    # 轮动状态按行业独立计算，结果回写到输出表供 S3c/S3d 消费。
     for tup in frame.itertuples(index=False):
         code = str(tup.industry_code)
         score_hist = score_history_by_industry.get(code, []) + [float(tup.industry_score)]

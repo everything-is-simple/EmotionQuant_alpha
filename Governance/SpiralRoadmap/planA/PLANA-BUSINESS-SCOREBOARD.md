@@ -91,6 +91,15 @@
 
 ---
 
+## 6.1 执行卡代码级复检快照（2026-02-27）
+
+证据：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
+
+- 已通过：`S0A/S0B/S0C/S1A/S1B/S2A/S2B/S2C/S2R/S3A/S3/S3R/S4/S3B/S3C/S3D/S3E/S4B/S4BR/S4R`
+- 卡住：`S3AR`（双 TuShare token core readiness 未通过）
+
+---
+
 ## 7. 更新规则
 
 1. 每个微圈收口必须更新本文件。
