@@ -1,3 +1,13 @@
+"""推荐流水线编排层（S2C）：IRS + PAS + Validation + Integration 串联执行。
+
+支持模式：
+  - mss_irs_pas   : 依次运行 IRS → PAS → 可选 Validation
+  - integrated     : 在上述基础上追加集成推荐（S2B pipeline）
+
+产物路径：artifacts/spiral-s2c/{trade_date}/
+质量门禁：go_nogo_decision.md（GO / NO_GO）
+"""
+
 from __future__ import annotations
 
 import json

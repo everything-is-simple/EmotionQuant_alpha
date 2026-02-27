@@ -1,3 +1,9 @@
+"""MSS 探针（S1B）：验证 MSS 评分对未来收益的预测能力。
+
+核心指标: top_bottom_spread_5d（高温度组 vs 低温度组的 5 日前瞻收益差）。
+若 spread > 0 则表明 MSS 具备方向性预测价值。
+"""
+
 from __future__ import annotations
 
 import json

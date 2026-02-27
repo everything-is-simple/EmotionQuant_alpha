@@ -1,3 +1,12 @@
+"""MSS 流水线编排：加载 L2 快照 → 计算评分 → 持久化 → 产物文件。
+
+对应执行卡 S1A。每个交易日产出：
+  - mss_panorama 表（写入 DuckDB）
+  - factor_trace 产物文件（因子明细）
+  - threshold_snapshot（自适应/固定阈值快照）
+  - gate_report（MSS 质量门禁）
+"""
+
 from __future__ import annotations
 
 import json

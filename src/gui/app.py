@@ -1,3 +1,12 @@
+"""S5 GUI 入口：每日报告导出 + Streamlit 仪表盘启动。
+
+两种运行模式：
+  - export_mode="daily-report"  : 生成 Markdown 日报 + JSON manifest，无需 Streamlit
+  - launch_dashboard=True       : 启动 Streamlit 7 页面 Tab 仪表盘（read-only）
+
+产物路径：artifacts/spiral-s5/{trade_date}/
+"""
+
 from __future__ import annotations
 
 import json

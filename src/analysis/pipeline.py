@@ -1,3 +1,11 @@
+"""收益归因分析流水线（S3B）：A/B 基准对比 + 实盘-回测偏差 + 归因分解。
+
+三项任务（可独立运行）：
+  1. ab_benchmark     : A/B 基准对比（策略 vs 沪深300等）
+  2. deviation        : 实盘与回测的偏差检测（信号/执行/成本三维）
+  3. attribution      : 收益归因（市场 + 行业 + 选股 + 交易）
+"""
+
 from __future__ import annotations
 
 import json

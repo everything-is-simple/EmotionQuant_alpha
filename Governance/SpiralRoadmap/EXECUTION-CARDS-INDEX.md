@@ -71,6 +71,7 @@
 
 证据基线：`artifacts/spiral-allcards/revalidation/20260227_125427/execution_cards_code_audit_summary.md`
 
+### 阶段A（S0-S2）
 - [x] S0A
 - [x] S0B
 - [x] S0C
@@ -80,15 +81,34 @@
 - [x] S2B
 - [x] S2C
 - [x] S2R
+
+### 阶段B（S3-S4b）
 - [x] S3A
 - [x] S3
 - [x] S3R
-- [x] S4
 - [x] S3AR
 - [x] S3B
 - [x] S3C
 - [x] S3D
 - [x] S3E
+- [x] S4
+- [x] S4R
 - [x] S4B
 - [x] S4BR
-- [x] S4R
+
+### 阶段C（S5-S7a）
+- [x] S5 — gui/app.py + dashboard.py + data_service.py + formatter.py + models.py 已实现，35 条 GUI 测试通过
+- [ ] S5R — 条件触发修复圈，当前未触发
+- [x] S6 — pipeline/consistency.py ConsistencyChecker 已实现（三层阈值），31 条测试通过
+- [ ] S6R — 条件触发修复圈，当前未触发
+- [x] S7A — pipeline/scheduler.py SchedulerCore + CalendarGuard + RunHistory + Idempotency 已实现，26 条测试通过
+- [ ] S7AR — 条件触发修复圈，当前未触发
+
+### 独立审计结论（2026-02-27 第二轮）
+
+审计方法：逐文件阅读 src/ 全部源码 → 运行 308 条测试（全部通过） → 逐卡对照代码实现。
+
+- S0A-S4BR（25 张卡）：全部代码与测试已落地，功能与执行卡描述一致。
+- S5/S6/S7A（3 张主卡）：核心代码已实现，待端到端 artifact 产出与 review/sync 闭环。
+- S5R/S6R/S7AR（3 张修复卡）：条件触发，当前无需代码实现。
+- 源码注释：全部 ~30 个核心源文件已补充中文模块级 docstring。

@@ -1,3 +1,17 @@
+"""Validation（因子权重验证）流水线：IC/ICIR/Decay/Sharpe/MaxDD 检查 + 权重方案选择。
+
+对应执行卡 S2A / S2C / S3E。
+检查维度（每个因子独立判定 PASS / WARN / FAIL）：
+  - IC        : 因子值与未来收益的皮尔逊相关
+  - Rank IC   : 因子值与未来收益的斯皮尔曼相关
+  - ICIR      : IC 均值 / IC 标准差
+  - Decay     : |IC| * 2.5 代理
+  - Sharpe    : 因子策略 Sharpe Ratio
+  - MaxDD     : 最大回撤
+
+权重方案选择：在 balanced / candidate 两套权重间比较，择优录用。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

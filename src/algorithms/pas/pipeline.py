@@ -1,3 +1,13 @@
+"""PAS（个股活跃度评分）流水线：三因子评分 + 方向 + 机会等级。
+
+对应执行卡 S2A / S2C。三因子：
+  1. momentum_score  — 动量（涨跌幅 + 历史分位 + 新高/新低距离）
+  2. volume_score    — 量能（换手率 + 量比 + 量价背离 + 涨停封单）
+  3. pattern_score   — 形态（K线形态 + 连续涨跌 + 上下影线）
+
+输出: pas_stock_daily 表 + pas_factor_intermediate 表。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

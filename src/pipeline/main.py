@@ -1,3 +1,23 @@
+"""EmotionQuant 统一 CLI 入口（eq 命令）。
+
+子命令映射（覆盖 S0A ～ S7A 全链路）：
+  run           : 数据采集（L1/L2）
+  mss           : MSS 市场情绪评分
+  irs           : IRS 行业轮动评分
+  pas           : PAS 个股活跃度评分
+  mss-probe     : MSS 探针（top_bottom_spread_5d）
+  recommend     : 推荐流水线（含集成 + 验证）
+  backtest      : 回测闭环
+  analysis      : 收益归因分析
+  paper-trade   : 模拟交易
+  stress        : 压力测试
+  gui           : 导出日报 / 启动仪表盘
+  consistency   : 一致性检查（S6）
+  scheduler     : 每日调度（S7A）
+  fetch-batch   : 批量数据抓取
+  fetch-retry   : 重试失败抓取
+"""
+
 from __future__ import annotations
 
 import argparse

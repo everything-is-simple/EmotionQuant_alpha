@@ -1,3 +1,18 @@
+"""压力测试流水线（S4B / S4BR）：极端场景下的减仓模拟与防御评估。
+
+支持场景：
+  - limit_down_chain : 连板跌停链——所有持仓均遭遇跌停，卖单全部被拒
+  - liquidity_dryup  : 流动性枯竭——成交量骤降至极低水平，只能部分成交
+  - all              : 同时运行以上所有场景
+
+输出：
+  - extreme_defense_report  : 极端防御评估报告
+  - deleveraging_policy     : 减仓策略快照
+  - stress_trade_replay     : 压力交易回放记录
+
+S4BR 修复模式：使用最新偏差数据重新运行压力测试。
+"""
+
 from __future__ import annotations
 
 import csv

@@ -1,3 +1,18 @@
+"""集成推荐流水线（S2B）：MSS × IRS × PAS 三模块融合 → 最终推荐列表。
+
+四种集成模式（对应执行卡 S2B）：
+  - top_down       : 自上而下，MSS 周期驱动仓位上限
+  - bottom_up      : 自下而上，PAS 个股活跃度优先
+  - dual_verify    : 双重验证，两套排名取交集
+  - complementary  : 互补融合，加权平均
+
+硬约束（铁律）：
+  - 每日最多推荐 20 只（MAX_RECOMMENDATIONS_PER_DAY）
+  - 单行业最多推荐 5 只（MAX_RECOMMENDATIONS_PER_INDUSTRY）
+
+输出: integrated_recommendation 表 + quality_gate_report 表。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

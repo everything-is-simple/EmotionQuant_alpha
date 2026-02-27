@@ -1,3 +1,19 @@
+"""MSS（市场情绪评分）核心计算引擎。
+
+职责：
+  1. 从 MarketSnapshot 输入计算六因子（市场系数 / 赚钱效应 / 亏钱效应 / 连续性 / 极端 / 波动）
+  2. 加权合成市场温度（0-100），进行 Z-Score 归一化
+  3. 基于温度序列检测趋势方向（EMA 交叉 + 斜率）
+  4. 基于温度 + 趋势判定情绪周期（8 态状态机）
+  5. 输出 MssPanorama 全景结果（温度/周期/趋势/排名/百分位/仓位建议）
+
+阈值模式：
+  - fixed:    使用固定分位阈值 (30/45/60/75)
+  - adaptive: 基于最近 252 日温度历史动态计算分位阈值
+
+设计基线：docs/design/core-algorithms/mss/mss-algorithm.md
+"""
+
 from __future__ import annotations
 
 import math

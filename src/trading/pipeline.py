@@ -1,3 +1,16 @@
+"""模拟交易流水线（S4 / S4R）：订单 → 持仓 → 风控 生命周期。
+
+当前仅支持 paper（纸面交易）模式。
+核心流程：
+  1. 从 integrated_recommendation 读取当日推荐信号
+  2. T+1 / 涨跌停 / 流动性前置检查
+  3. 生成订单、更新持仓、计算手续费
+  4. 风险事件检测（止损/止盈/回撤/行业集中度）
+  5. 产物文件输出（trade_records / positions / risk_events）
+
+S4R 修复模式：重放指定交易日的交易逻辑。
+"""
+
 from __future__ import annotations
 
 import json

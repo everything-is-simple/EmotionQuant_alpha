@@ -1,3 +1,16 @@
+"""IRS（行业轮动评分）流水线：六因子评分 + 轮动状态 + 配置建议。
+
+对应执行卡 S2A / S2C。六因子：
+  1. relative_strength  — 相对强弱（vs 基准）
+  2. continuity_factor  — 连续性（涨幅广度 + 新高广度）
+  3. capital_flow       — 资金流（净流入/流通占比/拥挤惩罚）
+  4. valuation          — 估值（PE/PB 反向分）
+  5. leader_score       — 龙头强度（top5 涨幅 + 涨停率）
+  6. gene_score         — 基因（涨停率 + 新高率 + 强势率）
+
+输出: irs_industry_daily 表 + irs_factor_intermediate 表。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
