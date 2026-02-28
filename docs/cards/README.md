@@ -6,14 +6,14 @@
 
 - [x] **R0-foundation-cards.md** — 工程基座（5 张卡，3-4 天）
 - [x] **R1-data-layer-cards.md** — 数据层重建（6 张卡，5-7 天）
-- [ ] **R2-mss-cards.md** — MSS 重建（待生成）
-- [ ] **R3-irs-pas-cards.md** — IRS + PAS 重建（待生成）
-- [ ] **R4-validation-integration-cards.md** — Validation + Integration 重建（待生成）
-- [ ] **R5-backtest-cards.md** — Backtest 重建（待生成）
-- [ ] **R6-trading-cards.md** — Trading 重建（待生成）
-- [ ] **R7-analysis-cards.md** — Analysis 重建（待生成）
-- [ ] **R8-gui-cards.md** — GUI 重建（待生成）
-- [ ] **R9-enhancements-cards.md** — 增强包 + 稳定化（待生成）
+- [x] **R2-mss-cards.md** — MSS 重建（4 张卡，4-5 天）
+- [x] **R3-irs-pas-cards.md** — IRS + PAS 重建（8 张卡，12-15 天）
+- [x] **R4-validation-integration-cards.md** — Validation + Integration 重建（7 张卡，10-12 天）
+- [x] **R5-backtest-cards.md** — Backtest 重建（9 张卡，12-14 天）
+- [x] **R6-trading-cards.md** — Trading 重建（5 张卡，7-8 天）
+- [x] **R7-analysis-cards.md** — Analysis 重建（5 张卡，6-8 天）
+- [x] **R8-gui-cards.md** — GUI 重建（6 张卡，8-10 天）
+- [x] **R9-enhancements-cards.md** — 增强包 + 稳定化（6 张卡，7-10 天）
 
 ## 卡片结构说明
 
