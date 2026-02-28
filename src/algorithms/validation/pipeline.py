@@ -55,11 +55,11 @@ class ValidationConfig:
     threshold_mode: str = "fixed"
     stale_days_threshold: int = 3
     ic_pass: float = 0.02
-    ic_warn: float = 0.01
+    ic_warn: float = 0.00
     rank_ic_pass: float = 0.03
     rank_ic_warn: float = 0.015
-    icir_pass: float = 1.00
-    icir_warn: float = 0.50
+    icir_pass: float = 0.20
+    icir_warn: float = 0.10
     # 代理公式 abs(IC)*2.5 → decay_pass 必须与 ic_pass 一致：ic_pass*2.5=0.05
     decay_pass: float = 0.05
     decay_warn: float = 0.025
@@ -533,7 +533,9 @@ def run_validation_gate(
         else:
             ic = _safe_corr(left, right)
             rank_ic = _safe_rank_corr(left, right)
-            icir = abs(ic) * math.sqrt(sample_size)
+            # ICIR 的标准定义依赖滚动 IC 序列；当前单日近似采用 abs(IC)，
+            # 避免 abs(IC)*sqrt(N) 这种与定义不一致的放大。
+            icir = abs(ic)
             decay_5d = _decay_proxy_from_ic(ic)
             gates = [
                 _normalize_gate(ic, effective_config.ic_pass, effective_config.ic_warn),
@@ -586,7 +588,7 @@ def run_validation_gate(
         right = future_return_series["future_return_5d"]
         future_ic = _safe_corr(left, right)
         future_rank_ic = _safe_rank_corr(left, right)
-        future_icir = abs(future_ic) * math.sqrt(future_sample_size)
+        future_icir = abs(future_ic)
         future_decay = _decay_proxy_from_ic(future_ic)
         future_gates = [
             _normalize_gate(future_ic, effective_config.ic_pass, effective_config.ic_warn),
@@ -798,9 +800,9 @@ def run_validation_gate(
 
     if issues:
         final_gate = "FAIL"
-        failure_class = "factor_failure"
-        fallback_plan = "baseline"
-        position_cap_ratio = 0.50
+        failure_class = "data_failure"
+        fallback_plan = "halt"
+        position_cap_ratio = 0.00
         reason = "core_inputs_missing"
         validation_prescription = "rebuild_l2_and_rerun_mss_irs_pas"
         selected_weight_plan = ""

@@ -79,6 +79,10 @@ def test_validation_fail_contains_prescription(tmp_path: Path) -> None:
         mss_exists=False,
     )
     assert gate.final_gate == "FAIL"
-    prescription = str(gate.frame.iloc[0]["validation_prescription"])
+    row = gate.frame.iloc[0]
+    prescription = str(row["validation_prescription"])
     assert prescription != ""
+    assert str(row["failure_class"]) == "data_failure"
+    assert str(row["fallback_plan"]) == "halt"
+    assert float(row["position_cap_ratio"]) == 0.0
 

@@ -84,12 +84,126 @@ def _clean_text(value: object) -> str:
     return str(value).strip()
 
 
+def _resolve_pct_chg_percent(frame: pd.DataFrame) -> tuple[pd.Series, str]:
+    if frame.empty:
+        return (pd.Series(dtype=float), "pct_chg")
+    if "pct_chg" in frame.columns:
+        pct = pd.to_numeric(frame["pct_chg"], errors="coerce").fillna(0.0)
+        return (pct, "pct_chg")
+
+    close = pd.to_numeric(
+        frame.get("close", pd.Series([0.0] * len(frame), index=frame.index)),
+        errors="coerce",
+    ).fillna(0.0)
+    if "pre_close" in frame.columns:
+        pre_close = pd.to_numeric(frame["pre_close"], errors="coerce")
+        pct = ((close - pre_close) / pre_close.replace(0.0, pd.NA)) * 100.0
+        return (pct.fillna(0.0), "pre_close")
+
+    open_price = pd.to_numeric(
+        frame.get("open", pd.Series([0.0] * len(frame), index=frame.index)),
+        errors="coerce",
+    ).fillna(0.0)
+    pct = ((close - open_price) / open_price.replace(0.0, pd.NA)) * 100.0
+    return (pct.fillna(0.0), "open_close")
+
+
+def _resolve_limit_type_series(limit_rows: pd.DataFrame) -> pd.Series:
+    if limit_rows.empty:
+        return pd.Series(dtype=str)
+    if "limit_type" in limit_rows.columns:
+        return limit_rows["limit_type"].astype(str).str.strip().str.upper()
+    if "limit" in limit_rows.columns:
+        return limit_rows["limit"].astype(str).str.strip().str.upper()
+    return pd.Series([""] * len(limit_rows), index=limit_rows.index, dtype="object")
+
+
+def _winsorized_median(series: pd.Series) -> float:
+    numeric = pd.to_numeric(series, errors="coerce").dropna()
+    if numeric.empty:
+        return 0.0
+    lower = float(numeric.quantile(0.01))
+    upper = float(numeric.quantile(0.99))
+    return float(numeric.clip(lower=lower, upper=upper).median())
+
+
+def _compute_amount_volatility(*, today_total_amount: float, recent_market_amounts: list[float]) -> tuple[float, str]:
+    history = [float(value) for value in recent_market_amounts if float(value) > 0.0]
+    if len(history) < 20:
+        return (0.0, "cold_start")
+    ma20_amount = float(sum(history[:20])) / 20.0
+    if ma20_amount <= 0.0:
+        return (0.0, "cold_start")
+    volatility = (float(today_total_amount) - ma20_amount) / ma20_amount
+    return (float(volatility), "normal")
+
+
+def _load_recent_market_amounts(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    trade_date: str,
+    lookback_days: int = 20,
+) -> list[float]:
+    if not _table_exists(connection, "raw_daily"):
+        return []
+    frame = connection.execute(
+        "SELECT CAST(trade_date AS VARCHAR) AS trade_date, "
+        "SUM(COALESCE(amount, 0.0)) AS total_amount "
+        "FROM raw_daily "
+        "WHERE CAST(trade_date AS VARCHAR) < ? "
+        "GROUP BY CAST(trade_date AS VARCHAR) "
+        "ORDER BY trade_date DESC "
+        "LIMIT ?",
+        [trade_date, int(max(lookback_days, 1))],
+    ).df()
+    if frame.empty:
+        return []
+    amounts = pd.to_numeric(frame["total_amount"], errors="coerce").fillna(0.0).tolist()
+    return [float(item) for item in amounts]
+
+
+def _load_previous_industry_valuation_map(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    trade_date: str,
+) -> dict[str, tuple[float, float]]:
+    if not _table_exists(connection, "industry_snapshot"):
+        return {}
+    row = connection.execute(
+        "SELECT MAX(CAST(trade_date AS VARCHAR)) FROM industry_snapshot "
+        "WHERE CAST(trade_date AS VARCHAR) < ?",
+        [trade_date],
+    ).fetchone()
+    previous_trade_date = str(row[0] or "").strip() if row else ""
+    if not previous_trade_date:
+        return {}
+    frame = connection.execute(
+        "SELECT industry_code, industry_pe_ttm, industry_pb "
+        "FROM industry_snapshot WHERE CAST(trade_date AS VARCHAR) = ?",
+        [previous_trade_date],
+    ).df()
+    if frame.empty:
+        return {}
+    mapping: dict[str, tuple[float, float]] = {}
+    for record in frame.to_dict("records"):
+        industry_code = str(record.get("industry_code", "")).strip()
+        if not industry_code:
+            continue
+        pe_value = pd.to_numeric(pd.Series([record.get("industry_pe_ttm")]), errors="coerce").iloc[0]
+        pb_value = pd.to_numeric(pd.Series([record.get("industry_pb")]), errors="coerce").iloc[0]
+        industry_pe_ttm = float(0.0 if pd.isna(pe_value) else pe_value)
+        industry_pb = float(0.0 if pd.isna(pb_value) else pb_value)
+        mapping[industry_code] = (industry_pe_ttm, industry_pb)
+    return mapping
+
+
 def _build_market_snapshot(
     *,
     trade_date: str,
     daily: pd.DataFrame,
     limit_list: pd.DataFrame,
     flat_threshold_ratio: float,
+    recent_market_amounts: list[float],
 ) -> MarketSnapshot:
     working = daily.copy()
     for column in ("open", "close", "amount"):
@@ -97,31 +211,38 @@ def _build_market_snapshot(
             working[column] = 0.0
         working[column] = pd.to_numeric(working[column], errors="coerce").fillna(0.0)
 
-    pct = (working["close"] - working["open"]) / working["open"].replace(0, pd.NA)
-    pct = pct.fillna(0.0)
+    pct, pct_source = _resolve_pct_chg_percent(working)
+    total_amount = float(pd.to_numeric(working["amount"], errors="coerce").fillna(0.0).sum())
+    amount_volatility, amount_quality = _compute_amount_volatility(
+        today_total_amount=total_amount,
+        recent_market_amounts=recent_market_amounts,
+    )
 
     limit_rows = limit_list.copy() if not limit_list.empty else limit_list
-    if not limit_rows.empty and "limit_type" in limit_rows.columns:
-        limit_up_count = int((limit_rows["limit_type"].astype(str) == "U").sum())
-        limit_down_count = int((limit_rows["limit_type"].astype(str) == "D").sum())
+    if not limit_rows.empty:
+        limit_type_series = _resolve_limit_type_series(limit_rows)
+        limit_up_count = int((limit_type_series == "U").sum())
+        limit_down_count = int((limit_type_series == "D").sum())
+        touched_limit_up = int(limit_type_series.isin({"U", "Z"}).sum())
     else:
         limit_up_count = 0
         limit_down_count = 0
+        touched_limit_up = 0
 
     return MarketSnapshot(
         trade_date=trade_date,
         total_stocks=int(len(working)),
-        rise_count=int((working["close"] > working["open"]).sum()),
-        fall_count=int((working["close"] < working["open"]).sum()),
-        flat_count=int((pct.abs() <= flat_threshold_ratio).sum()),
-        strong_up_count=int((pct >= 0.03).sum()),
-        strong_down_count=int((pct <= -0.03).sum()),
+        rise_count=int((pct > 0.0).sum()),
+        fall_count=int((pct < 0.0).sum()),
+        flat_count=int((pct.abs() <= (flat_threshold_ratio * 100.0)).sum()),
+        strong_up_count=int((pct >= 5.0).sum()),
+        strong_down_count=int((pct <= -5.0).sum()),
         limit_up_count=limit_up_count,
         limit_down_count=limit_down_count,
-        touched_limit_up=limit_up_count,
+        touched_limit_up=touched_limit_up,
         pct_chg_std=float(pct.std(ddof=0)),
-        amount_volatility=float(working["amount"].std(ddof=0)),
-        data_quality="normal",
+        amount_volatility=float(amount_volatility),
+        data_quality="normal" if pct_source == "pct_chg" and amount_quality == "normal" else "cold_start",
         stale_days=0,
         source_trade_date=trade_date,
     )
@@ -140,16 +261,16 @@ def _build_industry_snapshot_all(
             working[column] = 0.0
         working[column] = pd.to_numeric(working[column], errors="coerce").fillna(0.0)
 
-    pct = (working["close"] - working["open"]) / working["open"].replace(0, pd.NA)
-    pct = pct.fillna(0.0)
+    pct, _ = _resolve_pct_chg_percent(working)
     ranking = working.assign(pct=pct).sort_values("pct", ascending=False).head(5)
     top5_codes = [_normalize_stock_code(record) for record in ranking.to_dict("records")]
-    top5_pct_chg = [float(round(float(value) * 100.0, 4)) for value in ranking["pct"]]
+    top5_pct_chg = [float(round(float(value), 4)) for value in ranking["pct"]]
 
     limit_rows = limit_list.copy() if not limit_list.empty else limit_list
-    if not limit_rows.empty and "limit_type" in limit_rows.columns:
-        limit_up_count = int((limit_rows["limit_type"].astype(str) == "U").sum())
-        limit_down_count = int((limit_rows["limit_type"].astype(str) == "D").sum())
+    if not limit_rows.empty:
+        limit_type_series = _resolve_limit_type_series(limit_rows)
+        limit_up_count = int((limit_type_series == "U").sum())
+        limit_down_count = int((limit_type_series == "D").sum())
     else:
         limit_up_count = 0
         limit_down_count = 0
@@ -159,11 +280,11 @@ def _build_industry_snapshot_all(
         industry_code="ALL",
         industry_name="全市场聚合",
         stock_count=int(len(working)),
-        rise_count=int((working["close"] > working["open"]).sum()),
-        fall_count=int((working["close"] < working["open"]).sum()),
-        flat_count=int((pct.abs() <= flat_threshold_ratio).sum()),
+        rise_count=int((pct > 0.0).sum()),
+        fall_count=int((pct < 0.0).sum()),
+        flat_count=int((pct.abs() <= (flat_threshold_ratio * 100.0)).sum()),
         industry_close=float(working["close"].mean()),
-        industry_pct_chg=float(pct.mean() * 100.0),
+        industry_pct_chg=float(pct.mean()),
         industry_amount=float(working["amount"].sum()),
         industry_turnover=float(working["vol"].sum()),
         market_amount_total=float(working["amount"].sum()),
@@ -323,6 +444,7 @@ def _build_industry_snapshot_sw31(
     classify_snapshot_trade_date: str,
     member_snapshot_trade_date: str,
     flat_threshold_ratio: float,
+    previous_valuation_by_industry: dict[str, tuple[float, float]],
 ) -> tuple[list[IndustrySnapshot], dict[str, object]]:
     daily_working = daily.copy()
     for column in ("open", "close", "amount", "vol"):
@@ -331,10 +453,7 @@ def _build_industry_snapshot_sw31(
         daily_working[column] = pd.to_numeric(daily_working[column], errors="coerce").fillna(0.0)
 
     daily_working["stock_code"] = daily_working.apply(_normalize_stock_code, axis=1)
-    daily_working["pct"] = (
-        (daily_working["close"] - daily_working["open"])
-        / daily_working["open"].replace(0.0, pd.NA)
-    ).fillna(0.0)
+    daily_working["pct"], _ = _resolve_pct_chg_percent(daily_working)
     market_amount_total = float(pd.to_numeric(daily_working["amount"], errors="coerce").fillna(0.0).sum())
 
     if sw31_classify.empty or sw31_member.empty:
@@ -394,9 +513,7 @@ def _build_industry_snapshot_sw31(
     limit_working = limit_list.copy() if not limit_list.empty else pd.DataFrame()
     if not limit_working.empty:
         limit_working["stock_code"] = limit_working.apply(_normalize_stock_code, axis=1)
-        limit_working["limit_type"] = limit_working.get("limit_type", pd.Series([""] * len(limit_working))).astype(
-            str
-        )
+        limit_working["limit_type"] = _resolve_limit_type_series(limit_working)
         limit_working = limit_working.merge(
             members[["stock_code", "industry_code"]],
             on="stock_code",
@@ -425,7 +542,7 @@ def _build_industry_snapshot_sw31(
         ranking = subset.sort_values("pct", ascending=False).head(5)
         # top5 采用当日涨幅排序，作为行业领涨强度与连板统计输入。
         top5_codes = [_normalize_stock_code(record) for record in ranking.to_dict("records")]
-        top5_pct_chg = [float(round(float(value) * 100.0, 4)) for value in ranking["pct"]]
+        top5_pct_chg = [float(round(float(value), 4)) for value in ranking["pct"]]
 
         if not limit_working.empty:
             limit_subset = limit_working[limit_working["industry_code"].astype(str) == industry_code]
@@ -446,13 +563,25 @@ def _build_industry_snapshot_sw31(
         else:
             top5_limit_up = 0
 
+        previous_pe, previous_pb = previous_valuation_by_industry.get(industry_code, (0.0, 0.0))
         if not basic_working.empty:
             basic_subset = basic_working[basic_working["industry_code"].astype(str) == industry_code]
-            industry_pe_ttm = float(basic_subset["pe_ttm"].replace(0.0, pd.NA).mean() or 0.0)
-            industry_pb = float(basic_subset["pb"].replace(0.0, pd.NA).mean() or 0.0)
+            valid_pe = pd.to_numeric(basic_subset["pe_ttm"], errors="coerce")
+            valid_pe = valid_pe[(valid_pe > 0.0) & (valid_pe <= 1000.0)].dropna()
+            if len(valid_pe) >= 8:
+                industry_pe_ttm = _winsorized_median(valid_pe)
+            else:
+                industry_pe_ttm = float(previous_pe)
+
+            valid_pb = pd.to_numeric(basic_subset["pb"], errors="coerce")
+            valid_pb = valid_pb[(valid_pb > 0.0)].dropna()
+            if len(valid_pb) >= 8:
+                industry_pb = _winsorized_median(valid_pb)
+            else:
+                industry_pb = float(previous_pb)
         else:
-            industry_pe_ttm = 0.0
-            industry_pb = 0.0
+            industry_pe_ttm = float(previous_pe)
+            industry_pb = float(previous_pb)
 
         row_dicts.append(
             {
@@ -460,11 +589,11 @@ def _build_industry_snapshot_sw31(
                 "industry_code": industry_code,
                 "industry_name": industry_name,
                 "stock_count": int(len(subset)),
-                "rise_count": int((subset["close"] > subset["open"]).sum()),
-                "fall_count": int((subset["close"] < subset["open"]).sum()),
-                "flat_count": int((subset["pct"].abs() <= flat_threshold_ratio).sum()),
+                "rise_count": int((subset["pct"] > 0.0).sum()),
+                "fall_count": int((subset["pct"] < 0.0).sum()),
+                "flat_count": int((subset["pct"].abs() <= (flat_threshold_ratio * 100.0)).sum()),
                 "industry_close": float(subset["close"].mean() or 0.0),
-                "industry_pct_chg": float(subset["pct"].mean() * 100.0 if not subset.empty else 0.0),
+                "industry_pct_chg": float(subset["pct"].mean() if not subset.empty else 0.0),
                 "industry_amount": float(subset["amount"].sum()),
                 "industry_turnover": float(subset["vol"].sum()),
                 "market_amount_total": market_amount_total,
@@ -725,6 +854,8 @@ def run_l2_snapshot(
     industry_snapshot_count = 0
     market_has_quality_fields = False
     sw_audit_payload: dict[str, object] = {}
+    recent_market_amounts: list[float] = []
+    previous_valuation_by_industry: dict[str, tuple[float, float]] = {}
 
     def add_error(level: str, step: str, message: str) -> None:
         errors.append(
@@ -775,6 +906,15 @@ def run_l2_snapshot(
                 connection,
                 trade_date=trade_date,
             )
+            recent_market_amounts = _load_recent_market_amounts(
+                connection,
+                trade_date=trade_date,
+                lookback_days=20,
+            )
+            previous_valuation_by_industry = _load_previous_industry_valuation_map(
+                connection,
+                trade_date=trade_date,
+            )
 
         if daily.empty:
             add_error("P0", "build_market_snapshot", "raw_daily_empty")
@@ -785,6 +925,7 @@ def run_l2_snapshot(
             daily=daily,
             limit_list=limit_list,
             flat_threshold_ratio=flat_threshold_ratio,
+            recent_market_amounts=recent_market_amounts,
         )
         industry_snapshots, sw_audit_payload = _build_industry_snapshot_sw31(
             trade_date=trade_date,
@@ -796,6 +937,7 @@ def run_l2_snapshot(
             classify_snapshot_trade_date=classify_snapshot_trade_date,
             member_snapshot_trade_date=member_snapshot_trade_date,
             flat_threshold_ratio=flat_threshold_ratio,
+            previous_valuation_by_industry=previous_valuation_by_industry,
         )
 
         market_frame = pd.DataFrame.from_records([market_snapshot.to_storage_record()])

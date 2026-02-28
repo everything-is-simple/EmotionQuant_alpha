@@ -782,6 +782,40 @@ def _compute_max_drawdown_days(equity_curve: list[float]) -> int:
     return int(max_drawdown_days)
 
 
+def _compute_max_drawdown(equity_curve: list[float]) -> float:
+    if not equity_curve:
+        return 0.0
+    peak = max(float(equity_curve[0]), 1.0)
+    worst_drawdown = 0.0
+    for equity in equity_curve:
+        value = float(equity)
+        if value > peak:
+            peak = value
+            continue
+        drawdown = (peak - value) / max(1.0, peak)
+        if drawdown > worst_drawdown:
+            worst_drawdown = drawdown
+    return round(float(worst_drawdown), 8)
+
+
+def _build_gate_status_by_date(gate_frame: pd.DataFrame) -> dict[str, str]:
+    if gate_frame.empty:
+        return {}
+    if "trade_date" not in gate_frame.columns or "status" not in gate_frame.columns:
+        return {}
+    ordered = gate_frame.copy()
+    ordered["trade_date"] = ordered["trade_date"].astype(str).str.strip()
+    ordered["status"] = ordered["status"].astype(str).str.strip().str.upper()
+    ordered = ordered[ordered["trade_date"] != ""]
+    by_date: dict[str, str] = {}
+    for row in ordered.to_dict("records"):
+        trade_date = str(row.get("trade_date", "")).strip()
+        status = str(row.get("status", "")).strip().upper()
+        if trade_date:
+            by_date[trade_date] = status
+    return by_date
+
+
 def _compute_daily_return_distribution(equity_curve: list[float]) -> dict[str, float]:
     if len(equity_curve) <= 1:
         return {
@@ -949,6 +983,11 @@ def run_backtest(
     )
     gate_frame = _empty_frame(["trade_date", "status", "go_nogo", "message"])
     bridge_frame = _empty_frame(["trade_date", "stock_code", "weight_plan_id", "matched_plan_id"])
+    quality_status = "FAIL"
+    go_nogo = "NO_GO"
+    quality_message = "quality_gate_report_missing"
+    gate_status_by_date: dict[str, str] = {}
+    gate_fail_signal_dates: set[str] = set()
 
     if not errors:
         integrated_frame = _read_integrated_signals(
@@ -975,10 +1014,6 @@ def run_backtest(
             ]
             if not invalid_contract.empty:
                 add_error("P0", "contract", "integrated_recommendation_contract_version_mismatch")
-
-            rr_filtered = integrated_frame[integrated_frame["risk_reward_ratio"] < 1.0]
-            if not rr_filtered.empty:
-                add_error("P0", "contract", "integrated_recommendation_rr_below_threshold")
             for violation in _check_core_signal_columns(integrated_frame):
                 add_error("P0", "contract", violation)
             for table_name in CORE_INPUT_TABLES:
@@ -992,9 +1027,35 @@ def run_backtest(
         if missing_gate_dates:
             add_error("P0", "quality_gate", "quality_gate_missing_for_integrated_signal_dates")
 
-        quality_status, go_nogo, quality_message = _to_quality_status(gate_frame)
-        if quality_status == "FAIL":
-            add_error("P0", "quality_gate", quality_message)
+        gate_status_by_date = _build_gate_status_by_date(gate_frame)
+        gate_fail_signal_dates = {
+            trade_date
+            for trade_date, status in gate_status_by_date.items()
+            if status == "FAIL"
+        }
+        active_gate_frame = (
+            gate_frame[gate_frame["status"].astype(str).str.upper() != "FAIL"].copy()
+            if gate_fail_signal_dates
+            else gate_frame
+        )
+        if gate_fail_signal_dates and active_gate_frame.empty:
+            quality_status, go_nogo, quality_message = (
+                "WARN",
+                "GO",
+                "quality_gate_fail_dates_skipped",
+            )
+        else:
+            quality_status, go_nogo, quality_message = _to_quality_status(active_gate_frame)
+            if gate_fail_signal_dates:
+                if quality_status == "PASS":
+                    quality_status = "WARN"
+                quality_message = (
+                    f"{quality_message};quality_gate_fail_dates_skipped"
+                    if quality_message
+                    else "quality_gate_fail_dates_skipped"
+                )
+        if gate_fail_signal_dates:
+            add_warning("quality_gate_fail_dates_skipped")
 
         if bridge_frame.empty:
             add_error("P0", "bridge", "validation_weight_plan_bridge_missing")
@@ -1027,6 +1088,8 @@ def run_backtest(
     missing_price_entry_count = 0
     missing_price_exit_count = 0
     signal_out_of_window_count = 0
+    rr_filtered_signal_count = 0
+    gate_fail_skipped_signal_count = 0
 
     if not errors:
         replay_days = _read_trading_days(
@@ -1083,13 +1146,25 @@ def run_backtest(
     mapped_long_entry_signal_count = 0
     if not errors:
         _filtered = integrated_frame.copy()
+        _filtered["_trade_date"] = _filtered["trade_date"].astype(str).str.strip()
         _filtered["_rec"] = _filtered["recommendation"].astype(str).str.strip().str.upper()
         _filtered["_ps"] = pd.to_numeric(_filtered["position_size"], errors="coerce").fillna(0.0)
+        _filtered["_rr"] = pd.to_numeric(_filtered["risk_reward_ratio"], errors="coerce").fillna(0.0)
         _filtered = _filtered[
             _filtered["_rec"].isin(LONG_ENTRY_RECOMMENDATIONS) & (_filtered["_ps"] > 0.0)
         ]
+        rr_filtered_signal_count = int((_filtered["_rr"] < 1.0).sum())
+        if rr_filtered_signal_count > 0:
+            add_warning("rr_below_threshold_signals_filtered")
+        _filtered = _filtered[_filtered["_rr"] >= 1.0]
+        if gate_fail_signal_dates:
+            gate_fail_mask = _filtered["_trade_date"].isin(gate_fail_signal_dates)
+            gate_fail_skipped_signal_count = int(gate_fail_mask.sum())
+            _filtered = _filtered[~gate_fail_mask]
+            if gate_fail_skipped_signal_count > 0:
+                add_warning("quality_gate_fail_signals_skipped")
         long_entry_signal_count = len(_filtered)
-        for record in _filtered.drop(columns=["_rec", "_ps"]).to_dict("records"):
+        for record in _filtered.drop(columns=["_trade_date", "_rec", "_ps", "_rr"]).to_dict("records"):
             signal_date = str(record.get("trade_date", ""))
             execute_date = _next_trade_day(replay_days, signal_date)
             if execute_date is None or execute_date > end_date:
@@ -1335,7 +1410,22 @@ def run_backtest(
 
                 position_size = float(signal.get("position_size", 0.0) or 0.0)
                 capped_position = max(0.0, min(max_position_pct, position_size))
-                raw_shares = int((cash * capped_position) / filled_price)
+                market_value_for_sizing = 0.0
+                for held_code, held_pos in positions.items():
+                    held_shares = max(0.0, float(held_pos.get("shares", 0.0) or 0.0))
+                    if held_shares <= 0.0:
+                        continue
+                    held_price = price_lookup.get((replay_day, held_code))
+                    mark_price = 0.0
+                    if held_price:
+                        mark_price = float(held_price.get("open", 0.0) or 0.0)
+                        if mark_price <= 0.0:
+                            mark_price = float(held_price.get("close", 0.0) or 0.0)
+                    if mark_price <= 0.0:
+                        mark_price = float(held_pos.get("buy_price", 0.0) or 0.0)
+                    market_value_for_sizing += held_shares * max(0.0, mark_price)
+                sizing_equity = max(0.0, cash + market_value_for_sizing)
+                raw_shares = int((sizing_equity * capped_position) / filled_price)
                 shares = (raw_shares // 100) * 100
                 if shares <= 0:
                     continue
@@ -1510,16 +1600,14 @@ def run_backtest(
     sell_frame = filled_frame[filled_frame["direction"] == "sell"] if not filled_frame.empty else filled_frame
 
     total_trades = int(len(filled_frame))
-    total_pnl = float(sell_frame["pnl"].sum()) if not sell_frame.empty else 0.0
-    total_return = round(total_pnl / max(1.0, initial_cash), 8)
+    equity_end = float(equity_curve[-1]) if equity_curve else float(initial_cash)
+    total_return = round((equity_end - float(initial_cash)) / max(1.0, float(initial_cash)), 8)
     win_rate = (
         round(float((sell_frame["pnl"] > 0).sum()) / len(sell_frame), 6)
         if not sell_frame.empty
         else 0.0
     )
-    max_equity = max(equity_curve) if equity_curve else initial_cash
-    min_equity = min(equity_curve) if equity_curve else initial_cash
-    max_drawdown = round((max_equity - min_equity) / max(1.0, max_equity), 8)
+    max_drawdown = _compute_max_drawdown(equity_curve)
     commission_total = round(float(commission_total), 6)
     stamp_tax_total = round(float(stamp_tax_total), 6)
     transfer_fee_total = round(float(transfer_fee_total), 6)
@@ -1538,7 +1626,11 @@ def run_backtest(
         initial_cash=initial_cash,
     )
 
-    gate_quality_status, gate_go_nogo, gate_quality_message = _to_quality_status(gate_frame)
+    gate_quality_status, gate_go_nogo, gate_quality_message = (
+        quality_status,
+        go_nogo,
+        quality_message,
+    )
     if errors:
         gate_quality_status = "FAIL"
         gate_go_nogo = "NO_GO"
@@ -1570,7 +1662,9 @@ def run_backtest(
                 f"zero_fill_blocked={zero_fill_blocked_count};"
                 f"missing_price_entry={missing_price_entry_count};"
                 f"missing_price_exit={missing_price_exit_count};"
-                f"signal_out_of_window={signal_out_of_window_count}"
+                f"signal_out_of_window={signal_out_of_window_count};"
+                f"rr_filtered={rr_filtered_signal_count};"
+                f"gate_fail_skipped={gate_fail_skipped_signal_count}"
             )
         if warnings:
             warning_segments.append(f"warnings={','.join(warnings)}")
@@ -1753,6 +1847,8 @@ def run_backtest(
         f"- missing_price_entry_count: {missing_price_entry_count}",
         f"- missing_price_exit_count: {missing_price_exit_count}",
         f"- signal_out_of_window_count: {signal_out_of_window_count}",
+        f"- rr_filtered_signal_count: {rr_filtered_signal_count}",
+        f"- gate_fail_skipped_signal_count: {gate_fail_skipped_signal_count}",
         f"- local_duckdb_path: {database_path}",
         f"- mss_panorama_rows_in_window: {window_table_counts.get('mss_panorama', 0)}",
         f"- irs_industry_daily_rows_in_window: {window_table_counts.get('irs_industry_daily', 0)}",

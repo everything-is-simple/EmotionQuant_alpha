@@ -112,21 +112,27 @@ class SimulatedTuShareClient:
                 raise ValueError("daily requires trade_date")
             rows: list[dict[str, Any]] = []
             for idx, stock_code in enumerate(self._stock_codes()):
+                pre_close = 10.0
                 open_price = 10.0
                 close_price = 10.2
                 high_price = max(open_price, close_price) * 1.01
                 low_price = min(open_price, close_price) * 0.99
                 vol = 500000 + idx * 100
                 amount = close_price * vol
+                change = close_price - pre_close
+                pct_chg = (change / pre_close) * 100.0 if pre_close else 0.0
                 rows.append(
                     {
                         "ts_code": f"{stock_code}.SZ",
                         "stock_code": stock_code,
                         "trade_date": trade_date,
+                        "pre_close": round(pre_close, 4),
                         "open": round(open_price, 4),
                         "high": round(high_price, 4),
                         "low": round(low_price, 4),
                         "close": round(close_price, 4),
+                        "change": round(change, 4),
+                        "pct_chg": round(pct_chg, 4),
                         "vol": vol,
                         "amount": round(amount, 2),
                     }
