@@ -9,9 +9,9 @@
 - 作用：给自动化代理提供最小、可执行的仓库工作规则。
 - 执行主计划唯一入口：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`（`docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` 仅作选型论证输入）。
 - 权威架构入口：`docs/system-overview.md`
-- 权威能力状态入口：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+- 权威能力状态入口：`docs/roadmap.md`（R0-R9 路线图）
 - 权威治理入口：`Governance/steering/`
-- 权威执行卡入口：`Governance/SpiralRoadmap/execution-cards/`（`DESIGN-ALIGNMENT-ACTION-CARD.md`、`DEBT-CARD-A/B/C`）
+- 权威执行卡入口：`docs/cards/`（R0-R9 执行卡）
 
 ---
 
@@ -20,7 +20,7 @@
 EmotionQuant 是面向中国 A 股的情绪驱动量化系统。
 
 - 个人项目，单开发者
-- 执行模型：**Spiral 闭环**（非线性闸门）
+- 执行模型：**微圈闭环**（原 Spiral，2026-02-28 起升级为 R0-R9 Rebuild 路线）
 - 每圈默认 7 天，必须有 `run/test/artifact/review/sync` 五件套
 - 文档服务实现，不追求"文档完美"
 
@@ -35,7 +35,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。
 | 3 | 本地数据优先 | 主流程读取本地数据，远端仅补采，缺口先落库再进主流程 |
 | 4 | 路径密钥禁止硬编码 | 路径/密钥必须通过 `Config.from_env()` 或环境变量注入 |
 | 5 | A 股规则刚性执行 | T+1、涨跌停（主板10%/创业板科创板20%/ST 5%）、交易时段、申万行业 |
-| 6 | 螺旋闭环强制 | 每圈必须有五件套证据，缺一不得收口 |
+| 6 | 微圈闭环强制 | 每圈必须有五件套证据，缺一不得收口 |
 | 7 | 文档服务实现 | 禁止文档膨胀阻塞开发，最小同步优先 |
 
 **技术指标边界**：历史 archive 中"零技术指标绝对禁令"不属于现行口径。MA/RSI/MACD 等可用于对照实验或特征工程，但不得作为独立买卖信号。
@@ -44,7 +44,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。
 
 ---
 
-## 4. 6A 工作流（Spiral 闭环版）
+## 4. 6A 工作流（微圈闭环版）
 
 ### 4.1 六步定义
 
@@ -73,18 +73,15 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。
 ### 4.4 分支策略
 
 - 默认合并目标：`main`
-- 开发分支命名：`feature/spiral-s{N}-{topic}`
+- 开发分支命名：`rebuild/r{N}-{module}`
 - 若后续启用 `develop`，切换为 `feature → develop → main（里程碑发布）`
 
-### 4.5 每圈最小同步（5 项）
+### 4.5 每圈最小同步（4 项）
 
-1. `Governance/specs/spiral-s{N}/final.md`
-2. `Governance/record/development-status.md`
-3. `Governance/record/debts.md`
-4. `Governance/record/reusable-assets.md`
-5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-
-CP 文档仅在契约变化时更新。
+1. `Governance/record/development-status.md`
+2. `Governance/record/debts.md`
+3. `docs/roadmap.md` 对应阶段状态
+4. `docs/cards/` 对应卡片勾选
 
 **权威流程**：`Governance/steering/6A-WORKFLOW.md`
 
@@ -195,8 +192,8 @@ cache_dir = "G:/EmotionQuant_data/"
 | `docs/design/core-infrastructure/` | 核心基础设施设计（Data/Backtest/Trading/GUI/Analysis） |
 | `docs/design/enhancements/` | 改进行动计划统一入口 |
 | `Governance/steering/` | 铁律、原则、工作流 |
-| `Governance/Capability/` | Spiral 主路线与 CP |
-| `Governance/specs/spiral-s*/` | 每圈 specs 与复盘 |
+| `docs/roadmap.md` | R0-R9 路线图 |
+| `docs/cards/` | R0-R9 执行卡 |
 | `Governance/record/` | 状态、债务、复用资产 |
 | `.reports/` | 报告存放（命名含日期时间） |
 | `.reports/archive-*/` | 历史归档（只读） |
@@ -205,14 +202,13 @@ cache_dir = "G:/EmotionQuant_data/"
 
 | 场景 | 权威文件 |
 |------|----------|
-| 本圈能力状态看哪里 | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
-| 能力契约 | `Governance/archive/archive-capability-v8-20260223/CP-*.md`（CP） |
+| 能力状态（路线图） | `docs/roadmap.md` |
+| 执行卡 | `docs/cards/README.md` |
 | 6A 工作流 | `Governance/steering/6A-WORKFLOW.md` |
 | 系统铁律 | `Governance/steering/系统铁律.md` |
 | 核心原则 | `Governance/steering/CORE-PRINCIPLES.md` |
 | 改进行动主计划 | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |
-| 设计对齐行动卡 | `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` |
-| 债务清理执行卡 | `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md` / `DEBT-CARD-B-CONTRACT.md` / `DEBT-CARD-C-BACKLOG.md` |
+| 设计对齐行动卡 | `Governance/archive/archive-spiral-roadmap-v5-20260228/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`（已归档） |
 | 命名规范 | `docs/naming-conventions.md` |
 | 命名契约 Schema | `docs/naming-contracts.schema.json` |
 | 命名契约术语/模板 | `docs/naming-contracts-glossary.md` / `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md` |
@@ -223,7 +219,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 - 路线模型代际变化必须归档：`archive-{model}-{version}-{date}`
 - 归档目录只读，不再迭代
-- `CP-*.md` 为正式命名，执行时按 CP 理解
+- Spiral 路线模型已归档至 `Governance/archive/archive-spiral-roadmap-v5-20260228/`
 
 ---
 
@@ -277,21 +273,20 @@ cache_dir = "G:/EmotionQuant_data/"
 - 旧版线性文档已归档至：`Governance/archive/archive-legacy-linear-v4-20260207/`
 - 旧工作流文件已并入 `Governance/steering/6A-WORKFLOW.md`（不再保留独立归档目录）
 - 本文件不再维护线性 Stage 叙述。
+- Spiral 路线图（`Governance/SpiralRoadmap/`）已归档至 `Governance/archive/archive-spiral-roadmap-v5-20260228/`，新路线见 `docs/roadmap.md`。
 
 ---
 
 ## 14. 设计对齐与债务卡
 
-- 设计-代码对齐行动卡：`Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`（当前状态：Completed）
-- 债务卡 A（骨架整固）：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md`（当前状态：Completed）
-- 债务卡 B（契约补齐）：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-B-CONTRACT.md`（当前状态：Planned）
-- 债务卡 C（滞留债务）：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-C-BACKLOG.md`（当前状态：Planned）
-- 执行规则：执行卡状态必须与 `Governance/record/debts.md`、`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` 保持同步。
+> Spiral 阶段的设计对齐卡与债务卡已归档至 `Governance/archive/archive-spiral-roadmap-v5-20260228/execution-cards/`。
+> R0-R9 阶段的执行卡见 `docs/cards/`，状态同步以 `docs/roadmap.md` 与 `Governance/record/debts.md` 为准。
 
 ## 15. 工具链说明
 
 - `.claude/` 保留为历史工具资产，不作为当前规范入口。
-- 可复用治理规则已迁移到 `Governance/steering/` 与 `Governance/Capability/`。
+- 可复用治理规则已迁移到 `Governance/steering/`。
+- `Governance/Capability/` 已退役并归档至 `Governance/archive/archive-capability-v8-20260223/`。
 
 ## 16. Git 认证基线
 

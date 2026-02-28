@@ -9,9 +9,9 @@ This file provides minimal, executable repository rules for automated agents. Co
 - Purpose: minimal, executable repository rules for automated agents.
 - Single execution baseline: `docs/design/enhancements/eq-improvement-plan-core-frozen.md` (`docs/design/enhancements/enhancement-selection-analysis_claude-opus-max_20260210.md` serves only as selection rationale input).
 - Authoritative architecture entry: `docs/system-overview.md`
-- Authoritative capability-status entry: `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+- Authoritative capability-status entry: `docs/roadmap.md` (R0-R9 roadmap)
 - Authoritative governance entry: `Governance/steering/`
-- Authoritative execution-card entry: `Governance/SpiralRoadmap/execution-cards/` (`DESIGN-ALIGNMENT-ACTION-CARD.md`, `DEBT-CARD-A/B/C`)
+- Authoritative execution-card entry: `docs/cards/` (R0-R9 execution cards)
 
 ---
 
@@ -20,7 +20,7 @@ This file provides minimal, executable repository rules for automated agents. Co
 EmotionQuant is a sentiment-driven quantitative system for China A-shares.
 
 - Solo developer project
-- Execution model: **Spiral closed-loop** (not linear stage gates)
+- Execution model: **micro-spiral closed-loop** (formerly Spiral, upgraded to R0-R9 Rebuild roadmap as of 2026-02-28)
 - Default cadence: 7 days per spiral; each must produce `run/test/artifact/review/sync`
 - Docs serve implementation — no "docs perfection" pursuit
 
@@ -35,7 +35,7 @@ EmotionQuant is a sentiment-driven quantitative system for China A-shares.
 | 3 | Local-data first | Main pipeline reads local data; remote is for supplementation only; gaps must land in DB before entering main pipeline |
 | 4 | No hardcoded paths/secrets | Must use `Config.from_env()` or env vars |
 | 5 | A-share rules enforced | T+1, price limits (main board 10% / ChiNext & STAR 20% / ST 5%), trading sessions, SW industry classification |
-| 6 | Spiral closure mandatory | Each spiral must have all five closure artifacts; no closure without all five |
+| 6 | Micro-spiral closure mandatory | Each spiral must have all five closure artifacts; no closure without all five |
 | 7 | Docs serve implementation | No doc bloat blocking development; minimal sync first |
 
 **Technical indicator boundary**: the historical archive's "absolute zero technical indicator ban" is NOT the current calibration. MA/RSI/MACD etc. may be used for contrast experiments or feature engineering, but must not serve as independent buy/sell signals.
@@ -44,7 +44,7 @@ EmotionQuant is a sentiment-driven quantitative system for China A-shares.
 
 ---
 
-## 4. 6A workflow (Spiral closed-loop)
+## 4. 6A workflow (micro-spiral closed-loop)
 
 ### 4.1 Six-step definition
 
@@ -73,18 +73,15 @@ The spiral must NOT close if any of the following is missing:
 ### 4.4 Branch strategy
 
 - Default merge target: `main`
-- Dev branch naming: `feature/spiral-s{N}-{topic}`
+- Dev branch naming: `rebuild/r{N}-{module}`
 - If `develop` branch is later adopted: `feature → develop → main (milestone release)`
 
-### 4.5 Per-spiral minimal sync (5 items)
+### 4.5 Per-spiral minimal sync (4 items)
 
-1. `Governance/specs/spiral-s{N}/final.md`
-2. `Governance/record/development-status.md`
-3. `Governance/record/debts.md`
-4. `Governance/record/reusable-assets.md`
-5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-
-CP docs updated only on contract changes.
+1. `Governance/record/development-status.md`
+2. `Governance/record/debts.md`
+3. `docs/roadmap.md` — corresponding stage status
+4. `docs/cards/` — corresponding card checklist
 
 **Authoritative workflow**: `Governance/steering/6A-WORKFLOW.md`
 
@@ -195,8 +192,8 @@ cache_dir = "G:/EmotionQuant_data/"
 | `docs/design/core-infrastructure/` | Core infrastructure design (Data/Backtest/Trading/GUI/Analysis) |
 | `docs/design/enhancements/` | Improvement action plans unified entry |
 | `Governance/steering/` | Iron rules, principles, workflow |
-| `Governance/Capability/` | Spiral roadmap & CPs |
-| `Governance/specs/spiral-s*/` | Per-spiral specs & review |
+| `docs/roadmap.md` | R0-R9 roadmap |
+| `docs/cards/` | R0-R9 execution cards |
 | `Governance/record/` | Status, debts, reusable assets |
 | `.reports/` | Reports (filenames include date-time) |
 | `.reports/archive-*/` | Historical archives (read-only) |
@@ -205,14 +202,13 @@ cache_dir = "G:/EmotionQuant_data/"
 
 | Scenario | Authoritative file |
 |----------|-------------------|
-| Capability status this spiral | `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md` |
-| Capability contracts | `Governance/archive/archive-capability-v8-20260223/CP-*.md` (CPs) |
+| Capability status (roadmap) | `docs/roadmap.md` |
+| Execution cards | `docs/cards/README.md` |
 | 6A workflow | `Governance/steering/6A-WORKFLOW.md` |
 | Iron rules | `Governance/steering/系统铁律.md` |
 | Core principles | `Governance/steering/CORE-PRINCIPLES.md` |
 | Improvement action plan | `docs/design/enhancements/eq-improvement-plan-core-frozen.md` |
-| Design-alignment action card | `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` |
-| Debt cleanup execution cards | `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md` / `DEBT-CARD-B-CONTRACT.md` / `DEBT-CARD-C-BACKLOG.md` |
+| Design-alignment action card | `Governance/archive/archive-spiral-roadmap-v5-20260228/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` (archived) |
 | Naming conventions | `docs/naming-conventions.md` |
 | Naming contracts schema | `docs/naming-contracts.schema.json` |
 | Naming contracts glossary/template | `docs/naming-contracts-glossary.md` / `Governance/steering/NAMING-CONTRACT-CHANGE-TEMPLATE.md` |
@@ -223,7 +219,7 @@ cache_dir = "G:/EmotionQuant_data/"
 
 - Roadmap model generational changes must be archived: `archive-{model}-{version}-{date}`
 - Archive directories are read-only, no further iteration
-- `CP-*.md` is the formal naming; interpret as Capability Pack at execution time
+- Spiral roadmap model has been archived to `Governance/archive/archive-spiral-roadmap-v5-20260228/`
 
 ---
 
@@ -277,21 +273,20 @@ Details: `pyproject.toml`, `docs/design/core-infrastructure/backtest/backtest-en
 - Legacy linear docs archived at: `Governance/archive/archive-legacy-linear-v4-20260207/`
 - Legacy workflow files have been merged into `Governance/steering/6A-WORKFLOW.md` (no separate archive directory is retained).
 - This file no longer maintains linear Stage narratives.
+- Spiral roadmap (`Governance/SpiralRoadmap/`) has been archived to `Governance/archive/archive-spiral-roadmap-v5-20260228/`; new roadmap at `docs/roadmap.md`.
 
 ---
 
 ## 14. Design Alignment And Debt Cards
 
-- Design-alignment action card: `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` (status: Completed)
-- Debt Card A (skeleton hardening): `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md` (status: Completed)
-- Debt Card B (contract completion): `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-B-CONTRACT.md` (status: Planned)
-- Debt Card C (backlog cleanup): `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-C-BACKLOG.md` (status: Planned)
-- Execution rule: card status must stay consistent with `Governance/record/debts.md` and `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`.
+> Spiral-era design-alignment and debt cards have been archived to `Governance/archive/archive-spiral-roadmap-v5-20260228/execution-cards/`.
+> R0-R9 execution cards are at `docs/cards/`; status syncs with `docs/roadmap.md` and `Governance/record/debts.md`.
 
 ## 15. Tooling Note
 
 - `.claude/` is retained as historical tooling assets; do not treat `.claude` commands as canonical workflow requirements.
-- Reusable governance rules have been migrated to `Governance/steering/` and `Governance/Capability/`.
+- Reusable governance rules have been migrated to `Governance/steering/`.
+- `Governance/Capability/` has been retired and archived to `Governance/archive/archive-capability-v8-20260223/`.
 
 ## 16. Git Auth Baseline
 

@@ -1,7 +1,7 @@
-# EmotionQuant 模块索引（Spiral 实现版）
+# EmotionQuant 模块索引（R0-R9 实现版）
 
-**版本**: v4.2.1
-**最后更新**: 2026-02-14
+**版本**: v5.0.0
+**最后更新**: 2026-02-28
 **状态**: 设计与契约同步版
 
 ---
@@ -105,12 +105,11 @@ docs/
 
 ---
 
-## 5. 与 ROADMAP 的关系
+## 5. 与路线图的关系
 
-- ROADMAP 文件采用 Capability Pack（CP）语义，不是线性闸门。
-- 文件名采用 `CP-*.md`，执行时按 CP 理解。
-- Validation 模块在路线图中对应 `CP-10`（`Governance/archive/archive-capability-v8-20260223/CP-10-validation.md`）。
-- 每圈 Spiral 从能力包中取切片实现，收口时必须同步更新文档与 record。
+- 路线图采用 R0-R9 Rebuild 阶段划分，详见 `docs/roadmap.md`。
+- 每阶段执行卡索引见 `docs/cards/README.md`。
+- 每圈从执行卡中取切片实现，收口时必须同步更新文档与 record。
 
 ---
 
@@ -130,6 +129,7 @@ docs/
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v5.0.0 | 2026-02-28 | R0-R9 体系对齐：标题/§5 从 CP 切换为 R0-R9 路线图引用 |
 | v4.2.1 | 2026-02-14 | 补充命名契约入口（Schema/Glossary/模板）与质量门禁入口（local_quality_check/CI workflow） |
 | v4.2.0 | 2026-02-11 | 对齐目录重构：设计体系统一为 `core-algorithms + core-infrastructure + enhancements`，并新增外挂增强入口说明 |
 | v4.1.0 | 2026-02-07 | 增补 Validation 对应 CP-10 的路线映射 |

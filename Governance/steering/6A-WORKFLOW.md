@@ -1,7 +1,7 @@
 # EmotionQuant 6A 工作流（Spiral 闭环版）
 
-**版本**: v6.2.2  
-**最后更新**: 2026-02-17  
+**版本**: v6.3.0  
+**最后更新**: 2026-02-28  
 **状态**: 当前唯一权威工作流
 
 ---
@@ -66,22 +66,20 @@
 
 ### A6 Advance（同步推进）
 
-- 执行卡要求（必须）: 在执行卡标记 sync 完成，并挂接最小同步 5 项链接。
-- 最小同步 5 项：
-  1. `Governance/specs/spiral-s{N}/final.md`
-  2. `Governance/record/development-status.md`
-  3. `Governance/record/debts.md`
-  4. `Governance/record/reusable-assets.md`
-  5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-- 若涉及改进行动计划变更，同步更新：
-  - `docs/design/enhancements/eq-improvement-plan-core-frozen.md`
+- 执行卡要求（必须）: 在执行卡标记 sync 完成，并挂接最小同步 4 项链接。
+- 最小同步 4 项：
+  1. `Governance/record/development-status.md`
+  2. `Governance/record/debts.md`
+  3. `docs/roadmap.md` 对应阶段状态
+  4. `docs/cards/` 对应卡片勾选
+- 若实现与设计冲突，同步修正对应 `docs/design/` 文档
 
 ---
 
 ## 4. 分支与合并策略（当前口径）
 
 - 默认口径（当前仓库）：合并目标为 `main`。
-- 推荐开发分支命名：`feature/spiral-s{N}-{topic}`。
+- 推荐开发分支命名：`rebuild/r{N}-{module}`。
 - 若后续启用 `develop`，则切换为“feature -> develop -> main（里程碑发布）”。
 
 ---
@@ -123,8 +121,8 @@
 
 | 变更类型 | 必改文档（最小集） | 校验要求 |
 |---|---|---|
-| 数据契约变更（字段/语义） | 对应 `docs/design/**/data-models.md` + `Governance/archive/archive-capability-v8-20260223/CP-*.md` + `docs/naming-conventions.md` + `docs/naming-contracts.schema.json`（若命名/阈值变更） | 字段名/枚举/阈值一致，新增字段需给出默认与降级语义 |
-| 风控阈值或 Gate 规则变更 | 对应 `docs/design/**/algorithm.md` + `Governance/steering/TRD.md` + `Governance/archive/archive-capability-v8-20260223/CP-*.md` | FAIL/WARN/PASS 语义一致，阻断条件可复现 |
+| 数据契约变更（字段/语义） | 对应 `docs/design/**/data-models.md` + `docs/naming-conventions.md` + `docs/naming-contracts.schema.json`（若命名/阈值变更） | 字段名/枚举/阈值一致，新增字段需给出默认与降级语义 |
+| 风控阈值或 Gate 规则变更 | 对应 `docs/design/**/algorithm.md` + `Governance/steering/TRD.md` | FAIL/WARN/PASS 语义一致，阻断条件可复现 |
 | 数据边界变更（本地优先/远端补采） | `docs/system-overview.md` + `Governance/steering/系统铁律.md` + 对应 Data Layer 设计文档 | 不得出现主流程远端直读，降级字段口径一致 |
 
 执行记录要求：
@@ -141,6 +139,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
+| v6.3.0 | 2026-02-28 | R0-R9 体系对齐：分支策略改为 ebuild/r{N}-{module}\；跨文档联动表移除已归档 CP 引用 |
 | v6.2.2 | 2026-02-17 | 新增“设计溯源”执行约束：A3 要求核心改动添加 `DESIGN_TRACE` 标记；A4 增加 traceability 门禁通过要求 |
 | v6.2.1 | 2026-02-15 | 将“每个微圈必须有执行卡”落入 A1-A6 每个阶段模板，并在核心约束与退出条件中显式阻断执行卡缺失 |
 | v6.2.0 | 2026-02-15 | 新增执行卡强制约束：每个微圈必须具备执行卡，且阶段模板与微圈执行合同均需挂接链接；退出条件增加执行卡缺失阻断 |

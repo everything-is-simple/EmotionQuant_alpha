@@ -1,7 +1,7 @@
 # EmotionQuant 核心原则（Spiral 版）
 
-**版本**: v5.1.1  
-**最后更新**: 2026-02-11  
+**版本**: v5.2.0  
+**最后更新**: 2026-02-28  
 **状态**: 单开发者执行基线
 
 ---
@@ -61,15 +61,14 @@
 
 ## 5. 同步约束（最小集）
 
-每圈强制同步：
+每阶段强制同步：
 
-1. `Governance/specs/spiral-s{N}/final.md`
-2. `Governance/record/development-status.md`
-3. `Governance/record/debts.md`
-4. `Governance/record/reusable-assets.md`
-5. `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+1. `Governance/record/development-status.md`
+2. `Governance/record/debts.md`
+3. `docs/roadmap.md` 对应阶段状态
+4. `docs/cards/` 对应卡片勾选
 
-CP 文档仅在契约变化时同步。
+设计文档仅在实现与设计冲突时同步修正。
 
 ---
 
@@ -77,6 +76,7 @@ CP 文档仅在契约变化时同步。
 
 | 版本 | 日期 | 变更内容 |
 |---|---|---|
+| v5.2.0 | 2026-02-28 | 同步约束对齐 R0-R9：路径从 Spiral 切换到 `docs/roadmap.md` + `docs/cards/` |
 | v5.1.1 | 2026-02-11 | 对齐 A 股规则口径：补充涨跌停比率与申万行业分类要求 |
 | v5.1.0 | 2026-02-10 | 增加 6A 权威入口路径，消除历史双文件入口歧义 |
 | v5.0.1 | 2026-02-09 | 修复 R29：补充技术指标边界条款并与系统铁律口径显式对齐 |

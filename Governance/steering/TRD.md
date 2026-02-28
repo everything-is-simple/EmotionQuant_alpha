@@ -1,8 +1,8 @@
 # EmotionQuant 技术需求与选型说明（TRD）
 
-**版本**: v1.0.2  
+**版本**: v1.1.0  
 **创建日期**: 2026-02-12  
-**最后更新**: 2026-02-14  
+**最后更新**: 2026-02-28  
 **状态**: Active（治理层技术权威）
 
 ---
@@ -16,7 +16,7 @@
 3. 路线图执行时如何判定“技术方案已落地”
 
 本文件与以下 SoT 联动：
-- 能力状态 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
+- 能力状态 SoT：`docs/roadmap.md`
 - 工作流：`Governance/steering/6A-WORKFLOW.md`
 - 系统总览：`docs/system-overview.md`
 - 改进主计划：`docs/design/enhancements/eq-improvement-plan-core-frozen.md`
@@ -100,7 +100,7 @@ Data → Signal → Validation → Integration → Backtest → Trading → Anal
 2. 核心基础设施：Data/Backtest/Trading/Analysis/GUI
 3. 系统外挂：ENH-01~ENH-09
 
-当前规划占比（来自 `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`）：
+当前规划占比（来自 `docs/roadmap.md`）：
 - 核心算法：27%
 - 核心基础设施：46%
 - 系统外挂：27%
@@ -144,6 +144,7 @@ Data → Signal → Validation → Integration → Backtest → Trading → Anal
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.1.0 | 2026-02-28 | R0-R9 对齐：SoT 联动路径更止为 `docs/roadmap.md`；路线图引用同步 |
 | v1.0.2 | 2026-02-14 | 修复 R33（review-011）：补充“研究主选 vs 收口主线”术语消歧，明确 Qlib 与本地向量化回测器的职责边界 |
 | v1.0.1 | 2026-02-12 | 路线图引用补全为完整路径，避免跨目录阅读时路径歧义 |
 | v1.0.0 | 2026-02-12 | 初版建立：定义技术目标、选型理由、边界约束、分层映射与变更控制 |

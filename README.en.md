@@ -1,15 +1,13 @@
 # EmotionQuant
 
-EmotionQuant is a sentiment-driven quantitative system for China A-shares, executed with a Spiral closed-loop model (non-linear gates).
+EmotionQuant is a sentiment-driven quantitative system for China A-shares, executed with a micro-spiral closed-loop model (R0-R9 Rebuild roadmap).
 
-## Alignment Status (2026-02-25)
+## Alignment Status (2026-02-28)
 
 - Core design SoT: `docs/design/**` + `docs/system-overview.md`
-- Roadmap SoT: `Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-- Design alignment action card: `Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md` (Completed)
-- Debt Card A: `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md` (Completed)
-- Debt Card B: `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-B-CONTRACT.md` (Planned)
-- Debt Card C: `Governance/SpiralRoadmap/execution-cards/DEBT-CARD-C-BACKLOG.md` (Planned)
+- Roadmap SoT: `docs/roadmap.md` (R0-R9)
+- R0-R9 execution cards: `docs/cards/`
+- Spiral-era action cards archived: `Governance/archive/archive-spiral-roadmap-v5-20260228/execution-cards/`
 - Debt registry: `Governance/record/debts.md`
 
 ## Core Execution Principles
@@ -28,7 +26,7 @@ EmotionQuant is a sentiment-driven quantitative system for China A-shares, execu
 - Naming conventions: `docs/naming-conventions.md`
 - Naming contracts schema: `docs/naming-contracts.schema.json`
 - Governance rules: `Governance/steering/`
-- Execution-card directory: `Governance/SpiralRoadmap/execution-cards/`
+- Execution-card index: `docs/cards/README.md`
 
 ## Data Download (Fast Historical Backfill)
 

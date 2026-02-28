@@ -1,15 +1,13 @@
 # EmotionQuant
 
-EmotionQuant 是面向中国 A 股的情绪驱动量化系统，执行模型为 Spiral 闭环（非线性闸门）。
+EmotionQuant 是面向中国 A 股的情绪驱动量化系统，执行模型为微圈闭环（R0-R9 Rebuild 路线）。
 
-## 当前对齐状态（2026-02-25）
+## 当前对齐状态（2026-02-28）
 
 - 核心设计 SoT：`docs/design/**` + `docs/system-overview.md`
-- 路线图 SoT：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-- 设计对齐行动卡：`Governance/SpiralRoadmap/execution-cards/DESIGN-ALIGNMENT-ACTION-CARD.md`（Completed）
-- 债务卡 A：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-A-SKELETON.md`（Completed）
-- 债务卡 B：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-B-CONTRACT.md`（Planned）
-- 债务卡 C：`Governance/SpiralRoadmap/execution-cards/DEBT-CARD-C-BACKLOG.md`（Planned）
+- 路线图 SoT：`docs/roadmap.md`（R0-R9）
+- R0-R9 执行卡：`docs/cards/`
+- Spiral 阶段行动卡已归档：`Governance/archive/archive-spiral-roadmap-v5-20260228/execution-cards/`
 - 技术债总表：`Governance/record/debts.md`
 
 ## 核心原则（执行口径）
@@ -28,7 +26,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统，执行模型为 
 - 命名规范：`docs/naming-conventions.md`
 - 命名契约 Schema：`docs/naming-contracts.schema.json`
 - 治理规则：`Governance/steering/`
-- 执行卡目录：`Governance/SpiralRoadmap/execution-cards/`
+- 执行卡索引：`docs/cards/README.md`
 
 ## 数据下载（高速补采）
 

@@ -1,14 +1,14 @@
-# EmotionQuant 系统总览（Spiral 实现版）
+# EmotionQuant 系统总览（R0-R9 实现版）
 
-**版本**: v4.1.6
-**最后更新**: 2026-02-14
+**版本**: v5.0.0
+**最后更新**: 2026-02-28
 **状态**: 实现前最终架构基线（文档）
 
 ---
 
 ## 1. 系统定位
 
-EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 起，执行模型从线性阶段模型切换为 Spiral 闭环：
+EmotionQuant 是面向中国 A 股的情绪驱动量化系统。执行模型采用微圈闭环（原 Spiral，2026-02-28 起升级为 R0-R9 Rebuild 路线）：
 
 - 每 7 天一圈（默认）
 - 每圈必须有 `run/test/artifact/review/sync`（命令、测试、产物、复盘、同步）
@@ -23,7 +23,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 3. 本地数据优先：主流程以本地数据为准，远端只用于补采。
 4. 禁止路径/密钥硬编码。
 5. A 股规则刚性执行（T+1、涨跌停、交易时段；精度口径见 `Governance/steering/系统铁律.md` 与 `Governance/steering/CORE-PRINCIPLES.md`）。
-6. Spiral 闭环强制：缺任一闭环证据不得收口。
+6. 微圈闭环强制：缺任一闭环证据不得收口。
 
 ---
 
@@ -92,7 +92,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 
 ---
 
-## 7. Spiral 周期可行性说明
+## 7. 微圈周期可行性说明
 
 “7 天一圈”可行，但前提是圈目标足够小：
 
@@ -102,8 +102,8 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 
 补充口径：
 
-- 路线术语统一使用 `Capability Pack (CP)`。
-- `CP-*.md` 为正式命名，不代表线性阶段闸门。
+- 路线术语统一使用 R0-R9 阶段划分（详见 `docs/roadmap.md`）。
+- 执行卡详见 `docs/cards/`。
 
 ---
 
@@ -115,9 +115,8 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 - 命名契约 Schema：`docs/naming-contracts.schema.json`
 - 命名术语字典：`docs/naming-contracts-glossary.md`
 - 设计目录总览：`docs/design/`（`core-algorithms/` + `core-infrastructure/` + `enhancements/`）
-- 能力状态总览：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`
-- 能力包（CP）：`Governance/archive/archive-capability-v8-20260223/CP-*.md`
-- 新系统螺旋实现路线：`Governance/SpiralRoadmap/planA/VORTEX-EVOLUTION-ROADMAP.md`（总路线） + `Governance/SpiralRoadmap/planA/DEPENDENCY-MAP.md`（依赖图）
+- R0-R9 路线图：`docs/roadmap.md`
+- 执行卡索引：`docs/cards/README.md`
 - 技术需求与选型（TRD）：`Governance/steering/TRD.md`
 - 治理 SoT 矩阵：`Governance/steering/GOVERNANCE-STRUCTURE.md`
 - 6A 工作流：`Governance/steering/6A-WORKFLOW.md`
@@ -134,6 +133,7 @@ EmotionQuant 是面向中国 A 股的情绪驱动量化系统。自 2026-02-07 �
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v5.0.0 | 2026-02-28 | R0-R9 体系对齐：标题/定位从 Spiral 切换为 R0-R9；文档导航移除已归档 SpiralRoadmap/CP 路径，替换为 `docs/roadmap.md` + `docs/cards/` |
 | v4.1.7 | 2026-02-18 | 固化本地部署口径：新增 `G:\EmotionQuant_data` 存储校验脚本入口；补充“仓库整洁度”执行口径（代码文档与数据目录分离） |
 | v4.1.6 | 2026-02-14 | 文档导航补齐命名契约体系入口（schema/glossary/模板）与质量门禁入口（本地检查命令 + CI workflow） |
 | v4.1.5 | 2026-02-14 | 修复 R33（review-011）：补充 `run/test/artifact/review/sync` 明文口径；A 股规则增加精度定义链接（铁律/原则）；新增“研究主选 vs 收口主线”术语消歧；文档导航补充 TRD/治理 SoT/6A 入口 |
